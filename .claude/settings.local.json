@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"FCM\\\\|Send_Notification\" /d/urbaneasy/urbaneasyflats_nodejs/controllers/*.js)",
+      "Bash(grep -n \"Send_FCM_Notification\\\\|Send_Vendor_Notification\" /d/urbaneasy/urbaneasyflats_nodejs/controllers/*.js | head -50)",
+      "Bash(find /d/urbaneasy/urbaneasyflats_nodejs/models -name \"*Vendor*\" -o -name \"*Notif*\" | xargs ls -la)",
+      "Bash(find /d/urbaneasy/urbaneasyflats_nodejs -name \"*.json\" | xargs grep -l \"firebase\\\\|FCM\" 2>/dev/null)",
+      "Bash(cd D:/urbaneasy/urban-easy-property-flutter-app && flutter pub get 2>&1)",
+      "Bash(find \"D:/urbaneasy/urbaneasyflats_web\" -type f \\\\\\( -name \"*tenant*bill*\" -o -name \"*TenantBill*\" \\\\\\) 2>/dev/null | head -20)",
+      "Bash(flutter pub:*)",
+      "Bash(export:*)",
+      "Bash(kill:*)"
+    ]
+  }
+}

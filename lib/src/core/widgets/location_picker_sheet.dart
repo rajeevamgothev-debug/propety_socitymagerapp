@@ -1,0 +1,347 @@
+import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+
+import '../theme/app_theme.dart';
+
+/// Result returned from the location picker.
+class LocationPickerResult {
+  const LocationPickerResult({
+    required this.latitude,
+    required this.longitude,
+    required this.address,
+  });
+
+  final double latitude;
+  final double longitude;
+  final String address;
+}
+
+/// A full-screen sheet that shows a Google Map for picking a location.
+/// User can tap on the map to place a pin, or use their current location.
+/// Returns a [LocationPickerResult] when confirmed.
+class LocationPickerSheet extends StatefulWidget {
+  const LocationPickerSheet({
+    super.key,
+    this.initialLatitude,
+    this.initialLongitude,
+  });
+
+  final double? initialLatitude;
+  final double? initialLongitude;
+
+  @override
+  State<LocationPickerSheet> createState() => _LocationPickerSheetState();
+}
+
+class _LocationPickerSheetState extends State<LocationPickerSheet> {
+  static const LatLng _defaultCenter = LatLng(17.4401, 78.3489); // Hyderabad
+
+  late LatLng _selectedLocation;
+  String _address = '';
+  bool _isLoadingAddress = false;
+  bool _isSearching = false;
+  GoogleMapController? _mapController;
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    final double? lat = widget.initialLatitude;
+    final double? lng = widget.initialLongitude;
+    if (lat != null && lng != null && lat != 0 && lng != 0) {
+      _selectedLocation = LatLng(lat, lng);
+    } else {
+      _selectedLocation = _defaultCenter;
+    }
+    _reverseGeocode(_selectedLocation);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchPlace(String query) async {
+    if (query.trim().isEmpty) return;
+    setState(() => _isSearching = true);
+    try {
+      final List<Location> locations = await locationFromAddress(query.trim());
+      if (!mounted) return;
+      if (locations.isNotEmpty) {
+        final Location loc = locations.first;
+        final LatLng newPos = LatLng(loc.latitude, loc.longitude);
+        setState(() => _selectedLocation = newPos);
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(newPos, 15),
+        );
+        _reverseGeocode(newPos);
+        _searchFocus.unfocus();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No results found for that query.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not find the location. Try a different search.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSearching = false);
+    }
+  }
+
+  Future<void> _reverseGeocode(LatLng position) async {
+    setState(() => _isLoadingAddress = true);
+    try {
+      final List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+      if (!mounted) return;
+      if (placemarks.isNotEmpty) {
+        final Placemark place = placemarks.first;
+        final List<String> parts = <String>[
+          if (place.subLocality?.isNotEmpty == true) place.subLocality!,
+          if (place.locality?.isNotEmpty == true) place.locality!,
+          if (place.administrativeArea?.isNotEmpty == true)
+            place.administrativeArea!,
+          if (place.postalCode?.isNotEmpty == true) place.postalCode!,
+        ];
+        setState(() {
+          _address = parts.join(', ');
+          _isLoadingAddress = false;
+        });
+      } else {
+        setState(() {
+          _address = '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+          _isLoadingAddress = false;
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _address = '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+        _isLoadingAddress = false;
+      });
+    }
+  }
+
+  Future<void> _goToCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission denied.')),
+          );
+          return;
+        }
+      }
+
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      if (!mounted) return;
+      final LatLng newPos = LatLng(position.latitude, position.longitude);
+      setState(() => _selectedLocation = newPos);
+      _mapController?.animateCamera(CameraUpdate.newLatLng(newPos));
+      _reverseGeocode(newPos);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to get location: $e')),
+      );
+    }
+  }
+
+  void _onMapTap(LatLng position) {
+    setState(() => _selectedLocation = position);
+    _reverseGeocode(position);
+  }
+
+  void _confirm() {
+    Navigator.of(context).pop(
+      LocationPickerResult(
+        latitude: _selectedLocation.latitude,
+        longitude: _selectedLocation.longitude,
+        address: _address,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: const Text('Pick Location'),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppTheme.border),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: _confirm,
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: <Widget>[
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: _selectedLocation,
+              zoom: 15,
+            ),
+            onMapCreated: (GoogleMapController controller) {
+              _mapController = controller;
+            },
+            onTap: _onMapTap,
+            markers: <Marker>{
+              Marker(
+                markerId: const MarkerId('selected'),
+                position: _selectedLocation,
+                draggable: true,
+                onDragEnd: (LatLng newPosition) {
+                  setState(() => _selectedLocation = newPosition);
+                  _reverseGeocode(newPosition);
+                },
+              ),
+            },
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+          ),
+          // Search bar at top
+          Positioned(
+            top: 12,
+            left: 16,
+            right: 16,
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(12),
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocus,
+                decoration: InputDecoration(
+                  hintText: 'Search location...',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _isSearching
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.arrow_forward_rounded),
+                          onPressed: () => _searchPlace(_searchController.text),
+                        ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                onSubmitted: _searchPlace,
+              ),
+            ),
+          ),
+          // Current location FAB
+          Positioned(
+            bottom: 100,
+            right: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'locFab',
+              backgroundColor: Colors.white,
+              onPressed: _goToCurrentLocation,
+              child: const Icon(
+                Icons.my_location_rounded,
+                color: AppTheme.primary,
+              ),
+            ),
+          ),
+          // Address bar at bottom
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x1A000000),
+                    blurRadius: 12,
+                    offset: Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.location_on_rounded,
+                        color: AppTheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _isLoadingAddress
+                            ? Text(
+                                'Finding address...',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: AppTheme.textMuted,
+                                ),
+                              )
+                            : Text(
+                                _address.isNotEmpty
+                                    ? _address
+                                    : 'Tap on map to select location',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Lat: ${_selectedLocation.latitude.toStringAsFixed(6)}, Lng: ${_selectedLocation.longitude.toStringAsFixed(6)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

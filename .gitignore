@@ -1,0 +1,38 @@
+# Flutter and Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+build/
+
+# Coverage
+coverage/
+
+# Android/Gradle
+**/android/**/GeneratedPluginRegistrant.java
+**/android/.gradle/
+**/android/local.properties
+**/android/captures/
+
+
+
+# iOS/Pods and generated Flutter files
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/flutter_export_environment.sh
+
+# IDE and editor files
+.idea/
+*.iml
+.vscode/
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db
