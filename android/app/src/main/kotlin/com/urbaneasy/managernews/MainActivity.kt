@@ -1,4 +1,4 @@
-package com.urbaneasy.managernew
+package com.urbaneasy.managernews
 
 import io.flutter.embedding.android.FlutterActivity
 

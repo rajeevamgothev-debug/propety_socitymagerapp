@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.compile.JavaCompile
+
 allprojects {
     repositories {
         google()
@@ -17,6 +19,22 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+}
+gradle.projectsEvaluated {
+    subprojects {
+        tasks.withType<JavaCompile>().configureEach {
+            val variantName =
+                name
+                    .removePrefix("compile")
+                    .removeSuffix("JavaWithJavac")
+
+            if (variantName != name) {
+                tasks.findByName("javaPreCompile$variantName")?.let {
+                    dependsOn(it)
+                }
+            }
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {
