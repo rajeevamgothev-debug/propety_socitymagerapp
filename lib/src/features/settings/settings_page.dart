@@ -88,11 +88,17 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  void _requestAccountDeletion() {
-    setState(() {
-      _deleteRequestMessage = 'Your request has been submitted.';
-    });
-    _showMessage('Account deletion request submitted.');
+  Future<void> _requestAccountDeletion() async {
+    try {
+      final response = await VendorService.requestAccountDeletion();
+      setState(() {
+        _deleteRequestMessage =
+            response.message ?? 'Your request has been submitted.';
+      });
+      _showMessage(response.message ?? 'Account deletion request submitted.');
+    } catch (error) {
+      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -518,7 +524,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           label: 'Delete My Account',
                           variant: CustomButtonVariant.danger,
                           icon: const Icon(Icons.delete_outline_rounded),
-                          onPressed: _requestAccountDeletion,
+                          onPressed: () => _requestAccountDeletion(),
                         ),
                         if ((_deleteRequestMessage ?? '').isNotEmpty)
                           Text(

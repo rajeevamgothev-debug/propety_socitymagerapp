@@ -13,6 +13,7 @@ class ApiConfig {
   // Vendor
   static const String fetchVendorInfo = '/Fetch_Vendor_Complete_Information';
   static const String setVendorProfile = '/Set_Vendor_Profile';
+  static const String requestAccountDeletion = '/Request_Account_Deletion';
 
   // Society
   static const String createSociety = '/Create_Society';
@@ -39,6 +40,14 @@ class ApiConfig {
   static const String filterPropertyTickets =
       '/Filter_All_Support_Ticket_WRT_Property';
   static const String updateTicketStatus = '/Upate_Support_Ticket_Status';
+
+  // Property bookings
+  static const String filterManagerPropertyBookings =
+      '/Filter_Manager_Property_Bookings';
+  static const String managerAcceptPropertyBooking =
+      '/Manager_Accept_Property_Booking';
+  static const String managerRejectPropertyBooking =
+      '/Manager_Reject_Property_Booking';
 
   // Announcements
   static const String filterTenantAnnouncements =

@@ -96,6 +96,7 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   Future<void> _loadTickets() async {
+    if (!mounted) return;
     setState(() {
       _isLoadingTickets = true;
       _errorMessage = null;
@@ -860,6 +861,7 @@ class _SupportPageState extends State<SupportPage> {
       isScrollControlled: true,
       builder: (BuildContext context) {
         bool isSubmitting = false;
+        final NavigatorState sheetNavigator = Navigator.of(context);
 
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
@@ -902,7 +904,7 @@ class _SupportPageState extends State<SupportPage> {
                   return;
                 }
                 sheetClosed = true;
-                Navigator.of(context).pop();
+                sheetNavigator.pop();
                 _showMessage('Support ticket created successfully.');
                 await _loadTickets();
                 widget.onRefresh?.call();
@@ -1208,6 +1210,7 @@ class _SupportPageState extends State<SupportPage> {
       context: context,
       isScrollControlled: true,
       builder: (BuildContext context) {
+        final NavigatorState sheetNavigator = Navigator.of(context);
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             if (!initialized) {
@@ -1257,7 +1260,7 @@ class _SupportPageState extends State<SupportPage> {
                   return;
                 }
                 sheetClosed = true;
-                Navigator.of(context).pop();
+                sheetNavigator.pop();
                 _showMessage('Support ticket created successfully.');
                 await _loadTickets();
                 widget.onRefresh?.call();
@@ -1737,6 +1740,7 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   void _showMessage(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));

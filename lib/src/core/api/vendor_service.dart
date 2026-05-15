@@ -30,4 +30,11 @@ class VendorService {
       },
     );
   }
+
+  static Future<ApiResponse> requestAccountDeletion({String reason = ''}) {
+    return ApiClient.instance.post(
+      ApiConfig.requestAccountDeletion,
+      <String, dynamic>{'Reason': reason},
+    );
+  }
 }

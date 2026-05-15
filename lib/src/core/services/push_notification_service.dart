@@ -1,16 +1,24 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../../../firebase_options.dart';
 import '../api/auth_service.dart';
+import 'premium_notification_renderer.dart';
 
-// Must be a top-level function — runs in a separate isolate when app is terminated.
 @pragma('vm:entry-point')
 Future<void> _onBackgroundMessage(RemoteMessage message) async {
-  // FCM shows the notification automatically for notification messages.
-  // No Firebase.initializeApp() needed here for basic use.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (_) {}
+  if (message.notification == null) {
+    await PushNotificationService.showBackgroundNotification(message);
+  }
 }
 
 class PushNotificationService {
@@ -30,44 +38,45 @@ class PushNotificationService {
     enableVibration: true,
   );
 
-  static VoidCallback? _onNotificationTap;
+  static void Function(String? payload)? _onNotificationTap;
   static bool _initialized = false;
+  static bool _isSyncingToken = false;
 
-  /// Call once from app.dart after Firebase.initializeApp() succeeds.
-  /// [onNotificationTap] is called when the user taps any notification.
-  static Future<void> initialize({VoidCallback? onNotificationTap}) async {
-    if (_initialized) return;
-    _initialized = true;
+  static Future<void> initialize({
+    void Function(String? payload)? onNotificationTap,
+  }) async {
     _onNotificationTap = onNotificationTap;
+    if (_initialized) {
+      unawaited(syncToken());
+      return;
+    }
+    _initialized = true;
 
-    // Register background handler before anything else.
     FirebaseMessaging.onBackgroundMessage(_onBackgroundMessage);
 
     await _setupLocalNotifications();
     await _requestPermission();
-    await _registerToken();
+    await syncToken();
 
-    // Re-register when token rotates (e.g. app reinstall, token expiry).
     FirebaseMessaging.instance.onTokenRefresh.listen((String token) {
-      AuthService.registerPushToken(token).catchError((_) {});
+      unawaited(_syncTokenValue(token));
     });
 
-    // App in foreground — FCM does NOT show a heads-up banner automatically.
-    // Show it ourselves via flutter_local_notifications.
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-    // App was in background and user tapped the notification.
-    FirebaseMessaging.onMessageOpenedApp.listen((_) {
-      _onNotificationTap?.call();
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      final String payload =
+          PremiumNotificationContent.fromRemoteMessage(message).payload;
+      _onNotificationTap?.call(payload);
     });
 
-    // App was terminated and user tapped the notification to launch it.
     final RemoteMessage? initialMessage =
         await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
-      // Defer until the first frame is rendered and navigator is ready.
       Future.delayed(const Duration(milliseconds: 300), () {
-        _onNotificationTap?.call();
+        final String payload =
+            PremiumNotificationContent.fromRemoteMessage(initialMessage).payload;
+        _onNotificationTap?.call(payload);
       });
     }
   }
@@ -88,13 +97,10 @@ class PushNotificationService {
         iOS: iosSettings,
       ),
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // User tapped the local notification shown in the foreground.
-        _onNotificationTap?.call();
+        _onNotificationTap?.call(response.payload);
       },
     );
 
-    // Create the Android notification channel at high importance so
-    // foreground notifications show as heads-up banners.
     await _localNotifications
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -116,37 +122,65 @@ class PushNotificationService {
     }
   }
 
-  static Future<void> _registerToken() async {
+  static Future<bool> syncToken() async {
+    if (_isSyncingToken) return false;
+    _isSyncingToken = true;
     try {
       final String? token = await FirebaseMessaging.instance.getToken();
       if (token != null && token.isNotEmpty) {
-        await AuthService.registerPushToken(token);
-        if (kDebugMode) {
-          debugPrint('PushNotifications: token registered (${token.substring(0, 20)}…)');
-        }
+        await _syncTokenValue(token);
+        return true;
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('PushNotifications: token registration failed — $e');
+        debugPrint('PushNotifications: token registration failed - $e');
       }
+    } finally {
+      _isSyncingToken = false;
+    }
+    return false;
+  }
+
+  static Future<void> _syncTokenValue(String token) async {
+    final String normalizedToken = token.trim();
+    if (normalizedToken.isEmpty) return;
+    await AuthService.registerPushToken(normalizedToken);
+    if (kDebugMode) {
+      debugPrint('PushNotifications: token registered');
     }
   }
 
   static Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    final RemoteNotification? notification = message.notification;
-    if (notification == null) return;
+    await _showPremiumNotification(message);
+  }
+
+  static Future<void> showBackgroundNotification(RemoteMessage message) async {
+    await _setupLocalNotifications();
+    await _showPremiumNotification(message);
+  }
+
+  static Future<void> _showPremiumNotification(RemoteMessage message) async {
+    final PremiumNotificationContent content =
+        PremiumNotificationContent.fromRemoteMessage(message);
+    if (content.title.trim().isEmpty && content.body.trim().isEmpty) return;
 
     await _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      const NotificationDetails(
+      content.stableId,
+      content.title,
+      content.body,
+      NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
           _channelName,
-          importance: Importance.high,
-          priority: Priority.high,
+          importance: content.androidImportance,
+          priority: content.androidPriority,
           icon: '@mipmap/ic_launcher',
+          styleInformation: BigTextStyleInformation(
+            content.body,
+            contentTitle: content.title,
+          ),
+          actions: content.actions,
+          groupKey: content.groupId,
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,
@@ -154,6 +188,7 @@ class PushNotificationService {
           presentSound: true,
         ),
       ),
+      payload: content.payload,
     );
   }
 }

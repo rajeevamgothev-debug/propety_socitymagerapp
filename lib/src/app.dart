@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'core/api/api_client.dart';
@@ -12,6 +15,8 @@ import 'features/auth/otp_page.dart';
 import 'features/auth/profile_setup_page.dart';
 import 'features/landing/landing_page.dart';
 import 'features/notifications/notifications_page.dart';
+import 'features/properties/property_enquiries_page.dart';
+import 'features/bookings/tenant_property_bookings_page.dart';
 import 'features/shell/app_shell.dart';
 
 class UrbanEasyFlatsApp extends StatefulWidget {
@@ -75,15 +80,48 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp> {
   }
 
   /// Opens NotificationsPage when the user taps a push notification.
-  void _handleNotificationTap() {
+  void _handleNotificationTap(String? payload) {
     if (!_isAuthenticated) return;
     UrbanEasyFlatsApp.navigatorKey.currentState?.push(
       MaterialPageRoute<void>(
-        builder: (_) => const NotificationsPage(),
+        builder: (_) => _pageForNotificationPayload(payload),
       ),
     );
   }
 
+  Widget _pageForNotificationPayload(String? payload) {
+    if (payload == null || payload.trim().isEmpty) {
+      return const NotificationsPage();
+    }
+    try {
+      final Object? decoded = jsonDecode(payload);
+      if (decoded is! Map<String, dynamic>) {
+        return const NotificationsPage();
+      }
+      final String screen = '${decoded['screen'] ?? ''}'.trim();
+      final Map<String, dynamic> data = decoded['data'] is Map
+          ? Map<String, dynamic>.from(decoded['data'] as Map)
+          : <String, dynamic>{};
+      final String propertyId =
+          '${data['propertyId'] ?? data['PropertyID'] ?? ''}'.trim();
+
+      return switch (screen) {
+        'property_enquiry_detail' => PropertyEnquiriesPage(
+            initialPropertyId: propertyId.isEmpty ? null : propertyId,
+          ),
+        'booking_detail' || 'tenant_booking_detail' =>
+          const TenantPropertyBookingsPage(),
+        'announcement_detail' => const NotificationsPage(),
+        'support_ticket_detail' => const NotificationsPage(),
+        'bill_detail' || 'payment_history' => const NotificationsPage(),
+        'agreement_detail' => const NotificationsPage(),
+        'wallet_detail' || 'settings' => const NotificationsPage(),
+        _ => const NotificationsPage(),
+      };
+    } catch (_) {
+      return const NotificationsPage();
+    }
+  }
   Future<AppRole> _resolveRole([AuthSource? fallbackSource]) async {
     int? vendorType = AuthStorage.vendorType;
 
@@ -157,6 +195,7 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp> {
       _isInitializing = false;
       _needsProfileSetup = false;
     });
+    unawaited(PushNotificationService.syncToken());
   }
 
   void _logout() {
