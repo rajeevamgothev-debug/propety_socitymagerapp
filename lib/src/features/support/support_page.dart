@@ -216,103 +216,156 @@ class _SupportPageState extends State<SupportPage> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            labelText: 'Search tickets',
-            suffixIcon: IconButton(
-              onPressed: () {
-                _searchDebounce?.cancel();
-                setState(() {
-                  _skip = 0;
-                });
-                _loadTickets();
-              },
-              icon: const Icon(Icons.search_rounded),
-            ),
+        const SizedBox(height: 20),
+        CustomCard(
+          padding: CustomCardPadding.sm,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  labelText: 'Search tickets',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: IconButton(
+                    onPressed: () {
+                      _searchDebounce?.cancel();
+                      setState(() {
+                        _skip = 0;
+                      });
+                      _loadTickets();
+                    },
+                    icon: const Icon(Icons.arrow_forward_rounded),
+                  ),
+                ),
+                onChanged: (String _) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(
+                    const Duration(milliseconds: 300),
+                    () {
+                      setState(() {
+                        _skip = 0;
+                      });
+                      _loadTickets();
+                    },
+                  );
+                },
+                onSubmitted: (_) {
+                  _searchDebounce?.cancel();
+                  setState(() {
+                    _skip = 0;
+                  });
+                  _loadTickets();
+                },
+              ),
+              const SizedBox(height: 14),
+              LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final bool stackFilters = constraints.maxWidth < 520;
+                  final List<Widget> filters = <Widget>[
+                    DropdownButtonFormField<int?>(
+                      value: _categoryFilter,
+                      decoration: const InputDecoration(labelText: 'Category'),
+                      items: const <DropdownMenuItem<int?>>[
+                        DropdownMenuItem<int?>(value: null, child: Text('All')),
+                        DropdownMenuItem<int?>(
+                          value: 1,
+                          child: Text('Maintenance'),
+                        ),
+                        DropdownMenuItem<int?>(
+                          value: 2,
+                          child: Text('Billing'),
+                        ),
+                        DropdownMenuItem<int?>(
+                          value: 3,
+                          child: Text('Security'),
+                        ),
+                        DropdownMenuItem<int?>(
+                          value: 4,
+                          child: Text('Amenities'),
+                        ),
+                        DropdownMenuItem<int?>(
+                          value: 5,
+                          child: Text('Others'),
+                        ),
+                      ],
+                      onChanged: (int? value) {
+                        setState(() {
+                          _skip = 0;
+                          _categoryFilter = value;
+                        });
+                        _loadTickets();
+                      },
+                    ),
+                    DropdownButtonFormField<int?>(
+                      value: _priorityFilter,
+                      decoration: const InputDecoration(labelText: 'Priority'),
+                      items: const <DropdownMenuItem<int?>>[
+                        DropdownMenuItem<int?>(value: null, child: Text('All')),
+                        DropdownMenuItem<int?>(value: 1, child: Text('Low')),
+                        DropdownMenuItem<int?>(value: 2, child: Text('Medium')),
+                        DropdownMenuItem<int?>(value: 3, child: Text('High')),
+                        DropdownMenuItem<int?>(
+                          value: 4,
+                          child: Text('Critical'),
+                        ),
+                      ],
+                      onChanged: (int? value) {
+                        setState(() {
+                          _skip = 0;
+                          _priorityFilter = value;
+                        });
+                        _loadTickets();
+                      },
+                    ),
+                  ];
+                  if (stackFilters) {
+                    return Column(
+                      children: <Widget>[
+                        filters[0],
+                        const SizedBox(height: 12),
+                        filters[1],
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: <Widget>[
+                      Expanded(child: filters[0]),
+                      const SizedBox(width: 12),
+                      Expanded(child: filters[1]),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              CustomTabBar(
+                style: CustomTabBarStyle.pill,
+                currentIndex: _selectedFilter == null
+                    ? 0
+                    : TicketStatus.values.indexOf(_selectedFilter!) + 1,
+                onChanged: (int index) {
+                  setState(() {
+                    _skip = 0;
+                    _selectedFilter = index == 0
+                        ? null
+                        : TicketStatus.values[index - 1];
+                  });
+                  _loadTickets();
+                },
+                tabs: <CustomTabItem>[
+                  const CustomTabItem(label: 'All'),
+                  ...TicketStatus.values.map(
+                    (TicketStatus status) =>
+                        CustomTabItem(label: _ticketStatusLabel(status)),
+                  ),
+                ],
+              ),
+            ],
           ),
-          onChanged: (String _) {
-            _searchDebounce?.cancel();
-            _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-              setState(() {
-                _skip = 0;
-              });
-              _loadTickets();
-            });
-          },
-          onSubmitted: (_) {
-            _searchDebounce?.cancel();
-            setState(() {
-              _skip = 0;
-            });
-            _loadTickets();
-          },
         ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<int?>(
-          value: _categoryFilter,
-          decoration: const InputDecoration(labelText: 'Category'),
-          items: const <DropdownMenuItem<int?>>[
-            DropdownMenuItem<int?>(value: null, child: Text('All')),
-            DropdownMenuItem<int?>(value: 1, child: Text('Maintenance')),
-            DropdownMenuItem<int?>(value: 2, child: Text('Billing')),
-            DropdownMenuItem<int?>(value: 3, child: Text('Security')),
-            DropdownMenuItem<int?>(value: 4, child: Text('Amenities')),
-            DropdownMenuItem<int?>(value: 5, child: Text('Others')),
-          ],
-          onChanged: (int? value) {
-            setState(() {
-              _skip = 0;
-              _categoryFilter = value;
-            });
-            _loadTickets();
-          },
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<int?>(
-          value: _priorityFilter,
-          decoration: const InputDecoration(labelText: 'Priority'),
-          items: const <DropdownMenuItem<int?>>[
-            DropdownMenuItem<int?>(value: null, child: Text('All')),
-            DropdownMenuItem<int?>(value: 1, child: Text('Low')),
-            DropdownMenuItem<int?>(value: 2, child: Text('Medium')),
-            DropdownMenuItem<int?>(value: 3, child: Text('High')),
-            DropdownMenuItem<int?>(value: 4, child: Text('Critical')),
-          ],
-          onChanged: (int? value) {
-            setState(() {
-              _skip = 0;
-              _priorityFilter = value;
-            });
-            _loadTickets();
-          },
-        ),
-        const SizedBox(height: 16),
-        CustomTabBar(
-          style: CustomTabBarStyle.pill,
-          currentIndex: _selectedFilter == null
-              ? 0
-              : TicketStatus.values.indexOf(_selectedFilter!) + 1,
-          onChanged: (int index) {
-            setState(() {
-              _skip = 0;
-              _selectedFilter = index == 0
-                  ? null
-                  : TicketStatus.values[index - 1];
-            });
-            _loadTickets();
-          },
-          tabs: <CustomTabItem>[
-            const CustomTabItem(label: 'All'),
-            ...TicketStatus.values.map(
-              (TicketStatus status) =>
-                  CustomTabItem(label: _ticketStatusLabel(status)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (widget.role != AppRole.propertyManager) ...<Widget>[
+        const SizedBox(height: 20),
+        if (widget.role != AppRole.propertyManager &&
+            visibleTickets.isNotEmpty) ...<Widget>[
           CustomCard(
             padding: CustomCardPadding.sm,
             child: Column(
@@ -341,10 +394,7 @@ class _SupportPageState extends State<SupportPage> {
           const SizedBox(height: 16),
         ],
         if (isBusy)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator()),
-          )
+          const _SupportLoadingSkeleton()
         else if (_errorMessage != null)
           CustomCard(
             child: Column(
@@ -373,10 +423,7 @@ class _SupportPageState extends State<SupportPage> {
             ),
           )
         else if (visibleTickets.isEmpty)
-          const CustomCard(
-            padding: CustomCardPadding.sm,
-            child: Text('No tickets match the current filters.'),
-          )
+          const _SupportEmptyState()
         else
           ...visibleTickets.map((TicketRecord ticket) {
             final bool showSocietyResidentSummary =
@@ -1939,6 +1986,142 @@ class _StatusActionMenu extends StatelessWidget {
             const Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SupportEmptyState extends StatelessWidget {
+  const _SupportEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return CustomCard(
+      padding: CustomCardPadding.lg,
+      color: AppTheme.surface,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppTheme.primarySoft,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Icon(
+                  Icons.support_agent_rounded,
+                  size: 34,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'No support tickets found',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'New resident and property support requests will appear here once they are created.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SupportLoadingSkeleton extends StatelessWidget {
+  const _SupportLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: const <Widget>[
+        _SupportSkeletonCard(),
+        SizedBox(height: 12),
+        _SupportSkeletonCard(),
+        SizedBox(height: 12),
+        _SupportSkeletonCard(),
+      ],
+    );
+  }
+}
+
+class _SupportSkeletonCard extends StatelessWidget {
+  const _SupportSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomCard(
+      padding: CustomCardPadding.sm,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _SkeletonBar(widthFactor: 0.62, height: 18),
+          const SizedBox(height: 12),
+          _SkeletonBar(widthFactor: 1, height: 12),
+          const SizedBox(height: 8),
+          _SkeletonBar(widthFactor: 0.78, height: 12),
+          const SizedBox(height: 14),
+          Row(
+            children: const <Widget>[
+              _SkeletonPill(),
+              SizedBox(width: 8),
+              _SkeletonPill(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkeletonBar extends StatelessWidget {
+  const _SkeletonBar({required this.widthFactor, required this.height});
+
+  final double widthFactor;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceMuted,
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonPill extends StatelessWidget {
+  const _SkeletonPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 84,
+      height: 26,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(999),
       ),
     );
   }

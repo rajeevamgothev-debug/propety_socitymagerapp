@@ -98,7 +98,10 @@ class AuthService {
       return;
     }
 
-    if (AuthStorage.apiKey == null || AuthStorage.apiKey!.isEmpty) {
+    if (AuthStorage.apiKey == null ||
+        AuthStorage.apiKey!.isEmpty ||
+        AuthStorage.vendorId == null ||
+        AuthStorage.vendorId!.isEmpty) {
       return;
     }
 
@@ -205,11 +208,12 @@ class AuthService {
       return;
     }
 
-    if (AuthStorage.lastSyncedPushToken == pushToken) {
+    final String syncKey = '${AuthStorage.vendorId ?? ''}:$pushToken';
+    if (AuthStorage.lastSyncedPushToken == syncKey) {
       return;
     }
 
     await updateFcmToken(pushToken);
-    await AuthStorage.setLastSyncedPushToken(pushToken);
+    await AuthStorage.setLastSyncedPushToken(syncKey);
   }
 }
