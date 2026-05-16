@@ -141,11 +141,18 @@ class SupportService {
       return (tickets: <TicketRecord>[], count: 0);
     }
 
-    final List<dynamic> dataList = response.data as List<dynamic>;
-    final List<TicketRecord> tickets = dataList
-        .map((dynamic item) =>
-            SupportTicketData.fromJson(item as Map<String, dynamic>)
-                .toTicketRecord())
+    final dynamic rawData = response.data;
+    if (rawData is! List) {
+      return (tickets: <TicketRecord>[], count: response.count ?? 0);
+    }
+
+    final List<TicketRecord> tickets = rawData
+        .whereType<Map>()
+        .map(
+          (Map<dynamic, dynamic> item) => SupportTicketData.fromJson(
+            Map<String, dynamic>.from(item),
+          ).toTicketRecord(),
+        )
         .toList();
 
     return (tickets: tickets, count: response.count ?? tickets.length);
