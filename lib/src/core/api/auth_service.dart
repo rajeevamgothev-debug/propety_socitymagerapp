@@ -119,6 +119,7 @@ class AuthService {
     String phone, {
     required int vendorType,
   }) async {
+    await AuthStorage.clearAll();
     return ApiClient.instance.post(ApiConfig.generateOtp, <String, dynamic>{
       'Vendor_Type': vendorType,
       'CountryCode': '+91',
@@ -132,6 +133,7 @@ class AuthService {
     String otp, {
     required int vendorType,
   }) async {
+    await AuthStorage.clearAll();
     final ApiResponse response = await ApiClient.instance.post(
       ApiConfig.validateOtp,
       <String, dynamic>{

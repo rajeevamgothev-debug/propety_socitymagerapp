@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/notification_service.dart';
 import '../../core/api/rental_contract_service.dart';
@@ -24,6 +25,8 @@ bool _isRentalContractNotification(NotificationData notification) {
 bool _isEnquiryNotification(NotificationData notification) {
   final String referenceType = notification.referenceType.toLowerCase();
   return referenceType.contains('property_enquiry') ||
+      referenceType.contains('enquiry') ||
+      referenceType.contains('lead') ||
       notification.type.toLowerCase() == 'enquiry';
 }
 
@@ -44,7 +47,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   int _filterTab = 0;
 
   List<NotificationData> _notifications = <NotificationData>[];
-  int _totalCount = 0;
+  int _backendTotalCount = 0;
   int _unreadCount = 0;
   int _skip = 0;
   bool _isLoading = true;
@@ -95,21 +98,41 @@ class _NotificationsPageState extends State<NotificationsPage> {
         search: search,
       );
 
-      await _loadContractDetailsFor(result.notifications);
+      final List<NotificationData> enquiryNotifications =
+          reset && _readFilter != true
+          ? (await NotificationService.filterOpenPropertyEnquiryNotifications(
+              limit: 50,
+              search: search,
+            )).notifications
+          : <NotificationData>[];
+      final List<NotificationData> visibleNotifications = reset
+          ? NotificationService.mergePropertyEnquiryNotifications(
+              result.notifications,
+              enquiryNotifications,
+            )
+          : result.notifications;
+
+      await _loadContractDetailsFor(visibleNotifications);
 
       if (!mounted) return;
 
       setState(() {
         if (reset) {
-          _notifications = result.notifications;
+          _notifications = visibleNotifications;
         } else {
           _notifications = <NotificationData>[
             ..._notifications,
-            ...result.notifications,
+            ...visibleNotifications,
           ];
         }
-        _totalCount = result.count;
-        _unreadCount = result.unreadCount;
+        final int localUnreadCount = _notifications
+            .where(
+              (NotificationData item) =>
+                  item.isLocalPropertyEnquiry && !item.isRead,
+            )
+            .length;
+        _backendTotalCount = result.count;
+        _unreadCount = result.unreadCount + localUnreadCount;
         _skip = skip + result.notifications.length;
         _isLoading = false;
       });
@@ -184,7 +207,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> _markAllAsRead() async {
     try {
-      await NotificationService.markAllAsRead();
+      final bool hasBackendUnread = _notifications.any(
+        (NotificationData item) => !item.isRead && !item.isLocalPropertyEnquiry,
+      );
+      NotificationService.markLocalPropertyEnquiriesAsRead(
+        _notifications.where((NotificationData item) => !item.isRead),
+      );
+      if (hasBackendUnread) {
+        await NotificationService.markAllAsRead();
+      }
       await _loadNotifications(reset: true);
       _showMessage('All notifications marked as read.');
     } catch (error) {
@@ -195,8 +226,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final bool hasMore = _skip < _totalCount;
-    final bool hasUnread = _unreadCount > 0;
+    final bool hasMore = _skip < _backendTotalCount;
+    final bool hasUnread = _notifications.any(
+      (NotificationData item) => !item.isRead,
+    );
+    final int visibleCount = _notifications.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -301,7 +335,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   child: _NotificationCard(
                     notification: n,
                     contract: _contractsById[n.referenceId],
-                    onMarkRead: n.isRead ? null : () => _markAsRead(n),
+                    onMarkRead: n.isRead
+                        ? null
+                        : () => _markAsRead(n),
                   ),
                 ),
               ),
@@ -318,7 +354,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     child: OutlinedButton(
                       onPressed: () => _loadNotifications(),
                       child: Text(
-                        'Load More (${_totalCount - _skip} remaining)',
+                        'Load More (${_backendTotalCount - _skip} remaining)',
                       ),
                     ),
                   ),
@@ -328,7 +364,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   padding: const EdgeInsets.only(top: 4, bottom: 8),
                   child: Center(
                     child: Text(
-                      'All $_totalCount notifications loaded',
+                      'All $visibleCount notifications loaded',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppTheme.textMuted,
                       ),
@@ -362,99 +398,90 @@ class _NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     final UiTone tone = _typeTone(notification.type);
     final String typeLabel = _typeLabel(notification.type);
     final String message = _displayMessage(notification, contract);
+    final IconData typeIcon = _typeIcon(notification.type);
+    final String propertyImageUrl = _propertyImageUrl(notification);
+    final NotificationDisplayModel display =
+        NotificationDisplayModel.fromNotification(
+      notification,
+      contract: contract,
+      typeLabel: typeLabel,
+      message: message,
+    );
 
     return CustomCard(
       padding: CustomCardPadding.sm,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              // Unread dot
-              if (!notification.isRead) ...<Widget>[
-                Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.only(top: 6, right: 10),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ] else
-                const SizedBox(width: 18),
-              Expanded(
-                child: Text(
-                  notification.title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: notification.isRead
-                        ? FontWeight.w500
-                        : FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ToneBadge(
-                label: typeLabel,
-                tone: tone,
-                size: ToneBadgeSize.small,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.only(left: 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  message,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${formatCompactDate(notification.createdAt)} at ${formatClock(notification.createdAt)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppTheme.textMuted,
-                  ),
-                ),
-                if (onMarkRead != null) ...<Widget>[
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: onMarkRead,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('Mark as Read'),
-                    ),
-                  ),
-                ],
-              ],
+          _NotificationTopSection(
+            display: display,
+            logo: _NotificationLogo(
+              tone: tone,
+              icon: typeIcon,
+              isRead: notification.isRead,
+              imageUrl: propertyImageUrl,
             ),
+            tone: tone,
+          ),
+          if (propertyImageUrl.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 12),
+            _NotificationImagePreview(imageUrl: propertyImageUrl, tone: tone),
+          ],
+          const SizedBox(height: 14),
+          _NotificationMessageSection(display: display),
+          if (display.contextDetails.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 10),
+            _NotificationContextSection(
+              details: display.contextDetails,
+              onPhoneTap: _launchPhone,
+            ),
+          ],
+          const SizedBox(height: 12),
+          _NotificationActions(
+            onMarkRead: onMarkRead,
+            onViewDetails: () => _showDetailsSheet(context, display),
+            onContactSupport: display.canContact
+                ? () => _launchPhone(display.phone)
+                : null,
           ),
         ],
       ),
     );
   }
 
+  static Future<void> _launchPhone(String phone) async {
+    await launchUrl(Uri.parse('tel:${_digitsForDial(phone)}'));
+  }
+
+  static void _showDetailsSheet(
+    BuildContext context,
+    NotificationDisplayModel display,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (BuildContext context) => _NotificationDetailsSheet(
+        display: display,
+      ),
+    );
+  }
+
+  static String _digitsForDial(String phone) {
+    return phone.replaceAll(RegExp(r'[^0-9+]'), '');
+  }
+
   static String _typeLabel(String type) {
     return switch (type.toLowerCase()) {
-      'payment' || 'billing' || '1' => 'Payment',
-      'support' || 'ticket' || '2' => 'Support',
-      'contract' || '3' => 'Contract',
-      'enquiry' || 'lead' || '4' => 'Enquiry',
-      'security' || '5' => 'Security',
-      'announcement' || 'notice' || '6' => 'Notice',
+      'payment' || 'billing' || '1' || '5' => 'Billing',
+      'contract' || '2' => 'Contract',
+      'announcement' || 'notice' || '3' => 'Notice',
+      'support' || 'ticket' || '4' => 'Support',
+      'enquiry' || 'lead' || '6' => 'Enquiry',
+      'security' => 'Security',
       'system' || '7' => 'System',
       _ => 'Alert',
     };
@@ -462,14 +489,28 @@ class _NotificationCard extends StatelessWidget {
 
   static UiTone _typeTone(String type) {
     return switch (type.toLowerCase()) {
-      'payment' || 'billing' || '1' => UiTone.success,
-      'support' || 'ticket' || '2' => UiTone.brand,
-      'contract' || '3' => UiTone.brand,
-      'enquiry' || 'lead' || '4' => UiTone.warning,
-      'security' || '5' => UiTone.danger,
-      'announcement' || 'notice' || '6' => UiTone.brand,
+      'payment' || 'billing' || '1' || '5' => UiTone.success,
+      'contract' || '2' => UiTone.brand,
+      'announcement' || 'notice' || '3' => UiTone.brand,
+      'support' || 'ticket' || '4' => UiTone.brand,
+      'enquiry' || 'lead' || '6' => UiTone.warning,
+      'security' => UiTone.danger,
       'system' || '7' => UiTone.neutral,
       _ => UiTone.neutral,
+    };
+  }
+
+  static IconData _typeIcon(String type) {
+    return switch (type.toLowerCase()) {
+      'payment' || 'billing' || '1' || '5' =>
+        Icons.account_balance_wallet_rounded,
+      'contract' || '2' => Icons.description_rounded,
+      'announcement' || 'notice' || '3' => Icons.campaign_rounded,
+      'support' || 'ticket' || '4' => Icons.confirmation_number_rounded,
+      'enquiry' || 'lead' || '6' => Icons.person_search_rounded,
+      'security' => Icons.security_rounded,
+      'system' || '7' => Icons.settings_suggest_rounded,
+      _ => Icons.notifications_rounded,
     };
   }
 
@@ -479,11 +520,6 @@ class _NotificationCard extends StatelessWidget {
   ) {
     if (_isRentalContractNotification(notification)) {
       final String message = _rentalContractMessage(notification, contract);
-      if (message.isNotEmpty) return message;
-    }
-
-    if (_isEnquiryNotification(notification)) {
-      final String message = _enquiryMessage(notification);
       if (message.isNotEmpty) return message;
     }
 
@@ -533,42 +569,6 @@ class _NotificationCard extends StatelessWidget {
     return lines.join('\n');
   }
 
-  static String _enquiryMessage(NotificationData notification) {
-    final String name = _dataText(notification, <String>[
-      'Name',
-      'Full_Name',
-      'Enquiry_Name',
-    ]);
-    final String phone = _dataText(notification, <String>[
-      'FinalPhoneNumber',
-      'PhoneNumber',
-      'Phone',
-    ]);
-    final String email = _dataText(notification, <String>['EmailID', 'Email']);
-    final String propertyTitle = _dataText(notification, <String>[
-      'Property_Title',
-      'Property_Name',
-    ]);
-    final String ownerName = _dataText(notification, <String>[
-      'Owner_Name',
-      'OwnerName',
-    ]);
-    final String status = _enquiryStatusLabel(
-      notification.data['Enquiry_Status'],
-    );
-
-    final List<String> lines = <String>[
-      if (name.isNotEmpty) 'Name: $name',
-      if (phone.isNotEmpty) 'Mobile: $phone',
-      if (email.isNotEmpty) 'Email: $email',
-      if (propertyTitle.isNotEmpty) 'Property: $propertyTitle',
-      if (ownerName.isNotEmpty) 'Owner: $ownerName',
-      if (status.isNotEmpty) 'Status: $status',
-    ];
-
-    return lines.join('\n');
-  }
-
   static String _contractStatusLabel(NotificationData notification) {
     final String content = '${notification.title} ${notification.message}'
         .toLowerCase();
@@ -582,14 +582,6 @@ class _NotificationCard extends StatelessWidget {
     return '';
   }
 
-  static String _enquiryStatusLabel(dynamic rawStatus) {
-    return switch ('${rawStatus ?? ''}'.trim()) {
-      '1' => 'New',
-      '2' => 'Resolved',
-      _ => '',
-    };
-  }
-
   static String _dataText(NotificationData notification, List<String> keys) {
     for (final String key in keys) {
       final dynamic value = notification.data[key];
@@ -597,6 +589,608 @@ class _NotificationCard extends StatelessWidget {
       if (text.isNotEmpty) return text;
     }
     return '';
+  }
+
+  static String _firstNonEmpty(List<String?> values) {
+    for (final String? value in values) {
+      final String text = (value ?? '').trim();
+      if (text.isNotEmpty) return text;
+    }
+    return '';
+  }
+
+  static String _propertyImageUrl(NotificationData notification) {
+    if (!_isEnquiryNotification(notification)) return '';
+    return _dataText(notification, <String>[
+      'Property_Image_URL',
+      'Property_Image_Original_URL',
+      'Image_Original_URL',
+      'Image_URL',
+    ]);
+  }
+}
+
+class _NotificationLogo extends StatelessWidget {
+  const _NotificationLogo({
+    required this.tone,
+    required this.icon,
+    required this.isRead,
+    required this.imageUrl,
+  });
+
+  final UiTone tone;
+  final IconData icon;
+  final bool isRead;
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color toneColor = AppTheme.toneColor(tone);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppTheme.toneSoft(tone),
+            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            border: Border.all(color: AppTheme.toneContainer(tone)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: imageUrl.isEmpty
+              ? Image.asset(
+                  'assets/urban_easyflats_receipt_logo.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      Icon(Icons.home_work_rounded, color: toneColor),
+                )
+              : Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      Icon(Icons.home_work_rounded, color: toneColor),
+                ),
+        ),
+        Positioned(
+          right: -5,
+          bottom: -5,
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Icon(icon, size: 14, color: toneColor),
+          ),
+        ),
+        if (!isRead)
+          Positioned(
+            top: -3,
+            right: -3,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: AppTheme.primary,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.surface, width: 2),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _NotificationTopSection extends StatelessWidget {
+  const _NotificationTopSection({
+    required this.display,
+    required this.logo,
+    required this.tone,
+  });
+
+  final NotificationDisplayModel display;
+  final Widget logo;
+  final UiTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Semantics(label: '${display.category} notification', child: logo),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      display.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight:
+                            display.isRead ? FontWeight.w600 : FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ToneBadge(
+                    label: display.category,
+                    tone: tone,
+                    size: ToneBadgeSize.small,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: <Widget>[
+                  _NotificationMeta(
+                    icon: Icons.schedule_rounded,
+                    label: display.time,
+                  ),
+                  _NotificationMeta(
+                    icon: display.isRead
+                        ? Icons.mark_email_read_rounded
+                        : Icons.mark_email_unread_rounded,
+                    label: display.isRead ? 'Read' : 'Unread',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationMeta extends StatelessWidget {
+  const _NotificationMeta({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationMessageSection extends StatelessWidget {
+  const _NotificationMessageSection({required this.display});
+
+  final NotificationDisplayModel display;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Semantics(
+      label: 'Notification message',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.45,
+          ),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(
+            display.message,
+            maxLines: 6,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationContextSection extends StatelessWidget {
+  const _NotificationContextSection({
+    required this.details,
+    required this.onPhoneTap,
+  });
+
+  final List<_NotificationDetail> details;
+  final ValueChanged<String> onPhoneTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'Details',
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        ...details.map(
+          (_NotificationDetail detail) => _NotificationInfoRow(
+            detail: detail,
+            onTap: detail.isPhone ? () => onPhoneTap(detail.value) : null,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationInfoRow extends StatelessWidget {
+  const _NotificationInfoRow({required this.detail, this.onTap});
+
+  final _NotificationDetail detail;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final Widget content = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(detail.icon, size: 17, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 98,
+            child: Text(
+              detail.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              detail.value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (onTap == null) return content;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+      child: content,
+    );
+  }
+}
+
+class _NotificationActions extends StatelessWidget {
+  const _NotificationActions({
+    required this.onMarkRead,
+    required this.onViewDetails,
+    required this.onContactSupport,
+  });
+
+  final VoidCallback? onMarkRead;
+  final VoidCallback? onViewDetails;
+  final VoidCallback? onContactSupport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: <Widget>[
+        OutlinedButton.icon(
+          onPressed: onMarkRead,
+          icon: const Icon(Icons.done_all_rounded, size: 18),
+          label: const Text('Mark as Read'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onViewDetails,
+          icon: const Icon(Icons.open_in_new_rounded, size: 18),
+          label: const Text('View Details'),
+        ),
+        FilledButton.icon(
+          onPressed: onContactSupport,
+          icon: const Icon(Icons.support_agent_rounded, size: 18),
+          label: const Text('Contact Support'),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationDetailsSheet extends StatelessWidget {
+  const _NotificationDetailsSheet({required this.display});
+
+  final NotificationDisplayModel display;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              display.title,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            _NotificationMeta(
+              icon: Icons.schedule_rounded,
+              label: display.time,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              display.message,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+            ),
+            if (display.contextDetails.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 14),
+              _NotificationContextSection(
+                details: display.contextDetails,
+                onPhoneTap: (_) {},
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationImagePreview extends StatelessWidget {
+  const _NotificationImagePreview({required this.imageUrl, required this.tone});
+
+  final String imageUrl;
+  final UiTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color toneColor = AppTheme.toneColor(tone);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: AppTheme.toneSoft(tone),
+            alignment: Alignment.center,
+            child: Icon(Icons.apartment_rounded, color: toneColor),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationDetail {
+  const _NotificationDetail({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  bool get isPhone => label.toLowerCase().contains('phone');
+}
+
+class NotificationDisplayModel {
+  const NotificationDisplayModel({
+    required this.title,
+    required this.message,
+    required this.category,
+    required this.time,
+    required this.isRead,
+    required this.contextDetails,
+    required this.phone,
+    required this.canContact,
+  });
+
+  final String title;
+  final String message;
+  final String category;
+  final String time;
+  final bool isRead;
+  final List<_NotificationDetail> contextDetails;
+  final String phone;
+  final bool canContact;
+
+  factory NotificationDisplayModel.fromNotification(
+    NotificationData notification, {
+    required RentalContractRecord? contract,
+    required String typeLabel,
+    required String message,
+  }) {
+    final bool isEnquiry = _isEnquiryNotification(notification);
+    final bool isAnnouncement = typeLabel == 'Notice';
+    final String title = notification.title.trim().isEmpty
+        ? typeLabel
+        : notification.title.trim();
+    final String phone = _firstDataText(notification, <String>[
+      'PhoneNumber',
+      'Phone',
+      'Tenant_PhoneNumber',
+      'Resident_PhoneNumber',
+    ]);
+    final String propertyName = _firstNonEmpty(<String?>[
+      contract?.propertyTitle,
+      _firstDataText(notification, <String>[
+        'Property_Title',
+        'Property_Name',
+        'Society_Name',
+      ]),
+    ]);
+    final String apartmentType = _firstDataText(notification, <String>[
+      'Sub_Type_Label',
+      'Flat_Or_Unit_No',
+      'Property_Type_Label',
+    ]);
+    final String priority = _firstDataText(notification, <String>[
+      'Priority_Label',
+      'Priority',
+    ]);
+    final String target = _firstDataText(notification, <String>[
+      'Announcement_Target_Label',
+    ]);
+    final String blockNames = _firstDataText(notification, <String>[
+      'Block_Names',
+      'Block_Name',
+    ]);
+    final String buildingNames = _firstDataText(notification, <String>[
+      'Building_Names',
+      'Building_Name',
+    ]);
+    final String summary = isEnquiry
+        ? _buildEnquirySummary(
+            apartmentType: apartmentType,
+            propertyName: propertyName,
+          )
+        : (message.trim().isEmpty ? 'No message details were provided.' : message.trim());
+
+    final List<_NotificationDetail> details = <_NotificationDetail>[
+      if (propertyName.isNotEmpty)
+        _NotificationDetail(
+          icon: Icons.apartment_rounded,
+          label: isAnnouncement ? 'Society' : 'Property',
+          value: propertyName,
+        ),
+      if (isAnnouncement && priority.isNotEmpty)
+        _NotificationDetail(
+          icon: Icons.flag_rounded,
+          label: 'Priority',
+          value: _priorityLabel(priority),
+        ),
+      if (isAnnouncement && target.isNotEmpty)
+        _NotificationDetail(
+          icon: Icons.groups_rounded,
+          label: 'Target',
+          value: target,
+        ),
+      if (isAnnouncement && blockNames.isNotEmpty)
+        _NotificationDetail(
+          icon: Icons.domain_rounded,
+          label: 'Block',
+          value: blockNames,
+        ),
+      if (isAnnouncement && buildingNames.isNotEmpty)
+        _NotificationDetail(
+          icon: Icons.location_city_rounded,
+          label: 'Building',
+          value: buildingNames,
+        ),
+    ];
+
+    return NotificationDisplayModel(
+      title: title,
+      message: summary,
+      category: typeLabel,
+      time:
+          '${formatCompactDate(notification.createdAt)} at ${formatClock(notification.createdAt)}',
+      isRead: notification.isRead,
+      contextDetails: details,
+      phone: phone,
+      canContact: phone.isNotEmpty,
+    );
+  }
+
+  static String _buildEnquirySummary({
+    required String apartmentType,
+    required String propertyName,
+  }) {
+    final String home = apartmentType.isEmpty ? 'property' : apartmentType;
+    if (propertyName.isEmpty) {
+      return 'A customer is interested in your $home.';
+    }
+    return 'A customer is interested in your $home at $propertyName.';
+  }
+
+  static String _firstDataText(
+    NotificationData notification,
+    List<String> keys,
+  ) {
+    for (final String key in keys) {
+      final Object? value = notification.data[key];
+      final String text = _displayText(value);
+      if (text.isNotEmpty && text != 'null') return text;
+    }
+    return '';
+  }
+
+  static String _displayText(Object? value) {
+    if (value == null) return '';
+    if (value is List) {
+      return value
+          .map((Object? item) => '$item'.trim())
+          .where((String item) => item.isNotEmpty && item != 'null')
+          .join(', ');
+    }
+    return '$value'.trim();
+  }
+
+  static String _priorityLabel(String value) {
+    return switch (value.trim()) {
+      '1' => 'Low',
+      '2' => 'Medium',
+      '3' => 'High',
+      '4' => 'Critical',
+      _ => value,
+    };
   }
 
   static String _firstNonEmpty(List<String?> values) {

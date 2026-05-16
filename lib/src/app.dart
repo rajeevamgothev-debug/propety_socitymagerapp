@@ -8,15 +8,16 @@ import 'core/api/auth_service.dart';
 import 'core/api/auth_storage.dart';
 import 'core/api/vendor_service.dart';
 import 'core/models/app_models.dart';
+import 'core/services/in_app_update_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/login_page.dart';
 import 'features/auth/otp_page.dart';
 import 'features/auth/profile_setup_page.dart';
+import 'features/bookings/tenant_property_bookings_page.dart';
 import 'features/landing/landing_page.dart';
 import 'features/notifications/notifications_page.dart';
 import 'features/properties/property_enquiries_page.dart';
-import 'features/bookings/tenant_property_bookings_page.dart';
 import 'features/shell/app_shell.dart';
 
 class UrbanEasyFlatsApp extends StatefulWidget {
@@ -26,23 +27,42 @@ class UrbanEasyFlatsApp extends StatefulWidget {
   /// NotificationsPage when the user taps a push notification.
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
 
   @override
   State<UrbanEasyFlatsApp> createState() => _UrbanEasyFlatsAppState();
 }
 
-class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp> {
+class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
+    with WidgetsBindingObserver {
   bool _isInitializing = true;
   bool _isAuthenticated = false;
   bool _needsProfileSetup = false;
   String? _phoneNumber;
   AuthSource? _authSource;
   AppRole _currentRole = AppRole.tenant;
+  bool _hasScheduledUpdateCheck = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleInAppUpdateCheck();
     _initApp();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isAuthenticated) {
+      unawaited(PushNotificationService.syncToken());
+    }
   }
 
   Future<void> _initApp() async {
@@ -77,6 +97,16 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp> {
     PushNotificationService.initialize(
       onNotificationTap: _handleNotificationTap,
     ).catchError((_) {});
+
+  }
+
+  void _scheduleInAppUpdateCheck() {
+    if (_hasScheduledUpdateCheck) return;
+    _hasScheduledUpdateCheck = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService.checkForUpdate();
+    });
   }
 
   /// Opens NotificationsPage when the user taps a push notification.
@@ -122,6 +152,7 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp> {
       return const NotificationsPage();
     }
   }
+
   Future<AppRole> _resolveRole([AuthSource? fallbackSource]) async {
     int? vendorType = AuthStorage.vendorType;
 
@@ -266,6 +297,7 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       navigatorKey: UrbanEasyFlatsApp.navigatorKey,
+      scaffoldMessengerKey: UrbanEasyFlatsApp.scaffoldMessengerKey,
       home: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
         child: KeyedSubtree(

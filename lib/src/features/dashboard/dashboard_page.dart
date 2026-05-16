@@ -39,6 +39,7 @@ class DashboardPage extends StatelessWidget {
     this.societyInfo,
     this.blockCount = 0,
     this.buildingCount = 0,
+    this.propertyEnquiryCountOverride,
     this.isLoading = false,
     this.onRefresh,
   });
@@ -54,6 +55,7 @@ class DashboardPage extends StatelessWidget {
   final SocietyData? societyInfo;
   final int blockCount;
   final int buildingCount;
+  final int? propertyEnquiryCountOverride;
   final bool isLoading;
   final VoidCallback? onRefresh;
 
@@ -1077,6 +1079,47 @@ class DashboardPage extends StatelessWidget {
     return 'Rs ${value.toStringAsFixed(0)}';
   }
 
+  int _residentSlotExpiryUrgency(String? value) {
+    final DateTime? expiry = DateTime.tryParse(value?.trim() ?? '');
+    if (expiry == null) {
+      return 0;
+    }
+
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final DateTime localExpiry = expiry.toLocal();
+    final DateTime expiryDate = DateTime(
+      localExpiry.year,
+      localExpiry.month,
+      localExpiry.day,
+    );
+    final int daysUntilExpiry = expiryDate.difference(today).inDays;
+
+    if (daysUntilExpiry <= 2) {
+      return 2;
+    }
+    if (daysUntilExpiry <= 5) {
+      return 1;
+    }
+    return 0;
+  }
+
+  UiTone _residentSlotExpiryTone(int urgency) {
+    return switch (urgency) {
+      2 => UiTone.danger,
+      1 => UiTone.warning,
+      _ => UiTone.neutral,
+    };
+  }
+
+  CustomButtonVariant _residentRenewButtonVariant(int urgency) {
+    return switch (urgency) {
+      2 => CustomButtonVariant.danger,
+      1 => CustomButtonVariant.secondary,
+      _ => CustomButtonVariant.outline,
+    };
+  }
+
   List<Widget> _buildRoleSections(BuildContext context) {
     if (role.isSocietyScope) {
       return _buildSocietySections(context);
@@ -1092,6 +1135,9 @@ class DashboardPage extends StatelessWidget {
     final SocietyData? society = societyInfo;
     final bool hasSociety =
         (society?.societyId ?? vendor?.societyId ?? '').isNotEmpty;
+    final int residentSlotExpiryUrgency = _residentSlotExpiryUrgency(
+      society?.purchasedResidentsExpiryDate,
+    );
 
     if (!hasSociety) {
       return <Widget>[
@@ -1431,7 +1477,7 @@ class DashboardPage extends StatelessWidget {
                 if ((society?.purchasedResidentsExpiryDate ?? '').isNotEmpty)
                   ToneBadge(
                     label: 'Expiry ${society!.purchasedResidentsExpiryDate!}',
-                    tone: UiTone.neutral,
+                    tone: _residentSlotExpiryTone(residentSlotExpiryUrgency),
                   ),
               ],
             ),
@@ -1447,7 +1493,9 @@ class DashboardPage extends StatelessWidget {
                 ),
                 CustomButton(
                   label: 'Renew',
-                  variant: CustomButtonVariant.outline,
+                  variant: _residentRenewButtonVariant(
+                    residentSlotExpiryUrgency,
+                  ),
                   icon: const Icon(Icons.autorenew_outlined),
                   onPressed: () => onShortcutSelected('residents'),
                 ),
@@ -1620,6 +1668,8 @@ class DashboardPage extends StatelessWidget {
         vendor?.supportTicketSummary;
     final WalletSummaryData? walletInfo = vendor?.walletInfo;
     final String currentMonthLabel = _monthShort(DateTime.now().month);
+    final int propertyEnquiryCount =
+        propertyEnquiryCountOverride ?? propertySummary?.newEnquiriesCount ?? 0;
 
     final List<DashboardMetric> propertyMetrics = <DashboardMetric>[
       DashboardMetric(
@@ -1886,6 +1936,11 @@ class DashboardPage extends StatelessWidget {
                       '${supportSummary?.openTicketsCount ?? 0} open tickets',
                   tone: UiTone.warning,
                 ),
+                if (propertyEnquiryCount > 0)
+                  ToneBadge(
+                    label: '$propertyEnquiryCount new enquiries',
+                    tone: UiTone.warning,
+                  ),
               ],
             ),
             const SizedBox(height: 14),
@@ -1906,7 +1961,9 @@ class DashboardPage extends StatelessWidget {
                   onPressed: () => onShortcutSelected('properties'),
                 ),
                 CustomButton(
-                  label: 'Enquiries',
+                  label: propertyEnquiryCount > 0
+                      ? 'Enquiries - $propertyEnquiryCount'
+                      : 'Enquiries',
                   variant: CustomButtonVariant.outline,
                   icon: const Icon(Icons.manage_search_outlined),
                   onPressed: () => onShortcutSelected('enquiries'),

@@ -239,12 +239,10 @@ class PropertyService {
       );
     }
 
-    final List<dynamic> dataList = response.data as List<dynamic>;
+    final List<dynamic> dataList = _extractList(response.data);
     final List<PropertyEnquiryData> enquiries = dataList
-        .map(
-          (dynamic item) =>
-              PropertyEnquiryData.fromJson(item as Map<String, dynamic>),
-        )
+        .whereType<Map<String, dynamic>>()
+        .map(PropertyEnquiryData.fromJson)
         .toList();
 
     return (
@@ -254,6 +252,28 @@ class PropertyService {
       resolvedCount:
           (response.extras['Resolved_Enquiry_Count'] as num?)?.toInt() ?? 0,
     );
+  }
+
+  static List<dynamic> _extractList(dynamic data) {
+    if (data is List<dynamic>) {
+      return data;
+    }
+    if (data is Map<String, dynamic>) {
+      for (final String key in <String>[
+        'Data',
+        'Enquiries',
+        'Property_Enquiries',
+        'Records',
+        'Result',
+        'List',
+      ]) {
+        final dynamic nested = data[key];
+        if (nested is List<dynamic>) {
+          return nested;
+        }
+      }
+    }
+    return <dynamic>[];
   }
 
   static Future<ApiResponse> updateEnquiryStatus(

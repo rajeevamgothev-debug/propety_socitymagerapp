@@ -94,28 +94,30 @@ class BillingService {
       ApiConfig.filterResidentBills,
       <String, dynamic>{
         'SocietyID': societyId,
+        'Whether_Society_Filter': societyId.isNotEmpty,
+        'Whether_SocietyID_Filter': societyId.isNotEmpty,
+        if (societyId.isNotEmpty) 'SocietyID_Array': <String>[societyId],
         'Skip': skip,
         'Limit': limit,
         'Whether_Bill_Status_Filter': statusFilter != null,
         if (statusFilter != null)
           'Bill_Status': _billStatusToApi(statusFilter),
         'Whether_Bill_Type_Filter': billType != null,
-        if (billType != null) 'Bill_Type': billType,
+        'Bill_Type': billType ?? 1,
         'Whether_Block_Filter': blockId != null && blockId.isNotEmpty,
-        if (blockId != null && blockId.isNotEmpty) 'BlockID': blockId,
+        'BlockID': blockId ?? '',
         'Whether_Building_Filter': buildingId != null && buildingId.isNotEmpty,
-        if (buildingId != null && buildingId.isNotEmpty) 'BuildingID': buildingId,
+        'BuildingID': buildingId ?? '',
         'Whether_Selected_Vendor_Filter':
             selectedVendorId != null && selectedVendorId.isNotEmpty,
-        if (selectedVendorId != null && selectedVendorId.isNotEmpty)
-          'Selected_VendorID': selectedVendorId,
+        'Selected_VendorID': selectedVendorId ?? '',
         'Whether_Search_Filter': search != null && search.isNotEmpty,
-        if (search != null && search.isNotEmpty) 'Search': search,
+        'Search': search ?? '',
       },
     );
 
     final ({List<BillRecord> bills, int count}) parsed =
-        _parseBillResponse(response);
+        _parseBillResponse(response, societyId: societyId);
     return (
       bills: parsed.bills,
       count: parsed.count,
@@ -186,6 +188,7 @@ class BillingService {
   }) async {
     final bool hasPropertyFilter =
         propertyId != null && propertyId.isNotEmpty;
+    final bool hasContractFilter = contractId != null && contractId.isNotEmpty;
     final ApiResponse response = await ApiClient.instance.post(
       ApiConfig.filterPropertyContractBills,
       <String, dynamic>{
@@ -202,9 +205,9 @@ class BillingService {
             propertyVendorId != null && propertyVendorId.isNotEmpty,
         if (propertyVendorId != null && propertyVendorId.isNotEmpty)
           'Property_VendorID': propertyVendorId,
-        'Whether_Contract_Filter': contractId != null && contractId.isNotEmpty,
-        if (contractId != null && contractId.isNotEmpty)
-          'Rental_ContractID': contractId,
+        'Whether_Rental_Contract_Filter': hasContractFilter,
+        'Whether_Contract_Filter': hasContractFilter,
+        'Rental_ContractID': hasContractFilter ? contractId : '',
         'Whether_Search_Filter': search != null && search.isNotEmpty,
         if (search != null && search.isNotEmpty) 'Search': search,
       },
@@ -260,19 +263,80 @@ class BillingService {
   }
 
   static ({List<BillRecord> bills, int count}) _parseBillResponse(
-    ApiResponse response,
-  ) {
+    ApiResponse response, {
+    String? societyId,
+  }) {
     if (!response.success || response.data == null) {
       return (bills: <BillRecord>[], count: 0);
     }
 
     final List<dynamic> dataList = response.data as List<dynamic>;
-    final List<BillRecord> bills = dataList
-        .map((dynamic item) =>
-            BillData.fromJson(item as Map<String, dynamic>).toBillRecord())
+    final List<Map<String, dynamic>> billMaps = dataList
+        .whereType<Map<String, dynamic>>()
+        .where((Map<String, dynamic> item) => _isBillForSociety(item, societyId))
+        .toList();
+    final List<BillRecord> bills = billMaps
+        .map(
+          (Map<String, dynamic> item) =>
+              BillData.fromJson(item).toBillRecord(),
+        )
         .toList();
 
-    return (bills: bills, count: response.count ?? bills.length);
+    final bool locallyFiltered =
+        (societyId ?? '').trim().isNotEmpty &&
+        billMaps.length != dataList.length;
+    return (
+      bills: bills,
+      count: locallyFiltered ? bills.length : response.count ?? bills.length,
+    );
+  }
+
+  static bool _isBillForSociety(
+    Map<String, dynamic> json,
+    String? requestedSocietyId,
+  ) {
+    final String requested = requestedSocietyId?.trim() ?? '';
+    if (requested.isEmpty) {
+      return true;
+    }
+
+    final String recordSocietyId = _readNestedString(json, <List<String>>[
+      <String>['SocietyID'],
+      <String>['Society_ID'],
+      <String>['SocietyId'],
+      <String>['Society_Data', 'SocietyID'],
+      <String>['Society_Data', 'Society_ID'],
+      <String>['Society_Data', '_id'],
+      <String>['Society_Information', 'SocietyID'],
+      <String>['Society_Information', '_id'],
+      <String>['Society_Resident_Information', 'SocietyID'],
+      <String>['Society_Resident_Information', 'Society_ID'],
+      <String>['Resident_Data', 'SocietyID'],
+      <String>['Resident_Data', 'Society_ID'],
+    ]);
+
+    return recordSocietyId.isEmpty || recordSocietyId == requested;
+  }
+
+  static String _readNestedString(
+    Map<String, dynamic> json,
+    List<List<String>> paths,
+  ) {
+    for (final List<String> path in paths) {
+      dynamic value = json;
+      for (final String key in path) {
+        if (value is! Map<String, dynamic>) {
+          value = null;
+          break;
+        }
+        value = value[key];
+      }
+      final String text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+    return '';
   }
 
   /// Collect bill amount (payment).

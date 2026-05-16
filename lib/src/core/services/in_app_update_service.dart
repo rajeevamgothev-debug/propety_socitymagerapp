@@ -1,51 +1,62 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:in_app_update/in_app_update.dart';
 
-/// Checks the Google Play Store for available updates and prompts the user
-/// using the native Android In-App Updates API.
-///
-/// - **Immediate update**: full-screen blocking UI (used for high-priority updates).
-/// - **Flexible update**: downloads in background, then shows a snackbar to restart.
-///
-/// This only works on Android when the app is installed from the Play Store.
-/// Fails silently on iOS, emulators, debug builds, and sideloaded APKs.
-class InAppUpdateService {
-  static Future<void> checkForUpdate(BuildContext context) async {
+class AppUpdateService {
+  AppUpdateService._();
+
+  static const Duration _timeout = Duration(seconds: 12);
+  static bool _hasCheckedThisSession = false;
+
+  static Future<void> checkForUpdate() async {
+    if (_hasCheckedThisSession || kIsWeb) {
+      return;
+    }
+    _hasCheckedThisSession = true;
+
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+
     try {
-      final AppUpdateInfo updateInfo = await InAppUpdate.checkForUpdate();
+      _debugLog('Checking Play in-app update availability.');
+      final AppUpdateInfo updateInfo = await InAppUpdate.checkForUpdate()
+          .timeout(_timeout);
 
       if (updateInfo.updateAvailability !=
           UpdateAvailability.updateAvailable) {
+        _debugLog('No Play update available.');
         return;
       }
 
-      // High-priority (>= 4) or stale (> 3 days) → immediate update.
-      final bool isHighPriority = updateInfo.updatePriority >= 4;
-      final bool isStale =
-          (updateInfo.clientVersionStalenessDays ?? 0) > 3;
-
-      if (updateInfo.immediateUpdateAllowed &&
-          (isHighPriority || isStale)) {
-        await InAppUpdate.performImmediateUpdate();
-      } else if (updateInfo.flexibleUpdateAllowed) {
-        await InAppUpdate.startFlexibleUpdate();
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Update downloaded. Restart to install.'),
-              action: SnackBarAction(
-                label: 'RESTART',
-                onPressed: () => InAppUpdate.completeFlexibleUpdate(),
-              ),
-              duration: const Duration(seconds: 10),
-            ),
-          );
-        }
+      if (updateInfo.immediateUpdateAllowed) {
+        _debugLog('Starting immediate Play update.');
+        await InAppUpdate.performImmediateUpdate().timeout(_timeout);
+        return;
       }
-    } catch (_) {
-      // Silently fail — in-app update is non-critical.
-      // Throws on iOS, emulators, debug/sideloaded builds.
+
+      if (!updateInfo.flexibleUpdateAllowed) {
+        _debugLog('Play update available but no allowed update flow.');
+        return;
+      }
+
+      _debugLog('Starting flexible Play update.');
+      final AppUpdateResult result =
+          await InAppUpdate.startFlexibleUpdate().timeout(_timeout);
+      if (result == AppUpdateResult.success) {
+        _debugLog('Completing flexible Play update.');
+        await InAppUpdate.completeFlexibleUpdate().timeout(_timeout);
+      } else {
+        _debugLog('Flexible Play update ended with $result.');
+      }
+    } catch (error) {
+      // Non-critical. This can throw for debug, sideloaded, or non-Play installs.
+      _debugLog('Play in-app update check skipped/failed: $error');
+    }
+  }
+
+  static void _debugLog(String message) {
+    if (kDebugMode) {
+      debugPrint('AppUpdateService: $message');
     }
   }
 }

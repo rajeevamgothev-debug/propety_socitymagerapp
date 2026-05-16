@@ -1,9 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api/announcement_service.dart';
 import '../../core/api/block_building_service.dart';
 import '../../core/api/society_service.dart';
-import '../../core/api/vendor_service.dart';
 import '../../core/models/api_models.dart';
 import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
@@ -40,7 +41,6 @@ class _CommunicationPageState extends State<CommunicationPage> {
   int? _priorityFilter;
   String _blockFilter = '';
   String _buildingFilter = '';
-  VendorData? _vendor;
   String _societyId = '';
   List<BlockData> _blocks = <BlockData>[];
   List<BuildingData> _buildings = <BuildingData>[];
@@ -63,17 +63,11 @@ class _CommunicationPageState extends State<CommunicationPage> {
   }
 
   Future<void> _bootstrap() async {
-    await _loadVendor();
+    await _loadSocietyContext();
     await _loadAnnouncements();
   }
 
-  Future<void> _loadVendor() async {
-    try {
-      _vendor = await VendorService.fetchVendorInfo();
-    } catch (_) {
-      _vendor = null;
-    }
-
+  Future<void> _loadSocietyContext() async {
     // Resolve societyId from the society API (Vendor model has no SocietyID).
     if (widget.role.isSocietyScope && _societyId.isEmpty) {
       try {
@@ -164,7 +158,7 @@ class _CommunicationPageState extends State<CommunicationPage> {
   }
 
   Future<void> _refreshAll() async {
-    await _loadVendor();
+    await _loadSocietyContext();
     await _loadAnnouncements();
     widget.onRefresh?.call();
   }
@@ -176,7 +170,8 @@ class _CommunicationPageState extends State<CommunicationPage> {
         .toList();
     final List<AnnouncementRecord> activeItems =
         _selectedIndex == 0 ? _announcements : unreadOnly;
-    final bool isBusy = widget.isLoading || _isLoadingAnnouncements;
+    final bool isBusy =
+        _isLoadingAnnouncements || (widget.isLoading && _announcements.isEmpty);
 
     Widget content = ListView(
       padding: AppTheme.pagePadding,
@@ -515,6 +510,8 @@ class _CommunicationPageState extends State<CommunicationPage> {
         : '';
     bool targetSpecific = blockId.isNotEmpty || buildingId.isNotEmpty;
     bool sheetClosed = false;
+    bool refreshAfterClose = false;
+    String? successMessage;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -564,7 +561,8 @@ class _CommunicationPageState extends State<CommunicationPage> {
                     title: titleController.text.trim(),
                     description: descriptionController.text.trim(),
                     priority: priority,
-                    blockIds: blockId.isEmpty ? const <String>[] : <String>[blockId],
+                    blockIds:
+                        blockId.isEmpty ? const <String>[] : <String>[blockId],
                     buildingIds: buildingId.isEmpty
                         ? const <String>[]
                         : <String>[buildingId],
@@ -573,15 +571,13 @@ class _CommunicationPageState extends State<CommunicationPage> {
                 if (!mounted || sheetClosed) {
                   return;
                 }
+                FocusManager.instance.primaryFocus?.unfocus();
+                successMessage = announcement == null
+                    ? 'Announcement created successfully.'
+                    : 'Announcement updated successfully.';
+                refreshAfterClose = true;
                 sheetClosed = true;
                 Navigator.of(context).pop();
-                _showMessage(
-                  announcement == null
-                      ? 'Announcement created successfully.'
-                      : 'Announcement updated successfully.',
-                );
-                await _loadAnnouncements();
-                widget.onRefresh?.call();
               } catch (error) {
                 _showMessage(error.toString().replaceFirst('Exception: ', ''));
                 safeSetModalState(() {
@@ -757,7 +753,11 @@ class _CommunicationPageState extends State<CommunicationPage> {
                             variant: CustomButtonVariant.outline,
                             onPressed: isSubmitting
                                 ? null
-                                : () => Navigator.of(context).pop(),
+                                : () {
+                                    FocusManager.instance.primaryFocus
+                                        ?.unfocus();
+                                    Navigator.of(context).pop();
+                                  },
                           ),
                         ),
                       ],
@@ -773,8 +773,18 @@ class _CommunicationPageState extends State<CommunicationPage> {
       sheetClosed = true;
     });
 
-    titleController.dispose();
-    descriptionController.dispose();
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 300), () {
+        titleController.dispose();
+        descriptionController.dispose();
+      }),
+    );
+
+    if (refreshAfterClose && mounted) {
+      _showMessage(successMessage ?? 'Announcement saved successfully.');
+      await _loadAnnouncements();
+      widget.onRefresh?.call();
+    }
   }
 
   int _priorityToApi(String? label) {

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/api_models.dart';
+import 'api_client.dart';
+import 'api_config.dart';
 import 'auth_service.dart';
 import 'auth_storage.dart';
 
@@ -199,6 +201,23 @@ class PublicDiscoveryService {
       },
     );
     return extras['Status'] as String? ?? 'Enquiry submitted successfully.';
+  }
+
+  static Future<String> createAuthenticatedPropertyEnquiry({
+    required String propertyId,
+  }) async {
+    final ApiResponse response = await ApiClient.instance.post(
+      ApiConfig.createAuthenticatedPropertyEnquiry,
+      <String, dynamic>{'PropertyID': propertyId},
+    );
+
+    if (!response.success) {
+      throw Exception(
+        response.message ?? response.status ?? 'Failed to submit enquiry.',
+      );
+    }
+
+    return response.status ?? 'Enquiry submitted successfully.';
   }
 
   static Future<Map<String, dynamic>> _post(

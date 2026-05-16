@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../core/api/block_building_service.dart';
 import '../../core/api/razorpay_checkout_service.dart';
 import '../../core/api/society_service.dart';
+import '../../core/api/support_service.dart';
+import '../../core/api/upload_service.dart';
 import '../../core/api/vendor_service.dart';
 import '../../core/models/api_models.dart';
 import '../../core/models/app_models.dart';
@@ -89,6 +91,7 @@ class _ResidentsPageState extends State<ResidentsPage> {
           buildingId: _buildingFilter.isEmpty ? null : _buildingFilter,
           residentType: _residentTypeFilter,
         ),
+        _loadResidentSupportTickets(societyId),
         SocietyService.fetchSocietyInfo(),
       ]);
 
@@ -101,7 +104,12 @@ class _ResidentsPageState extends State<ResidentsPage> {
           results[1] as ({List<BuildingData> buildings, int count});
       final residentsResult =
           results[2] as ({List<ResidentRecord> residents, int count});
-      final SocietyData? societyInfo = results[3] as SocietyData?;
+      final supportTickets = results[3] as List<TicketRecord>;
+      final SocietyData? societyInfo = results[4] as SocietyData?;
+      final List<ResidentRecord> residents = _mergeResidentImagesFromTickets(
+        residentsResult.residents,
+        supportTickets,
+      );
 
       setState(() {
         _societyId = societyId;
@@ -112,7 +120,7 @@ class _ResidentsPageState extends State<ResidentsPage> {
         _buildings = buildingsResult.buildings
             .where((BuildingData item) => item.status)
             .toList();
-        _residents = residentsResult.residents;
+        _residents = residents;
         _totalCount = residentsResult.count;
         _isLoading = false;
       });
@@ -126,6 +134,102 @@ class _ResidentsPageState extends State<ResidentsPage> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<List<TicketRecord>> _loadResidentSupportTickets(String societyId) async {
+    try {
+      final result = await SupportService.filterSocietyTickets(
+        societyId: societyId,
+        limit: 200,
+      );
+      return result.tickets;
+    } catch (_) {
+      return <TicketRecord>[];
+    }
+  }
+
+  List<ResidentRecord> _mergeResidentImagesFromTickets(
+    List<ResidentRecord> residents,
+    List<TicketRecord> tickets,
+  ) {
+    if (residents.isEmpty || tickets.isEmpty) {
+      return residents;
+    }
+
+    final Map<String, String> imageByKey = <String, String>{};
+    for (final TicketRecord ticket in tickets) {
+      final String imageUrl = ticket.residentImageUrl?.trim() ?? '';
+      if (imageUrl.isEmpty) {
+        continue;
+      }
+
+      for (final String key in <String>[
+        _profilePhoneKey(ticket.residentPhone),
+        _profileEmailKey(ticket.residentEmail),
+        _profileFlatNameKey(ticket.flatNo, ticket.residentName),
+      ]) {
+        if (key.isNotEmpty) {
+          imageByKey.putIfAbsent(key, () => imageUrl);
+        }
+      }
+    }
+
+    if (imageByKey.isEmpty) {
+      return residents;
+    }
+
+    return residents.map((ResidentRecord resident) {
+      if ((resident.imageUrl ?? '').trim().isNotEmpty) {
+        return resident;
+      }
+
+      final String imageUrl =
+          imageByKey[_profilePhoneKey(resident.phone)] ??
+          imageByKey[_profileEmailKey(resident.email)] ??
+          imageByKey[_profileFlatNameKey(resident.flatNo, resident.name)] ??
+          '';
+
+      if (imageUrl.isEmpty) {
+        return resident;
+      }
+      return resident.copyWith(imageUrl: imageUrl);
+    }).toList();
+  }
+
+  String _profilePhoneKey(String? value) {
+    final String digits = (value ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
+      return '';
+    }
+    final String normalized = digits.length > 10
+        ? digits.substring(digits.length - 10)
+        : digits;
+    return 'phone:$normalized';
+  }
+
+  String _profileEmailKey(String? value) {
+    final String email = (value ?? '').trim().toLowerCase();
+    return email.isEmpty ? '' : 'email:$email';
+  }
+
+  String _profileFlatKey(String? value) {
+    final String flat = (value ?? '')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '')
+        .toLowerCase();
+    return flat.isEmpty ? '' : 'flat:$flat';
+  }
+
+  String _profileFlatNameKey(String? flatValue, String? nameValue) {
+    final String flat = _profileFlatKey(flatValue);
+    final String name = (nameValue ?? '')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .toLowerCase();
+    if (flat.isEmpty || name.isEmpty) {
+      return '';
+    }
+    return '$flat|name:$name';
   }
 
   Future<void> _toggleResident(ResidentRecord resident) async {
@@ -148,10 +252,12 @@ class _ResidentsPageState extends State<ResidentsPage> {
       return;
     }
 
+    final int minimumRenewalCount = _minimumRenewalResidentsCount();
+    final int purchasedCount = _societyInfo?.purchasedResidentsCount ?? 0;
     final int initialCount = renewal
-        ? ((_societyInfo?.totalResidentsCreationCount ?? _residents.length) > 0
-              ? (_societyInfo?.totalResidentsCreationCount ?? _residents.length)
-              : 1)
+        ? (purchasedCount > 0
+              ? purchasedCount
+              : (minimumRenewalCount > 0 ? minimumRenewalCount : 1))
         : 1;
     final TextEditingController countController = TextEditingController(
       text: '$initialCount',
@@ -176,6 +282,16 @@ class _ResidentsPageState extends State<ResidentsPage> {
               if (count < 1) {
                 setModalState(() {
                   errorMessage = 'Enter at least one resident slot.';
+                });
+                return;
+              }
+              final String? renewalLimitMessage = renewal
+                  ? _residentRenewalLimitMessage(count)
+                  : null;
+              if (renewalLimitMessage != null) {
+                setModalState(() {
+                  calculation = null;
+                  errorMessage = renewalLimitMessage;
                 });
                 return;
               }
@@ -226,6 +342,16 @@ class _ResidentsPageState extends State<ResidentsPage> {
               }
 
               final int count = parseCount();
+              final String? renewalLimitMessage = renewal
+                  ? _residentRenewalLimitMessage(count)
+                  : null;
+              if (renewalLimitMessage != null) {
+                setModalState(() {
+                  calculation = null;
+                  errorMessage = renewalLimitMessage;
+                });
+                return;
+              }
               setModalState(() {
                 purchasing = true;
                 errorMessage = null;
@@ -354,6 +480,11 @@ class _ResidentsPageState extends State<ResidentsPage> {
                               'Used ${_societyInfo?.usedResidentsCreationCount ?? _residents.length}',
                           tone: UiTone.warning,
                         ),
+                        if (renewal && minimumRenewalCount > 0)
+                          ToneBadge(
+                            label: 'Minimum $minimumRenewalCount',
+                            tone: UiTone.danger,
+                          ),
                         if ((_societyInfo?.purchasedResidentsExpiryDate ?? '')
                             .isNotEmpty)
                           ToneBadge(
@@ -375,7 +506,9 @@ class _ResidentsPageState extends State<ResidentsPage> {
                       onChanged: (_) {
                         setModalState(() {
                           calculation = null;
-                          errorMessage = null;
+                          errorMessage = renewal
+                              ? _residentRenewalLimitMessage(parseCount())
+                              : null;
                         });
                       },
                     ),
@@ -437,12 +570,40 @@ class _ResidentsPageState extends State<ResidentsPage> {
                     if (errorMessage != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          errorMessage!,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.toneSoft(UiTone.danger),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusSmall,
+                            ),
+                            border: Border.all(
+                              color: AppTheme.toneContainer(UiTone.danger),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Icon(
+                                Icons.error_outline_rounded,
+                                size: 18,
                                 color: AppTheme.toneColor(UiTone.danger),
                               ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  errorMessage!,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: AppTheme.toneColor(
+                                          UiTone.danger,
+                                        ),
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     Row(
@@ -1164,6 +1325,32 @@ class _ResidentsPageState extends State<ResidentsPage> {
     return 0;
   }
 
+  int _activeResidentCountForRenewal() {
+    final int apiActiveResidents = _societyInfo?.activeResidents ?? 0;
+    if (apiActiveResidents > 0) {
+      return apiActiveResidents;
+    }
+    return _residents.where((ResidentRecord item) => item.status).length;
+  }
+
+  int _minimumRenewalResidentsCount() {
+    final int activeResidents = _activeResidentCountForRenewal();
+    final int freeResidents = _societyInfo?.freeResidentsCount ?? 0;
+    final int requiredPurchasedResidents = activeResidents - freeResidents;
+    return requiredPurchasedResidents > 0 ? requiredPurchasedResidents : 0;
+  }
+
+  String? _residentRenewalLimitMessage(int count) {
+    final int minimumRenewalCount = _minimumRenewalResidentsCount();
+    if (minimumRenewalCount <= 0 || count >= minimumRenewalCount) {
+      return null;
+    }
+
+    final int activeResidents = _activeResidentCountForRenewal();
+    final int freeResidents = _societyInfo?.freeResidentsCount ?? 0;
+    return 'Insufficient Residents. There are $activeResidents active residents. You have $freeResidents free residents, so you need to purchase at least $minimumRenewalCount extra residents.';
+  }
+
   UiTone _slotExpiryTone(int urgency) {
     return switch (urgency) {
       2 => UiTone.danger,
@@ -1194,19 +1381,7 @@ class _ResidentsPageState extends State<ResidentsPage> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primaryTone,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.person_outline,
-                    color: AppTheme.primary,
-                    size: 38,
-                  ),
-                ),
+                _ResidentAvatar(imageUrl: resident.imageUrl),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -1405,6 +1580,103 @@ class _ResidentsPageState extends State<ResidentsPage> {
           controller.dispose();
         }
       }),
+    );
+  }
+}
+
+class _ResidentAvatar extends StatefulWidget {
+  const _ResidentAvatar({this.imageUrl});
+
+  final String? imageUrl;
+
+  @override
+  State<_ResidentAvatar> createState() => _ResidentAvatarState();
+}
+
+class _ResidentAvatarState extends State<_ResidentAvatar> {
+  String? _resolvedUrl;
+  bool _isResolving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveImageId();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ResidentAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _resolvedUrl = null;
+      _resolveImageId();
+    }
+  }
+
+  Future<void> _resolveImageId() async {
+    final String value = widget.imageUrl?.trim() ?? '';
+    if (!value.startsWith('imageid:') || _isResolving) {
+      return;
+    }
+
+    final String imageId = value.substring('imageid:'.length).trim();
+    if (imageId.isEmpty) {
+      return;
+    }
+
+    setState(() => _isResolving = true);
+    try {
+      final String? resolved = await UploadService.fetchImageInfo(imageId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _resolvedUrl = resolved;
+        _isResolving = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isResolving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String rawUrl = widget.imageUrl?.trim() ?? '';
+    final String url = rawUrl.startsWith('imageid:')
+        ? (_resolvedUrl ?? '')
+        : rawUrl;
+
+    return ClipOval(
+      child: Container(
+        width: 76,
+        height: 76,
+        color: AppTheme.primaryTone,
+        child: _isResolving
+            ? const Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : url.isEmpty
+            ? const Icon(
+                Icons.person_outline,
+                color: AppTheme.primary,
+                size: 38,
+              )
+            : Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.person_outline,
+                  color: AppTheme.primary,
+                  size: 38,
+                ),
+              ),
+      ),
     );
   }
 }

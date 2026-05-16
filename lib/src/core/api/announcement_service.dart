@@ -67,7 +67,7 @@ class AnnouncementService {
     List<String> blockIds = const <String>[],
     List<String> buildingIds = const <String>[],
   }) async {
-    return ApiClient.instance.post(
+    final ApiResponse response = await ApiClient.instance.post(
       ApiConfig.createAnnouncement,
       <String, dynamic>{
         'SocietyID': societyId,
@@ -80,6 +80,12 @@ class AnnouncementService {
         'BuildingID_Array': buildingIds,
       },
     );
+    if (!response.success) {
+      throw Exception(
+        response.message ?? response.status ?? 'Failed to create announcement.',
+      );
+    }
+    return response;
   }
 
   static Future<ApiResponse> editAnnouncement({
@@ -90,7 +96,7 @@ class AnnouncementService {
     List<String> blockIds = const <String>[],
     List<String> buildingIds = const <String>[],
   }) async {
-    return ApiClient.instance.post(
+    final ApiResponse response = await ApiClient.instance.post(
       ApiConfig.editAnnouncement,
       <String, dynamic>{
         'Society_AnnouncementID': announcementId,
@@ -103,6 +109,12 @@ class AnnouncementService {
         'BuildingID_Array': buildingIds,
       },
     );
+    if (!response.success) {
+      throw Exception(
+        response.message ?? response.status ?? 'Failed to update announcement.',
+      );
+    }
+    return response;
   }
 
   static ({List<AnnouncementRecord> announcements, int count})
@@ -111,16 +123,41 @@ class AnnouncementService {
       return (announcements: <AnnouncementRecord>[], count: 0);
     }
 
-    final List<dynamic> dataList = response.data as List<dynamic>;
+    final List<dynamic> dataList = _extractAnnouncementList(response.data);
     final List<AnnouncementRecord> announcements = dataList
-        .map((dynamic item) =>
-            AnnouncementData.fromJson(item as Map<String, dynamic>)
-                .toAnnouncementRecord())
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (Map<String, dynamic> item) =>
+              AnnouncementData.fromJson(item).toAnnouncementRecord(),
+        )
         .toList();
 
     return (
       announcements: announcements,
       count: response.count ?? announcements.length,
     );
+  }
+
+  static List<dynamic> _extractAnnouncementList(dynamic data) {
+    if (data is List<dynamic>) {
+      return data;
+    }
+    if (data is Map<String, dynamic>) {
+      for (final String key in <String>[
+        'Data',
+        'Announcements',
+        'Society_Announcements',
+        'SocietyAnnouncements',
+        'Records',
+        'Result',
+        'List',
+      ]) {
+        final dynamic nested = data[key];
+        if (nested is List<dynamic>) {
+          return nested;
+        }
+      }
+    }
+    return <dynamic>[];
   }
 }

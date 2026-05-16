@@ -12,6 +12,7 @@ import '../../core/api/vendor_service.dart';
 import '../../core/models/api_models.dart';
 import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/contact_launcher.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_card.dart';
 import '../../core/widgets/custom_tab_bar.dart';
@@ -311,32 +312,34 @@ class _SupportPageState extends State<SupportPage> {
           ],
         ),
         const SizedBox(height: 16),
-        CustomCard(
-          padding: CustomCardPadding.sm,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                _isManagementRole
-                    ? 'Create and manage support tickets for the current backend queue.'
-                    : 'Raise a support issue against your linked society or property context.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
+        if (widget.role != AppRole.propertyManager) ...<Widget>[
+          CustomCard(
+            padding: CustomCardPadding.sm,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  _isManagementRole
+                      ? 'Create and manage support tickets for the current backend queue.'
+                      : 'Raise a support issue against your linked society or property context.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: CustomButton(
-                  label: 'Create Ticket',
-                  icon: const Icon(Icons.add_rounded),
-                  onPressed: _openCreateTicketSheet,
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: CustomButton(
+                    label: 'Create Ticket',
+                    icon: const Icon(Icons.add_rounded),
+                    onPressed: _openCreateTicketSheet,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
+        ],
         if (isBusy)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
@@ -379,6 +382,11 @@ class _SupportPageState extends State<SupportPage> {
             final bool showSocietyResidentSummary =
                 widget.role.isSocietyScope &&
                 _hasSocietyResidentSummary(ticket);
+            final DateTime displayTimestamp =
+                ticket.createdAt ?? ticket.updatedAt;
+            final String displayTimestampLabel = ticket.createdAt == null
+                ? 'Updated'
+                : 'Created';
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: CustomCard(
@@ -495,25 +503,39 @@ class _SupportPageState extends State<SupportPage> {
                             AppTheme.radiusSmall,
                           ),
                         ),
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            if ((ticket.propertyTitle ?? '').isNotEmpty)
-                              Text(ticket.propertyTitle!),
-                            if ((ticket.propertyFlatNo ?? '').isNotEmpty)
-                              Text('Unit ${ticket.propertyFlatNo!}'),
-                            if ((ticket.tenantName ?? '').isNotEmpty)
-                              Text(ticket.tenantName!),
-                            if ((ticket.tenantPhone ?? '').isNotEmpty)
-                              Text(ticket.tenantPhone!),
+                            _SupportTicketAvatar(
+                              imageUrl: ticket.tenantImageUrl,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: <Widget>[
+                                  if ((ticket.propertyTitle ?? '').isNotEmpty)
+                                    Text(ticket.propertyTitle!),
+                                  if ((ticket.propertyFlatNo ?? '').isNotEmpty)
+                                    Text('Unit ${ticket.propertyFlatNo!}'),
+                                  if ((ticket.tenantName ?? '').isNotEmpty)
+                                    Text(ticket.tenantName!),
+                                  if ((ticket.tenantPhone ?? '').isNotEmpty)
+                                    ContactTextButton.phone(
+                                      value: ticket.tenantPhone!,
+                                      label: ticket.tenantPhone!,
+                                    ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 12),
                     ],
                     Text(
-                      '${_usesTenantWebsiteFlow ? 'Created' : 'Updated'} ${formatCompactDate(ticket.createdAt ?? ticket.updatedAt)} at ${formatClock(ticket.createdAt ?? ticket.updatedAt)}',
+                      '$displayTimestampLabel ${formatCompactDate(displayTimestamp)} at ${formatClock(displayTimestamp)}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppTheme.textMuted,
                       ),
@@ -679,7 +701,7 @@ class _SupportPageState extends State<SupportPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        _SupportTicketAvatar(imageUrl: ticket.imageUrl),
+        _SupportTicketAvatar(imageUrl: ticket.residentImageUrl),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -781,18 +803,16 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   Widget _supportContactLine(ThemeData theme, IconData icon, String value) {
+    final bool isEmail = value.contains('@');
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Icon(icon, size: 19, color: AppTheme.textSecondary),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textSecondary,
-            ),
-          ),
+          child: isEmail
+              ? ContactTextButton.email(value: value, label: value)
+              : ContactTextButton.phone(value: value, label: value),
         ),
       ],
     );
@@ -1106,10 +1126,11 @@ class _SupportPageState extends State<SupportPage> {
       },
     ).whenComplete(() {
       sheetClosed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        titleController.dispose();
+        descriptionController.dispose();
+      });
     });
-
-    titleController.dispose();
-    descriptionController.dispose();
   }
 
   Future<void> _openTenantCreateTicketSheet() async {
@@ -1564,10 +1585,11 @@ class _SupportPageState extends State<SupportPage> {
       },
     ).whenComplete(() {
       sheetClosed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        titleController.dispose();
+        descriptionController.dispose();
+      });
     });
-
-    titleController.dispose();
-    descriptionController.dispose();
   }
 
   void _showTicketDetails(TicketRecord ticket) {
@@ -1629,9 +1651,15 @@ class _SupportPageState extends State<SupportPage> {
                     if ((ticket.residentName ?? '').isNotEmpty)
                       Text('Name: ${ticket.residentName!}'),
                     if ((ticket.residentPhone ?? '').isNotEmpty)
-                      Text('Phone: ${ticket.residentPhone!}'),
+                      ContactTextButton.phone(
+                        value: ticket.residentPhone!,
+                        label: 'Phone: ${ticket.residentPhone!}',
+                      ),
                     if ((ticket.residentEmail ?? '').isNotEmpty)
-                      Text('Email: ${ticket.residentEmail!}'),
+                      ContactTextButton.email(
+                        value: ticket.residentEmail!,
+                        label: 'Email: ${ticket.residentEmail!}',
+                      ),
                     const SizedBox(height: 16),
                   ],
                   if ((ticket.societyName ?? '').isNotEmpty ||
@@ -1713,7 +1741,10 @@ class _SupportPageState extends State<SupportPage> {
                     if ((ticket.tenantName ?? '').isNotEmpty)
                       Text('Tenant: ${ticket.tenantName!}'),
                     if ((ticket.tenantPhone ?? '').isNotEmpty)
-                      Text('Phone: ${ticket.tenantPhone!}'),
+                      ContactTextButton.phone(
+                        value: ticket.tenantPhone!,
+                        label: 'Phone: ${ticket.tenantPhone!}',
+                      ),
                   ],
                 ],
               ),
@@ -1747,21 +1778,84 @@ class _SupportPageState extends State<SupportPage> {
   }
 }
 
-class _SupportTicketAvatar extends StatelessWidget {
+class _SupportTicketAvatar extends StatefulWidget {
   const _SupportTicketAvatar({this.imageUrl});
 
   final String? imageUrl;
 
   @override
+  State<_SupportTicketAvatar> createState() => _SupportTicketAvatarState();
+}
+
+class _SupportTicketAvatarState extends State<_SupportTicketAvatar> {
+  String? _resolvedUrl;
+  bool _isResolving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveImageId();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SupportTicketAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _resolvedUrl = null;
+      _resolveImageId();
+    }
+  }
+
+  Future<void> _resolveImageId() async {
+    final String value = widget.imageUrl?.trim() ?? '';
+    if (!value.startsWith('imageid:') || _isResolving) {
+      return;
+    }
+
+    final String imageId = value.substring('imageid:'.length).trim();
+    if (imageId.isEmpty) {
+      return;
+    }
+
+    setState(() => _isResolving = true);
+    try {
+      final String? resolved = await UploadService.fetchImageInfo(imageId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _resolvedUrl = resolved;
+        _isResolving = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isResolving = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String url = imageUrl?.trim() ?? '';
+    final String rawUrl = widget.imageUrl?.trim() ?? '';
+    final String url = rawUrl.startsWith('imageid:')
+        ? (_resolvedUrl ?? '')
+        : rawUrl;
 
     return ClipOval(
       child: Container(
         width: 82,
         height: 82,
         color: AppTheme.surfaceMuted,
-        child: url.isEmpty
+        child: _isResolving
+            ? const Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : url.isEmpty
             ? const Icon(
                 Icons.person_outline,
                 size: 36,

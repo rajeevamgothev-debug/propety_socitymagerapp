@@ -1,0 +1,118 @@
+UrbanEasyFlats premium notification payload contract
+
+Use data-only FCM for custom Android notifications.
+Do not send the normal "notification" object for premium image notifications,
+because Android may render a simple text-only notification before Flutter can
+draw the custom BigPictureStyle notification.
+
+Required FCM shape:
+
+{
+  "token": "<device_fcm_token>",
+  "android": {
+    "priority": "high"
+  },
+  "data": {
+    "type": "booking_approved",
+    "category": "bookings",
+    "screen": "tenant_booking_detail",
+    "priority": "high",
+    "groupId": "bookings_group",
+
+    "bookingId": "BOOKING_ID",
+    "propertyId": "PROPERTY_ID",
+    "propertyName": "Skyline PG",
+    "propertyType": "PG",
+    "propertyImage": "https://your-cdn.com/property.jpg",
+
+    "tenantName": "Rajeev",
+    "tenantPhone": "7702101745",
+    "amount": "8500",
+    "status": "CONFIRMED"
+  }
+}
+
+Supported image fields:
+
+- image
+- imageUrl
+- propertyImage
+- property_image
+- Property_Image_URL
+- Property_Image_Document
+- Property_Image
+- Property_Image_1
+- Property_Image_2
+- Property_Image_3
+- Image_URL
+- Notification_Image
+- notificationImage
+- societyBanner
+- Society_Banner
+- ticketImage
+- Ticket_Image
+- visitorPhoto
+- Visitor_Photo
+- big_picture
+- picture
+
+Supported JSON wrapper fields:
+
+- meta
+- metadata
+- Meta
+- payload
+
+If using one of these fields, send valid JSON string containing the same keys.
+
+Notification types:
+
+- enquiry
+- booking
+- booking_accepted
+- booking_approved
+- booking_rejected
+- rent_due
+- payment_success
+- payment_failed
+- society_notice
+- emergency_alert
+- ticket
+- maintenance
+- visitor
+- agreement
+- wallet
+- general
+
+Recommended image by type:
+
+- enquiry: propertyImage
+- booking/booking_approved/booking_rejected: propertyImage
+- rent_due/payment_success/payment_failed: no image or propertyImage
+- society_notice: societyBanner
+- emergency_alert: societyBanner or image
+- ticket/maintenance: ticketImage or propertyImage
+- visitor: visitorPhoto
+
+Recommended screen values:
+
+- property_enquiry_detail
+- booking_detail
+- tenant_booking_detail
+- bill_detail
+- payment_history
+- announcement_detail
+- support_ticket_detail
+- visitor_detail
+- rental_contract_detail
+- notifications
+
+Important:
+
+- Image must be a public HTTPS URL.
+- Avoid base64 images in FCM.
+- Keep FCM data values as strings.
+- Keep images below 5 MB.
+- If image URL fails, app shows branded logo fallback.
+- Tenant app logo fallback: assets/tenenet_logo.jpg
+- Manager app logo fallback: assets/manager_logo.jpg

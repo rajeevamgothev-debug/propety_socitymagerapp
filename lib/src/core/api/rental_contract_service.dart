@@ -14,6 +14,7 @@ class RentalContractService {
     ContractStatus? status,
     String? propertyId,
   }) async {
+    final bool isReadyToVacate = status == ContractStatus.readyToVacate;
     final ApiResponse response = await ApiClient.instance
         .post(ApiConfig.filterAllRentalContracts, <String, dynamic>{
           'Skip': skip,
@@ -26,9 +27,11 @@ class RentalContractService {
           'Selected_VendorID': AuthStorage.vendorId ?? '',
           'Whether_Tenant_Vendor_Filter': false,
           'Tenant_VendorID': '',
-          'Whether_Rental_Contract_Status_Filter': status != null,
-          if (status != null) 'Rental_Contract_Status': _statusToApi(status),
-          'Whether_Tenant_Status_Filter': false,
+          'Whether_Rental_Contract_Status_Filter':
+              status != null && !isReadyToVacate,
+          if (status != null && !isReadyToVacate)
+            'Rental_Contract_Status': _statusToApi(status),
+          'Whether_Tenant_Status_Filter': isReadyToVacate,
           'Tenant_Status': 1,
         });
 

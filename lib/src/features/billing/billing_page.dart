@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/billing_service.dart';
@@ -90,6 +92,8 @@ class _BillingPageState extends State<BillingPage> {
   String? _pmContractId;
   List<Map<String, String>> _pmProperties = <Map<String, String>>[];
   List<Map<String, String>> _pmContracts = <Map<String, String>>[];
+  Map<String, RentalContractRecord> _pmContractsById =
+      <String, RentalContractRecord>{};
 
   // ---------------------------------------------------------------------------
   // Society Manager direct-fetch state
@@ -317,7 +321,7 @@ class _BillingPageState extends State<BillingPage> {
         _showMessage('No society bills available for export.');
         return;
       }
-      await RentalBillPdfService.shareBillsReportPdf(result.bills);
+      await _openBillsReportPdfPreview(result.bills);
     } catch (error) {
       _showMessage(error.toString().replaceFirst('Exception: ', ''));
     }
@@ -350,10 +354,12 @@ class _BillingPageState extends State<BillingPage> {
       final String? pid = (_pmPropertyId != null && _pmPropertyId!.isNotEmpty)
           ? _pmPropertyId
           : null;
+      final bool hasEntityFilter =
+          pid != null || (_pmContractId?.trim().isNotEmpty ?? false);
       final result = await BillingService.filterPropertyContractBillsDetailed(
         propertyId: pid,
-        skip: _pmSkip,
-        limit: _pmPageSize,
+        skip: hasEntityFilter ? 0 : _pmSkip,
+        limit: hasEntityFilter ? 200 : _pmPageSize,
         search: _searchController.text.trim().isEmpty
             ? null
             : _searchController.text.trim(),
@@ -363,9 +369,13 @@ class _BillingPageState extends State<BillingPage> {
       if (!mounted) {
         return;
       }
+      final List<BillRecord> bills = _enrichPmBillsWithContractImages(
+        result.bills,
+      );
+      final List<BillRecord> visibleBills = _applyPmBillEntityFilters(bills);
       setState(() {
-        _pmBills = result.bills;
-        _pmTotalCount = result.count;
+        _pmBills = visibleBills;
+        _pmTotalCount = hasEntityFilter ? visibleBills.length : result.count;
         _pmPendingAmount = result.pendingAmount;
         _pmCollectedAmount = result.collectedAmount;
         _pmOverdueAmount = result.overdueAmount;
@@ -398,16 +408,129 @@ class _BillingPageState extends State<BillingPage> {
         return;
       }
       setState(() {
+        _pmContractsById = <String, RentalContractRecord>{
+          for (final RentalContractRecord contract in result.contracts)
+            contract.id: contract,
+        };
         _pmContracts = result.contracts.map((RentalContractRecord c) {
           return <String, String>{
             'id': c.id,
             'label': '${c.tenantName} — ${c.propertyTitle}',
           };
         }).toList();
+        if (_pmBills.isNotEmpty) {
+          _pmBills = _applyPmBillEntityFilters(
+            _enrichPmBillsWithContractImages(_pmBills),
+          );
+          if ((_pmPropertyId?.trim().isNotEmpty ?? false) ||
+              (_pmContractId?.trim().isNotEmpty ?? false)) {
+            _pmTotalCount = _pmBills.length;
+          }
+        }
       });
     } catch (_) {
       // contracts are optional for filter — silently ignore
     }
+  }
+
+  List<BillRecord> _enrichPmBillsWithContractImages(List<BillRecord> bills) {
+    if (_pmContractsById.isEmpty) {
+      return bills;
+    }
+
+    return bills.map((BillRecord bill) {
+      if ((bill.tenantImageUrl ?? '').trim().isNotEmpty) {
+        return bill;
+      }
+
+      RentalContractRecord? linkedContract;
+      final String contractId = (bill.rentalContractId ?? '').trim();
+      if (contractId.isNotEmpty) {
+        linkedContract = _pmContractsById[contractId];
+      }
+
+      linkedContract ??= _findMatchingPmContract(bill);
+      final String imageUrl = linkedContract?.tenantImageUrl?.trim() ?? '';
+      return imageUrl.isEmpty ? bill : bill.copyWith(tenantImageUrl: imageUrl);
+    }).toList();
+  }
+
+  RentalContractRecord? _findMatchingPmContract(BillRecord bill) {
+    final String billPropertyId = (bill.propertyId ?? '').trim();
+    final String billPhone = _digitsOnly(bill.residentPhone ?? '');
+    final String billUnit = bill.unitLabel.trim().toLowerCase();
+    final String billName = (bill.residentName ?? '').trim().toLowerCase();
+
+    for (final RentalContractRecord contract in _pmContractsById.values) {
+      final bool propertyMatches =
+          billPropertyId.isEmpty || billPropertyId == (contract.propertyId ?? '');
+      final bool phoneMatches =
+          billPhone.isNotEmpty &&
+          billPhone == _digitsOnly(contract.tenantPhone ?? '');
+      final bool unitMatches =
+          billUnit.isNotEmpty &&
+          billUnit != 'n/a' &&
+          billUnit == (contract.flatNo ?? '').trim().toLowerCase();
+      final bool nameMatches =
+          billName.isNotEmpty &&
+          billName == contract.tenantName.trim().toLowerCase();
+      if (propertyMatches && (phoneMatches || unitMatches || nameMatches)) {
+        return contract;
+      }
+    }
+    return null;
+  }
+
+  List<BillRecord> _applyPmBillEntityFilters(List<BillRecord> bills) {
+    final String propertyId = _pmPropertyId?.trim() ?? '';
+    final String contractId = _pmContractId?.trim() ?? '';
+    if (propertyId.isEmpty && contractId.isEmpty) {
+      return bills;
+    }
+
+    return bills.where((BillRecord bill) {
+      final RentalContractRecord? linkedContract =
+          _linkedContractForPmBill(bill);
+      if (propertyId.isNotEmpty) {
+        final String billPropertyId = (bill.propertyId ?? '').trim();
+        final String linkedPropertyId =
+            (linkedContract?.propertyId ?? '').trim();
+        final bool canCheckProperty =
+            billPropertyId.isNotEmpty || linkedPropertyId.isNotEmpty;
+        if (canCheckProperty &&
+            billPropertyId != propertyId &&
+            linkedPropertyId != propertyId) {
+          return false;
+        }
+      }
+      if (contractId.isNotEmpty) {
+        final String billContractId = (bill.rentalContractId ?? '').trim();
+        final String linkedContractId = (linkedContract?.id ?? '').trim();
+        final bool canCheckContract =
+            billContractId.isNotEmpty || linkedContractId.isNotEmpty;
+        if (canCheckContract &&
+            billContractId != contractId &&
+            linkedContractId != contractId) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+  }
+
+  RentalContractRecord? _linkedContractForPmBill(BillRecord bill) {
+    final String contractId = (bill.rentalContractId ?? '').trim();
+    if (contractId.isNotEmpty) {
+      final RentalContractRecord? contract = _pmContractsById[contractId];
+      if (contract != null) {
+        return contract;
+      }
+    }
+    return _findMatchingPmContract(bill);
+  }
+
+  String _digitsOnly(String value) {
+    return value.replaceAll(RegExp(r'\D'), '');
   }
 
   Future<void> _loadPmProperties() async {
@@ -417,7 +540,7 @@ class _BillingPageState extends State<BillingPage> {
       setState(() {
         _pmProperties = result.properties.map((Map<String, dynamic> p) {
           return <String, String>{
-            'id': (p['_id'] ?? p['PropertyID'] ?? '').toString(),
+            'id': (p['PropertyID'] ?? p['_id'] ?? '').toString(),
             'label': (p['Property_Title'] ?? p['Title'] ?? 'Untitled')
                 .toString(),
           };
@@ -436,9 +559,9 @@ class _BillingPageState extends State<BillingPage> {
 
   Widget _buildPmExportMenu(ThemeData theme, List<BillRecord> bills) {
     return PopupMenuButton<String>(
-      onSelected: (String value) {
+      onSelected: (String value) async {
         if (value == 'pdf') {
-          RentalBillPdfService.shareBillsReportPdf(bills);
+          await _openBillsReportPdfPreview(bills);
           return;
         }
         if (value == 'excel') {
@@ -1380,24 +1503,63 @@ class _BillingPageState extends State<BillingPage> {
         await _openPmGenerateBillsSheet();
         return;
       }
-      if (widget.role.isSocietyScope && _societyId.isNotEmpty) {
-        await BillingService.generateSocietyBills(_societyId);
-      } else {
+      if (!widget.role.isSocietyScope || _societyId.isEmpty) {
         _showMessage(
           'Linked society or property information is not available.',
         );
         return;
       }
-      _showMessage('Bill generation request submitted.');
+      final response = await BillingService.generateSocietyBills(_societyId);
+      if (!response.success) {
+        throw Exception(
+          response.message ??
+              response.status ??
+              'Unable to generate society bills.',
+        );
+      }
+      _showMessage(
+        response.status ?? response.message ?? 'Society bills generated.',
+      );
       if (_usesPmFlow) {
-        _loadPmBills();
+        await _loadPmBills();
       } else if (_usesSocietyFlow) {
-        _loadSocietyBills();
+        await _reloadSocietyBillsAfterGeneration();
       } else {
         widget.onRefresh?.call();
       }
     } catch (error) {
       _showMessage(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _reloadSocietyBillsAfterGeneration() async {
+    if (!_usesSocietyFlow || _societyId.isEmpty) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _societySkip = 0;
+      });
+    }
+
+    await _loadSocietyBills();
+
+    // The live API can return success before async bill creation is visible.
+    // Poll a few times so newly generated bills appear without leaving screen.
+    const List<Duration> retryDelays = <Duration>[
+      Duration(milliseconds: 800),
+      Duration(seconds: 2),
+      Duration(seconds: 4),
+    ];
+    for (final Duration delay in retryDelays) {
+      if (!mounted) {
+        return;
+      }
+      await Future.delayed(delay);
+      if (!mounted) {
+        return;
+      }
+      await _loadSocietyBills();
     }
   }
 
@@ -1682,6 +1844,10 @@ class _BillingPageState extends State<BillingPage> {
                   fullBill.maintenanceAmount ?? bill.maintenanceAmount,
               tokenAmount: fullBill.tokenAmount ?? bill.tokenAmount,
               paymentImageUrl: fullBill.paymentImageUrl ?? bill.paymentImageUrl,
+              tenantImageUrl: fullBill.tenantImageUrl ?? bill.tenantImageUrl,
+              rentalContractId:
+                  fullBill.rentalContractId ?? bill.rentalContractId,
+              propertyId: fullBill.propertyId ?? bill.propertyId,
               walletCredited: fullBill.walletCredited ?? bill.walletCredited,
               walletCreditTime:
                   fullBill.walletCreditTime ?? bill.walletCreditTime,
@@ -1965,8 +2131,7 @@ class _BillingPageState extends State<BillingPage> {
             actions: <Widget>[
               if (_usesTenantWebsiteFlow || _usesSocietyFlow || _usesPmFlow)
                 TextButton(
-                  onPressed: () =>
-                      RentalBillPdfService.shareBillPdf(activeBill),
+                  onPressed: () => _openBillPdfPreview(activeBill),
                   child: Text(
                     activeBill.status == BillStatus.paid
                         ? 'Download Receipt'
@@ -2329,20 +2494,42 @@ class _BillingPageState extends State<BillingPage> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                _BillTenantAvatar(imageUrl: bill.tenantImageUrl),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    bill.propertyTitle ?? bill.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        bill.propertyTitle ?? bill.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if ((bill.residentName ?? '').isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 4),
+                        Text(
+                          bill.residentName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Rs ${displayAmount.toStringAsFixed(0)}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.primary,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: Text(
+                    'Rs ${displayAmount.toStringAsFixed(0)}',
+                    textAlign: TextAlign.right,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.primary,
+                    ),
                   ),
                 ),
               ],
@@ -2906,6 +3093,50 @@ class _BillingPageState extends State<BillingPage> {
     return keys;
   }
 
+  Future<void> _openBillPdfPreview(BillRecord bill) async {
+    try {
+      final Uint8List bytes = await RentalBillPdfService.buildBillPdf(bill);
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) => _BillPdfPreviewPage(
+            title: bill.status == BillStatus.paid
+                ? 'Receipt Preview'
+                : 'Bill Preview',
+            filename: RentalBillPdfService.billPdfFilename(bill),
+            bytes: bytes,
+          ),
+        ),
+      );
+    } catch (error) {
+      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _openBillsReportPdfPreview(List<BillRecord> bills) async {
+    try {
+      final Uint8List bytes = await RentalBillPdfService.buildBillsReportPdf(
+        bills,
+      );
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) => _BillPdfPreviewPage(
+            title: 'Bills Report Preview',
+            filename: RentalBillPdfService.billsReportPdfFilename(bills),
+            bytes: bytes,
+          ),
+        ),
+      );
+    } catch (error) {
+      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   void _showMessage(String message) {
     if (!mounted) {
       return;
@@ -2919,6 +3150,40 @@ class _BillingPageState extends State<BillingPage> {
 // ---------------------------------------------------------------------------
 // Private widgets
 // ---------------------------------------------------------------------------
+class _BillPdfPreviewPage extends StatelessWidget {
+  const _BillPdfPreviewPage({
+    required this.title,
+    required this.filename,
+    required this.bytes,
+  });
+
+  final String title;
+  final String filename;
+  final Uint8List bytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title, overflow: TextOverflow.ellipsis),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppTheme.border),
+        ),
+      ),
+      body: PdfPreview(
+        build: (_) async => bytes,
+        pdfFileName: filename,
+        canChangePageFormat: false,
+        canChangeOrientation: false,
+        canDebug: false,
+        allowSharing: true,
+        allowPrinting: true,
+      ),
+    );
+  }
+}
+
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
     required this.label,
@@ -3251,7 +3516,104 @@ class _PmMetricCard extends StatelessWidget {
   }
 }
 
-/// Status badge for PM bill cards — icon + colored label.
+class _BillTenantAvatar extends StatefulWidget {
+  const _BillTenantAvatar({this.imageUrl});
+
+  final String? imageUrl;
+
+  @override
+  State<_BillTenantAvatar> createState() => _BillTenantAvatarState();
+}
+
+class _BillTenantAvatarState extends State<_BillTenantAvatar> {
+  String? _resolvedUrl;
+  bool _isResolving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveImageId();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BillTenantAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _resolvedUrl = null;
+      _resolveImageId();
+    }
+  }
+
+  Future<void> _resolveImageId() async {
+    final String value = widget.imageUrl?.trim() ?? '';
+    if (!value.startsWith('imageid:') || _isResolving) {
+      return;
+    }
+
+    final String imageId = value.substring('imageid:'.length).trim();
+    if (imageId.isEmpty) {
+      return;
+    }
+
+    setState(() => _isResolving = true);
+    try {
+      final String? resolved = await UploadService.fetchImageInfo(imageId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _resolvedUrl = resolved;
+        _isResolving = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isResolving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String rawUrl = widget.imageUrl?.trim() ?? '';
+    final String url = rawUrl.startsWith('imageid:')
+        ? (_resolvedUrl ?? '')
+        : rawUrl;
+
+    return ClipOval(
+      child: Container(
+        width: 56,
+        height: 56,
+        color: AppTheme.surfaceMuted,
+        child: _isResolving
+            ? const Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : url.isEmpty
+            ? const Icon(
+                Icons.person_outline,
+                color: AppTheme.textMuted,
+                size: 28,
+              )
+            : Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.person_outline,
+                  color: AppTheme.textMuted,
+                  size: 28,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+/// Status badge for PM bill cards - icon + colored label.
 class _PmStatusBadge extends StatelessWidget {
   const _PmStatusBadge({required this.status});
 

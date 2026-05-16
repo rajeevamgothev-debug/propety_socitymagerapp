@@ -41,14 +41,6 @@ class ApiConfig {
       '/Filter_All_Support_Ticket_WRT_Property';
   static const String updateTicketStatus = '/Upate_Support_Ticket_Status';
 
-  // Property bookings
-  static const String filterManagerPropertyBookings =
-      '/Filter_Manager_Property_Bookings';
-  static const String managerAcceptPropertyBooking =
-      '/Manager_Accept_Property_Booking';
-  static const String managerRejectPropertyBooking =
-      '/Manager_Reject_Property_Booking';
-
   // Announcements
   static const String filterTenantAnnouncements =
       '/Filter_All_Announcements_WRT_Tenant';
@@ -79,7 +71,19 @@ class ApiConfig {
       '/Fetch_Property_Complete_Information';
   static const String filterPropertyEnquiries =
       '/Filter_All_Property_Enquiries';
+  static const String createAuthenticatedPropertyEnquiry =
+      '/Create_Authenticated_Property_Enquiry';
   static const String updateEnquiryStatus = '/Update_Enquiry_Status';
+
+  // Property bookings
+  static const String filterManagerPropertyBookings =
+      '/Filter_Manager_Property_Bookings';
+  static const String fetchPropertyBookingDetails =
+      '/Fetch_Property_Booking_Details';
+  static const String managerAcceptPropertyBooking =
+      '/Manager_Accept_Property_Booking';
+  static const String managerRejectPropertyBooking =
+      '/Manager_Reject_Property_Booking';
 
   // Rental Contracts
   static const String createRentalContract =

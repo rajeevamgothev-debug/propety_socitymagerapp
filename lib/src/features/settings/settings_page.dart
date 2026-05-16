@@ -358,11 +358,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                 label: _roleLabel(_vendor?.vendorType),
                                 tone: UiTone.brand,
                               ),
-                              if (_vendor?.vendorId.isNotEmpty == true)
-                                ToneBadge(
-                                  label: 'Vendor ${_vendor!.vendorId}',
-                                  tone: UiTone.neutral,
-                                ),
                             ],
                           ),
                         ],

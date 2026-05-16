@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -6,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/property_service.dart';
 import '../../core/api/razorpay_checkout_service.dart';
+import '../../core/api/rental_contract_service.dart';
 import '../../core/api/subscription_service.dart';
 import '../../core/api/upload_service.dart';
 import '../../core/api/vendor_service.dart';
@@ -61,6 +63,25 @@ const Map<int, String> _categoryTypeLabels = <int, String>{
 
 int _openEnquiryCount({int? totalLeads, int? totalUnseenLeads}) {
   return totalUnseenLeads ?? totalLeads ?? 0;
+}
+
+String? propertyRenewalContractReductionMessage({
+  required int activeContracts,
+  required int freeContracts,
+  required int requestedExtraContracts,
+}) {
+  final int sanitizedRequestedExtraContracts = requestedExtraContracts < 0
+      ? 0
+      : requestedExtraContracts;
+  final int totalAfterRenewal =
+      freeContracts + sanitizedRequestedExtraContracts;
+  if (activeContracts <= totalAfterRenewal) {
+    return null;
+  }
+
+  final int minimumExtraContracts = activeContracts - freeContracts;
+  String contractWord(int count) => count == 1 ? 'contract' : 'contracts';
+  return 'You have $activeContracts Active ${contractWord(activeContracts)} and $minimumExtraContracts purchased and $freeContracts free ${contractWord(freeContracts)} so you need to add $minimumExtraContracts extra ${contractWord(minimumExtraContracts)} to process the Renewal plan.';
 }
 
 const Map<int, String> _facingDirectionLabels = <int, String>{
@@ -712,6 +733,30 @@ class _PropertiesPageState extends State<PropertiesPage> {
         appSettings = await PropertyService.fetchAppCommonSettings();
       } catch (_) {}
     }
+    if (appSettings == null) {
+      try {
+        appSettings = await PropertyService.fetchAppCommonSettings();
+      } catch (_) {}
+    }
+
+    int maxPositive(List<int?> values) {
+      int result = 0;
+      for (final int? value in values) {
+        if (value != null && value > result) {
+          result = value;
+        }
+      }
+      return result;
+    }
+
+    int firstPositive(List<int?> values) {
+      for (final int? value in values) {
+        if (value != null && value > 0) {
+          return value;
+        }
+      }
+      return 0;
+    }
 
     String? selectedPlanId = sheetMode == _SubscriptionPlanMode.renew
         ? propertyInfo.currentSubscriptionId
@@ -722,6 +767,54 @@ class _PropertiesPageState extends State<PropertiesPage> {
     final TextEditingController extraContractsController =
         TextEditingController(text: '$initialExtraContracts');
     SubscriptionCalculationData? calculation;
+    int? activeContractsFromService;
+
+    if (sheetMode == _SubscriptionPlanMode.renew) {
+      int countActiveContracts(List<RentalContractRecord> contracts) {
+        return contracts
+            .where(
+              (RentalContractRecord contract) =>
+                  contract.status == ContractStatus.active &&
+                  contract.isActive &&
+                  (contract.propertyId ?? '').trim() == propertyInfo.propertyId,
+            )
+            .length;
+      }
+
+      try {
+        final result = await RentalContractService.filterRentalContracts(
+          status: ContractStatus.active,
+          propertyId: propertyInfo.propertyId,
+          limit: 200,
+        );
+        activeContractsFromService = countActiveContracts(result.contracts);
+      } catch (_) {}
+      try {
+        final result = await RentalContractService.filterContractsForProperty(
+          propertyInfo.propertyId,
+          limit: 200,
+        );
+        final bool resultHasPropertyIds = result.contracts.any(
+          (RentalContractRecord contract) =>
+              (contract.propertyId ?? '').trim().isNotEmpty,
+        );
+        final int propertyMatchedCount = countActiveContracts(result.contracts);
+        final int trustedFilteredCount =
+            propertyMatchedCount > 0 || resultHasPropertyIds
+            ? propertyMatchedCount
+            : result.contracts
+                  .where(
+                    (RentalContractRecord contract) =>
+                        contract.status == ContractStatus.active &&
+                        contract.isActive,
+                  )
+                  .length;
+        activeContractsFromService = maxPositive(<int?>[
+          activeContractsFromService,
+          trustedFilteredCount,
+        ]);
+      } catch (_) {}
+    }
 
     if (sheetMode == _SubscriptionPlanMode.renew) {
       if ((selectedPlanId ?? '').isEmpty) {
@@ -743,6 +836,41 @@ class _PropertiesPageState extends State<PropertiesPage> {
       }
     }
 
+    int? freeFromTotal(int? total) {
+      if (total == null || total <= 0) {
+        return null;
+      }
+      final int free = total - initialExtraContracts;
+      return free < 0 ? 0 : free;
+    }
+
+    final int derivedFreeContracts = firstPositive(<int?>[
+      freeFromTotal(calculation?.totalAvailableContracts),
+      freeFromTotal(
+        propertyInfo.currentSubscriptionCalculation?.totalAvailableContracts,
+      ),
+      propertyInfo.totalResidentContractsCount != null
+          ? propertyInfo.totalResidentContractsCount! - initialExtraContracts
+          : null,
+      propertyInfo.availableResidentContractsCreationCount != null
+          ? propertyInfo.availableResidentContractsCreationCount! -
+                initialExtraContracts
+          : null,
+    ]);
+    final int renewalActiveContracts =
+        activeContractsFromService ??
+        firstPositive(<int?>[
+          propertyInfo.usedResidentContractsCount,
+          propertyInfo.currentSubscriptionCalculation?.activeRentalContractsCount,
+          calculation?.activeRentalContractsCount,
+        ]);
+    final int renewalFreeContracts = firstPositive(<int?>[
+      derivedFreeContracts,
+      propertyInfo.freeResidentContractsCount,
+      freeContractsFromSettings(appSettings),
+      propertyInfo.currentSubscriptionCalculation?.freeContractsCount,
+      calculation?.freeContractsCount,
+    ]);
     String? errorMessage = initialErrorMessage;
     String? successMessage;
     bool calculating = false;
@@ -765,12 +893,101 @@ class _PropertiesPageState extends State<PropertiesPage> {
               return parsed < 0 ? 0 : parsed;
             }
 
-            void updateExtraContracts(int value) {
+            int activeContractsForRenewal() {
+              return renewalActiveContracts;
+            }
+
+            int freeContractsForRenewal() {
+              final int calculatedFree = calculation?.freeContractsCount ?? 0;
+              if (calculatedFree <= 0) {
+                return renewalFreeContracts;
+              }
+              if (renewalFreeContracts <= 0) {
+                return calculatedFree;
+              }
+              return calculatedFree < renewalFreeContracts
+                  ? calculatedFree
+                  : renewalFreeContracts;
+            }
+
+            String? renewalReductionMessage(int requestedExtraContracts) {
+              if (sheetMode != _SubscriptionPlanMode.renew) {
+                return null;
+              }
+
+              return propertyRenewalContractReductionMessage(
+                activeContracts: activeContractsForRenewal(),
+                freeContracts: freeContractsForRenewal(),
+                requestedExtraContracts: requestedExtraContracts,
+              );
+            }
+
+            Future<void> showRenewalReductionPopup(String message) async {
+              if (!context.mounted) {
+                return;
+              }
+              await showDialog<void>(
+                context: context,
+                builder: (BuildContext dialogContext) => AlertDialog(
+                  title: const Text('Renewal Cannot Reduce Contracts'),
+                  content: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      border: Border.all(color: const Color(0xFFFECACA)),
+                    ),
+                    child: Text(
+                      message,
+                      style: Theme.of(dialogContext).textTheme.bodyMedium
+                          ?.copyWith(
+                            color: const Color(0xFF991B1B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            Future<bool> guardRenewalReduction(
+              int requestedExtraContracts,
+            ) async {
+              final String? message = renewalReductionMessage(
+                requestedExtraContracts,
+              );
+              if (message == null) {
+                return true;
+              }
+              setModalState(() {
+                errorMessage = message;
+                successMessage = null;
+                calculation = null;
+              });
+              await showRenewalReductionPopup(message);
+              return false;
+            }
+
+            Future<void> updateExtraContracts(int value) async {
               final int sanitized = value < 0 ? 0 : value;
               extraContractsController.text = '$sanitized';
               extraContractsController.selection = TextSelection.collapsed(
                 offset: extraContractsController.text.length,
               );
+              if (await guardRenewalReduction(sanitized)) {
+                setModalState(() {
+                  errorMessage = null;
+                  successMessage = null;
+                  calculation = null;
+                });
+              }
             }
 
             Future<void> calculateAndReview() async {
@@ -778,6 +995,10 @@ class _PropertiesPageState extends State<PropertiesPage> {
                 setModalState(() {
                   errorMessage = 'Select a subscription plan first.';
                 });
+                return;
+              }
+
+              if (!await guardRenewalReduction(currentExtraContracts())) {
                 return;
               }
 
@@ -797,12 +1018,18 @@ class _PropertiesPageState extends State<PropertiesPage> {
                   reviewStep = true;
                 });
               } catch (error) {
+                final String message = error.toString().replaceFirst(
+                  'Exception: ',
+                  '',
+                );
                 setModalState(() {
-                  errorMessage = error.toString().replaceFirst(
-                    'Exception: ',
-                    '',
-                  );
+                  errorMessage = message;
+                  calculating = false;
                 });
+                if (sheetMode == _SubscriptionPlanMode.renew &&
+                    currentExtraContracts() < initialExtraContracts) {
+                  await showRenewalReductionPopup(message);
+                }
               } finally {
                 if (context.mounted) {
                   setModalState(() {
@@ -820,12 +1047,17 @@ class _PropertiesPageState extends State<PropertiesPage> {
                 return;
               }
 
+              if (!await guardRenewalReduction(currentExtraContracts())) {
+                return;
+              }
+
               setModalState(() {
                 purchasing = true;
                 errorMessage = null;
                 successMessage = null;
               });
 
+              bool closingAfterSuccess = false;
               try {
                 calculation ??= await SubscriptionService.calculateSubscription(
                   propertyId: propertyInfo.propertyId,
@@ -921,17 +1153,24 @@ class _PropertiesPageState extends State<PropertiesPage> {
                 }
                 await Future<void>.delayed(const Duration(milliseconds: 900));
                 if (context.mounted && Navigator.of(context).canPop()) {
+                  closingAfterSuccess = true;
                   Navigator.of(context).pop();
                 }
               } catch (error) {
+                final String message = error.toString().replaceFirst(
+                  'Exception: ',
+                  '',
+                );
                 setModalState(() {
-                  errorMessage = error.toString().replaceFirst(
-                    'Exception: ',
-                    '',
-                  );
+                  errorMessage = message;
+                  purchasing = false;
                 });
+                if (sheetMode == _SubscriptionPlanMode.renew &&
+                    currentExtraContracts() < initialExtraContracts) {
+                  await showRenewalReductionPopup(message);
+                }
               } finally {
-                if (context.mounted) {
+                if (context.mounted && !closingAfterSuccess) {
                   setModalState(() {
                     purchasing = false;
                   });
@@ -1216,11 +1455,11 @@ class _PropertiesPageState extends State<PropertiesPage> {
                                 labelText: 'Extra resident contracts',
                               ),
                               onChanged: (_) {
-                                if (errorMessage != null) {
-                                  setModalState(() {
-                                    errorMessage = null;
-                                  });
-                                }
+                                setModalState(() {
+                                  errorMessage = null;
+                                  successMessage = null;
+                                  calculation = null;
+                                });
                               },
                             ),
                           ),
@@ -1232,8 +1471,8 @@ class _PropertiesPageState extends State<PropertiesPage> {
                                 child: IconButton(
                                   onPressed: calculating
                                       ? null
-                                      : () {
-                                          updateExtraContracts(
+                                      : () async {
+                                          await updateExtraContracts(
                                             currentExtraContracts() + 1,
                                           );
                                         },
@@ -1247,8 +1486,8 @@ class _PropertiesPageState extends State<PropertiesPage> {
                                       calculating ||
                                           currentExtraContracts() <= 0
                                       ? null
-                                      : () {
-                                          updateExtraContracts(
+                                      : () async {
+                                          await updateExtraContracts(
                                             currentExtraContracts() - 1,
                                           );
                                         },
@@ -1381,7 +1620,11 @@ class _PropertiesPageState extends State<PropertiesPage> {
       },
     );
 
-    extraContractsController.dispose();
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 600), () {
+        extraContractsController.dispose();
+      }),
+    );
   }
 
   @override

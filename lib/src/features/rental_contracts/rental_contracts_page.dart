@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:printing/printing.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/property_service.dart';
@@ -46,12 +49,149 @@ const Map<int, String> _contractPgSharingLabels = <int, String>{
   5: 'Dorm',
 };
 
-String _contractStatusLabel(RentalContractRecord contract) {
-  return contract.isActive ? contract.status.label : 'Inactive';
+final RegExp _tenantPhonePattern = RegExp(r'^\d{10}$');
+
+String _normalizedContractFlatNo(String? value) {
+  return (value ?? '').trim().replaceAll(RegExp(r'\s+'), '').toLowerCase();
 }
 
-UiTone _contractStatusTone(RentalContractRecord contract) {
-  return contract.isActive ? contract.status.tone : UiTone.danger;
+bool _isDuplicateFlatMessage(String message) {
+  final String lower = message.toLowerCase();
+  return lower.contains('flat') &&
+      (lower.contains('already') ||
+          lower.contains('exist') ||
+          lower.contains('duplicate'));
+}
+
+String _contractActivationLabel(RentalContractRecord contract) {
+  if (_isContractClosed(contract)) {
+    return 'closed';
+  }
+  if (_isContractExpired(contract)) {
+    return 'expired';
+  }
+  return contract.isActive ? 'active' : 'terminated';
+}
+
+UiTone _contractActivationTone(RentalContractRecord contract) {
+  if (_isContractClosed(contract)) {
+    return UiTone.danger;
+  }
+  if (_isContractExpired(contract)) {
+    return UiTone.warning;
+  }
+  return contract.isActive ? UiTone.success : UiTone.danger;
+}
+
+String _contractLifecycleLabel(RentalContractRecord contract) {
+  if (_isContractClosed(contract)) {
+    return 'Close Contract';
+  }
+  if (_isContractExpired(contract)) {
+    return ContractStatus.expired.label;
+  }
+  return ContractStatus.active.label;
+}
+
+String _contractLifecycleBadgeLabel(RentalContractRecord contract) {
+  return 'Contract: ${_contractLifecycleLabel(contract)}';
+}
+
+UiTone _contractLifecycleTone(RentalContractRecord contract) {
+  if (_isContractClosed(contract)) {
+    return UiTone.danger;
+  }
+  if (_isContractExpired(contract)) {
+    return ContractStatus.expired.tone;
+  }
+  return ContractStatus.active.tone;
+}
+
+DateTime _dateOnly(DateTime date) {
+  return DateTime(date.year, date.month, date.day);
+}
+
+int _contractDaysLeft(RentalContractRecord contract) {
+  final DateTime today = _dateOnly(DateTime.now());
+  final DateTime endDate = _dateOnly(contract.endDate);
+  return endDate.difference(today).inDays;
+}
+
+bool _isContractClosed(RentalContractRecord contract) {
+  return contract.status == ContractStatus.closed;
+}
+
+bool _isContractExpired(RentalContractRecord contract) {
+  return !_isContractClosed(contract) &&
+      (contract.status == ContractStatus.expired ||
+          _contractDaysLeft(contract) < 0);
+}
+
+bool _isContractActiveForDisplay(RentalContractRecord contract) {
+  return contract.isActive &&
+      !_isContractClosed(contract) &&
+      !_isContractExpired(contract);
+}
+
+bool _matchesContractStatusFilter(
+  RentalContractRecord contract,
+  ContractStatus? filter,
+) {
+  return switch (filter) {
+    null => true,
+    ContractStatus.active => _isContractActiveForDisplay(contract),
+    ContractStatus.expired => _isContractExpired(contract),
+    ContractStatus.closed => _isContractClosed(contract),
+    ContractStatus.readyToVacate =>
+      (contract.status == ContractStatus.readyToVacate ||
+          contract.tenantStatus == 1) &&
+          !_isContractClosed(contract),
+  };
+}
+
+bool _hasContractDocument(ContractDocumentRecord? document) {
+  if (document == null) {
+    return false;
+  }
+  return document.documentId.trim().isNotEmpty ||
+      document.documentUrl.trim().isNotEmpty;
+}
+
+bool _isTenantKycPending(RentalContractRecord contract) {
+  return !_hasContractDocument(contract.tenantIdProof) ||
+      !_hasContractDocument(contract.tenantAddressProof);
+}
+
+int? _propertyAvailableContractSlots(PropertyRecord property) {
+  return property.availableResidentContractsCreationCount ??
+      property.noOfVacancy;
+}
+
+int _propertyFreeContractSlots(PropertyRecord property) {
+  return property.freeResidentContractsCount ?? 0;
+}
+
+int _propertyPurchasedContractSlots(PropertyRecord property) {
+  return property.totalPurchasedResidentContractsCreationCount ?? 0;
+}
+
+int _propertyTotalContractSlots(PropertyRecord property) {
+  return property.totalResidentContractsCount ??
+      (_propertyFreeContractSlots(property) +
+          _propertyPurchasedContractSlots(property));
+}
+
+int _propertyUsedContractSlots(PropertyRecord property) {
+  final int? used = property.usedResidentContractsCount;
+  if (used != null) {
+    return used;
+  }
+  final int? available = _propertyAvailableContractSlots(property);
+  if (available == null) {
+    return 0;
+  }
+  final int usedFromTotal = _propertyTotalContractSlots(property) - available;
+  return usedFromTotal < 0 ? 0 : usedFromTotal;
 }
 
 class RentalContractsPage extends StatefulWidget {
@@ -79,13 +219,24 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     return int.tryParse('$value');
   }
 
+  double _asDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse('$value') ?? 0;
+  }
+
+  Map<String, dynamic>? _litePropertyForId(String propertyId) {
+    for (final Map<String, dynamic> item in _liteProperties) {
+      if ('${item['PropertyID'] ?? item['_id'] ?? ''}' == propertyId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   String _propertyDisplayLabel(PropertyRecord property) {
-    final Map<String, dynamic>? lite = _liteProperties
-        .cast<Map<String, dynamic>?>()
-        .firstWhere(
-          (Map<String, dynamic>? item) => item?['PropertyID'] == property.id,
-          orElse: () => null,
-        );
+    final Map<String, dynamic>? lite = _litePropertyForId(property.id);
 
     if (lite == null) {
       return property.title;
@@ -117,13 +268,131 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
   }
 
   String _availableContractsLabel(PropertyRecord property) {
-    final int available =
-        property.availableResidentContractsCreationCount ??
-        property.noOfVacancy ??
-        0;
+    final int available = _propertyAvailableContractSlots(property) ?? 0;
     return available == 0
         ? 'Available rental contracts: No'
         : 'Available rental contracts: $available';
+  }
+
+  PropertyRecord? _propertyForId(String propertyId) {
+    for (final PropertyRecord property in _properties) {
+      if (property.id == propertyId) {
+        return property;
+      }
+    }
+    return null;
+  }
+
+  Widget _propertySlotBadges(PropertyRecord property) {
+    final int available = _propertyAvailableContractSlots(property) ?? 0;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: <Widget>[
+        ToneBadge(
+          label: 'Free ${_propertyFreeContractSlots(property)}',
+          tone: UiTone.brand,
+        ),
+        ToneBadge(
+          label: 'Purchased ${_propertyPurchasedContractSlots(property)}',
+          tone: UiTone.success,
+        ),
+        ToneBadge(
+          label: 'Total ${_propertyTotalContractSlots(property)}',
+          tone: UiTone.neutral,
+        ),
+        ToneBadge(label: 'Available $available', tone: UiTone.warning),
+        ToneBadge(
+          label: 'Used ${_propertyUsedContractSlots(property)}',
+          tone: UiTone.danger,
+        ),
+      ],
+    );
+  }
+
+  bool _contractBelongsToProperty(
+    RentalContractRecord contract,
+    String propertyId,
+  ) {
+    final String contractPropertyId = (contract.propertyId ?? '').trim();
+    if (contractPropertyId.isNotEmpty) {
+      return contractPropertyId == propertyId;
+    }
+
+    final PropertyRecord? selectedProperty = _propertyForId(propertyId);
+    if (selectedProperty == null) {
+      return false;
+    }
+
+    return contract.propertyTitle.trim().toLowerCase() ==
+        selectedProperty.title.trim().toLowerCase();
+  }
+
+  bool _isFlatAlreadyUsedForProperty({
+    required String propertyId,
+    required String flatNo,
+    String? currentContractId,
+  }) {
+    final String normalizedFlatNo = _normalizedContractFlatNo(flatNo);
+    if (normalizedFlatNo.isEmpty) {
+      return false;
+    }
+
+    for (final RentalContractRecord existing in _contracts) {
+      if (existing.id == currentContractId) {
+        continue;
+      }
+      if (_isContractClosed(existing)) {
+        continue;
+      }
+      if (!_contractBelongsToProperty(existing, propertyId)) {
+        continue;
+      }
+      if (_normalizedContractFlatNo(existing.flatNo) == normalizedFlatNo) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _showContractValidationDialog(String message) {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        content: Text(message),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isBillAlreadyGeneratedMessage(String message) {
+    final String normalized = message.toLowerCase();
+    return normalized.contains('already') && normalized.contains('generated');
+  }
+
+  Future<void> _showBillAlreadyGeneratedDialog(String message) {
+    if (!mounted) {
+      return Future<void>.value();
+    }
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const Text('Bill Already Generated'),
+        content: Text(message),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _propertyDropdownMenuItem(
@@ -196,7 +465,6 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
       final results = await Future.wait<dynamic>(<Future<dynamic>>[
         PropertyService.filterProperties(limit: 200),
         RentalContractService.filterRentalContracts(
-          status: _statusFilter,
           propertyId: _propertyFilterId.isEmpty ? null : _propertyFilterId,
           limit: 200,
         ),
@@ -272,9 +540,6 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     final TextEditingController depositController = TextEditingController(
       text: contract?.deposit.toStringAsFixed(0) ?? '',
     );
-    final TextEditingController maintenanceController = TextEditingController(
-      text: contract?.maintenanceAmount?.toStringAsFixed(0) ?? '',
-    );
     final TextEditingController specialTermsController = TextEditingController(
       text: contract?.specialTerms ?? '',
     );
@@ -284,13 +549,10 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     DateTime startDate = contract?.startDate ?? DateTime.now();
     DateTime endDate =
         contract?.endDate ?? DateTime.now().add(const Duration(days: 365));
-    bool maintenanceIncluded = contract?.whetherMaintenanceIncluded ?? false;
-    bool firstMonthRentPaid = contract?.whetherFirstMonthRentPaid ?? false;
-    bool securityDepositPaid = contract?.whetherSecurityDepositPaid ?? false;
     bool isSubmitting = false;
     bool isUploadingDoc = false;
 
-    // KYC document state — null means no doc, non-null means uploaded/existing
+    // KYC document state: null means no doc, non-null means uploaded/existing
     ContractDocumentRecord? tenantIdProof = contract?.tenantIdProof;
     ContractDocumentRecord? tenantAddressProof = contract?.tenantAddressProof;
     ContractDocumentRecord? ownerIdProof = contract?.ownerIdProof;
@@ -391,12 +653,65 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
             }
 
             Future<void> submit() async {
+              final String tenantPhone = tenantPhoneController.text.trim();
+              final String flatNo = unitController.text.trim();
               if (propertyId.isEmpty ||
                   tenantNameController.text.trim().isEmpty ||
-                  unitController.text.trim().isEmpty) {
+                  flatNo.isEmpty) {
                 _showMessage(
                   'Property, tenant name, and flat number are required.',
                 );
+                return;
+              }
+
+              if (!_tenantPhonePattern.hasMatch(tenantPhone)) {
+                await _showContractValidationDialog(
+                  'Tenant phone number must be a 10-digit mobile number.',
+                );
+                return;
+              }
+
+              if (_isFlatAlreadyUsedForProperty(
+                propertyId: propertyId,
+                flatNo: flatNo,
+                currentContractId: contract?.id,
+              )) {
+                await _showContractValidationDialog(
+                  'Flat No Already Exist for this Property',
+                );
+                return;
+              }
+
+              final PropertyRecord? selectedProperty = _propertyForId(
+                propertyId,
+              );
+              final Map<String, dynamic>? selectedLiteProperty =
+                  _litePropertyForId(propertyId);
+              final bool maintenanceIncluded =
+                  (selectedLiteProperty?['Whether_Maintainance_Included']
+                          as bool?) ??
+                  (selectedLiteProperty?['Whether_Maintenance_Included']
+                          as bool?) ??
+                  false;
+              final double maintenanceCharge = _asDouble(
+                selectedLiteProperty?['Maintainance_Charge'] ??
+                    selectedLiteProperty?['Maintenance_Charge'],
+              );
+              final int? availableSlots = selectedProperty == null
+                  ? null
+                  : _propertyAvailableContractSlots(selectedProperty);
+              if (contract == null &&
+                  availableSlots != null &&
+                  availableSlots <= 0) {
+                Navigator.of(context).pop();
+                isSheetOpen = false;
+                setState(() {
+                  _propertyFilterId = propertyId;
+                });
+                _showMessage(
+                  'No contract slots available. Please purchase slots first.',
+                );
+                await _openPurchaseResidentContractsSheet();
                 return;
               }
 
@@ -424,11 +739,13 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                 'Token_Amount':
                     double.tryParse(tokenAmountController.text.trim()) ?? 0,
                 'Whether_Maintainance_Included': maintenanceIncluded,
-                'Maintainance_Charge': maintenanceIncluded
-                    ? (double.tryParse(maintenanceController.text.trim()) ?? 0)
-                    : 0,
-                'Whether_First_Month_Rent_Paid': firstMonthRentPaid,
-                'Whether_Security_Deposit_Paid': securityDepositPaid,
+                'Maintainance_Charge': maintenanceCharge,
+                'Whether_First_Month_Rent_Paid':
+                    contract?.whetherFirstMonthRentPaid ?? false,
+                'Whether_Secrity_Deposit_Paid':
+                    contract?.whetherSecurityDepositPaid ?? false,
+                'Whether_Security_Deposit_Paid':
+                    contract?.whetherSecurityDepositPaid ?? false,
                 'Special_Terms': specialTermsController.text.trim(),
                 'Whether_Tenant_ID_Proof_Available': tenantIdProof != null,
                 'Tenant_ID_Proof_DocumentID': tenantIdProof?.documentId ?? '',
@@ -462,6 +779,16 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                       'Unable to save contract.';
                   final String errLower = errorMsg.toLowerCase();
 
+                  if (_isDuplicateFlatMessage(errorMsg)) {
+                    await _showContractValidationDialog(
+                      'Flat No Already Exist for this Property',
+                    );
+                    safeSetModalState(() {
+                      isSubmitting = false;
+                    });
+                    return;
+                  }
+
                   // Auto-trigger purchase slots sheet
                   if (errLower.contains('slot') ||
                       errLower.contains('available_resident') ||
@@ -485,7 +812,7 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                     Navigator.of(context).pop();
                     isSheetOpen = false;
                     _showMessage(
-                      'No active subscription for this property. Go to Properties → Manage Plan.',
+                      'No active subscription for this property. Go to Properties > Manage Plan.',
                     );
                     return;
                   }
@@ -503,6 +830,15 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                 await _loadContracts();
               } catch (error) {
                 if (!context.mounted || !isSheetOpen) {
+                  return;
+                }
+                if (_isDuplicateFlatMessage('$error')) {
+                  await _showContractValidationDialog(
+                    'Flat No Already Exist for this Property',
+                  );
+                  safeSetModalState(() {
+                    isSubmitting = false;
+                  });
                   return;
                 }
                 _showMessage(error.toString().replaceFirst('Exception: ', ''));
@@ -559,13 +895,8 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                         });
                         // Auto-populate owner details from property
                         if (value != null && value.isNotEmpty) {
-                          final Map<String, dynamic>? lite = _liteProperties
-                              .cast<Map<String, dynamic>?>()
-                              .firstWhere(
-                                (Map<String, dynamic>? p) =>
-                                    p?['PropertyID'] == value,
-                                orElse: () => null,
-                              );
+                          final Map<String, dynamic>? lite =
+                              _litePropertyForId(value);
                           if (lite != null) {
                             setModalState(() {
                               unitController.text =
@@ -618,8 +949,13 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                           child: TextField(
                             controller: tenantPhoneController,
                             keyboardType: TextInputType.phone,
+                            inputFormatters: <TextInputFormatter>[
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(10),
+                            ],
                             decoration: const InputDecoration(
                               labelText: 'Tenant phone',
+                              hintText: '10-digit mobile number',
                             ),
                           ),
                         ),
@@ -722,69 +1058,6 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                               prefixText: 'Rs ',
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            'Maintenance included',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                        Switch(
-                          value: maintenanceIncluded,
-                          onChanged: (bool v) => setModalState(() {
-                            maintenanceIncluded = v;
-                          }),
-                        ),
-                      ],
-                    ),
-                    if (maintenanceIncluded) ...<Widget>[
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: maintenanceController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Maintenance charge',
-                          prefixText: 'Rs ',
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            'First month rent paid',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                        Switch(
-                          value: firstMonthRentPaid,
-                          onChanged: (bool v) => setModalState(() {
-                            firstMonthRentPaid = v;
-                          }),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            'Security deposit paid',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                        Switch(
-                          value: securityDepositPaid,
-                          onChanged: (bool v) => setModalState(() {
-                            securityDepositPaid = v;
-                          }),
                         ),
                       ],
                     ),
@@ -1384,6 +1657,8 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                                   ?.copyWith(color: AppTheme.textSecondary),
                             ),
                           ],
+                          const SizedBox(height: 12),
+                          _propertySlotBadges(selectedProperty),
                         ],
                       ),
                     ),
@@ -1541,15 +1816,17 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
   }
 
   Future<void> _closeContract(RentalContractRecord contract) async {
-    final bool? confirmed = await _confirmAction(
-      title: 'Close Contract',
-      message:
-          'Closing this contract for "${contract.tenantName}" is permanent. Are you sure?',
-      confirmLabel: 'Close Contract',
-    );
+    final bool? confirmed = await _confirmCloseContract(contract);
     if (confirmed != true) return;
     try {
-      await RentalContractService.closeContract(contract.id);
+      final ApiResponse response = await RentalContractService.closeContract(
+        contract.id,
+      );
+      if (!response.success) {
+        throw Exception(
+          response.message ?? response.status ?? 'Unable to close contract.',
+        );
+      }
       _showMessage('Contract closed.');
       await _loadContracts();
     } catch (error) {
@@ -1557,30 +1834,66 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     }
   }
 
-  Future<void> _toggleContract(RentalContractRecord contract) async {
-    final bool isDeactivating = contract.isActive;
-    if (isDeactivating) {
-      final bool? confirmed = await _confirmAction(
-        title: 'Deactivate Contract',
-        message:
-            'Deactivating this contract will suspend billing for "${contract.tenantName}". Continue?',
-        confirmLabel: 'Deactivate',
-      );
-      if (confirmed != true) return;
-    }
-    try {
-      if (isDeactivating) {
-        await RentalContractService.inactivateContract(contract.id);
-      } else {
-        await RentalContractService.activateContract(contract.id);
-      }
-      _showMessage(
-        isDeactivating ? 'Contract deactivated.' : 'Contract activated.',
-      );
-      await _loadContracts();
-    } catch (error) {
-      _showMessage(error.toString().replaceFirst('Exception: ', ''));
-    }
+  Future<bool?> _confirmCloseContract(RentalContractRecord contract) {
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        titlePadding: const EdgeInsets.fromLTRB(20, 16, 8, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        title: Row(
+          children: <Widget>[
+            const Expanded(child: Text('Close Contract')),
+            IconButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              icon: const Icon(Icons.close_rounded),
+              tooltip: 'Cancel',
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Are you sure you want to close this rental contract for "${contract.tenantName}"? This action will mark the contract as closed and cannot be undone.',
+              style: Theme.of(ctx).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: Text(
+                'Warning: Once closed, the contract status will be permanently set to "Close Contract" and this cannot be reversed.',
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF991B1B),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Close Contract'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool?> _confirmAction({
@@ -1607,9 +1920,23 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     );
   }
 
-  Future<void> _shareContractPdf(RentalContractRecord contract) async {
+  Future<void> _openContractPdfPreview(RentalContractRecord contract) async {
     try {
-      await RentalContractPdfService.shareContractPdf(contract);
+      final Uint8List bytes = await RentalContractPdfService.buildContractPdf(
+        contract,
+      );
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) => _ContractPdfPreviewPage(
+            title: 'Rental Agreement Preview',
+            filename: RentalContractPdfService.contractPdfFilename(contract),
+            bytes: bytes,
+          ),
+        ),
+      );
     } catch (_) {
       _showMessage('Unable to generate the rental contract PDF.');
     }
@@ -1668,8 +1995,22 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                 }
                 Navigator.of(context).pop();
                 _showMessage('Security deposit bill generated successfully.');
+                await _loadContracts();
               } catch (error) {
-                _showMessage(error.toString().replaceFirst('Exception: ', ''));
+                final String errorMessage = error.toString().replaceFirst(
+                  'Exception: ',
+                  '',
+                );
+                if (_isBillAlreadyGeneratedMessage(errorMessage)) {
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                  await _showBillAlreadyGeneratedDialog(
+                    'Security deposit bill has already been generated for this contract.',
+                  );
+                  return;
+                }
+                _showMessage(errorMessage);
                 setModalState(() {
                   loadingSecurity = false;
                 });
@@ -1700,8 +2041,22 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                 }
                 Navigator.of(context).pop();
                 _showMessage('First month bill generated successfully.');
+                await _loadContracts();
               } catch (error) {
-                _showMessage(error.toString().replaceFirst('Exception: ', ''));
+                final String errorMessage = error.toString().replaceFirst(
+                  'Exception: ',
+                  '',
+                );
+                if (_isBillAlreadyGeneratedMessage(errorMessage)) {
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                  await _showBillAlreadyGeneratedDialog(
+                    'First month bill has already been generated for this contract.',
+                  );
+                  return;
+                }
+                _showMessage(errorMessage);
                 setModalState(() {
                   loadingFirstMonth = false;
                 });
@@ -1917,7 +2272,7 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
       MaterialPageRoute<void>(
         builder: (_) => _ContractDetailPage(
           contract: contract,
-          onSharePdf: () => _shareContractPdf(contract),
+          onSharePdf: () => _openContractPdfPreview(contract),
         ),
       ),
     );
@@ -1929,6 +2284,10 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     final List<RentalContractRecord> visibleContracts = _contracts.where((
       RentalContractRecord item,
     ) {
+      if (!_matchesContractStatusFilter(item, _statusFilter)) {
+        return false;
+      }
+
       if (normalizedSearch.isEmpty) {
         return true;
       }
@@ -1946,22 +2305,12 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     }).toList();
 
     final int activeCount = visibleContracts
-        .where(
-          (RentalContractRecord item) =>
-              item.isActive && item.status == ContractStatus.active,
-        )
+        .where(_isContractActiveForDisplay)
         .length;
     final int expiredCount = visibleContracts
-        .where(
-          (RentalContractRecord item) =>
-              item.isActive && item.status == ContractStatus.expired,
-        )
+        .where(_isContractExpired)
         .length;
-    final int closedCount = visibleContracts
-        .where(
-          (RentalContractRecord item) => item.status == ContractStatus.closed,
-        )
-        .length;
+    final int closedCount = visibleContracts.where(_isContractClosed).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -2168,10 +2517,14 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
               )
             else
               ...visibleContracts.map((RentalContractRecord contract) {
-                final int daysLeft = contract.endDate
-                    .difference(DateTime.now())
-                    .inDays;
-                final bool isClosed = contract.status == ContractStatus.closed;
+                final int daysLeft = _contractDaysLeft(contract);
+                final bool isClosed = _isContractClosed(contract);
+                final bool isReadyToVacate =
+                    contract.status == ContractStatus.readyToVacate;
+                final bool tenantKycPending = _isTenantKycPending(contract);
+                final String vacateActionLabel = isClosed
+                    ? 'Closed'
+                    : (isReadyToVacate ? 'Close' : 'Vacate');
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -2183,6 +2536,8 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
+                            _TenantAvatar(imageUrl: contract.tenantImageUrl),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2226,11 +2581,10 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: <Widget>[
                                 ToneBadge(
-                                  label: _contractStatusLabel(contract),
-                                  tone: _contractStatusTone(contract),
+                                  label: _contractActivationLabel(contract),
+                                  tone: _contractActivationTone(contract),
                                 ),
-                                if (contract.isActive &&
-                                    contract.status == ContractStatus.active &&
+                                if (_isContractActiveForDisplay(contract) &&
                                     daysLeft > 0 &&
                                     daysLeft <= 30) ...<Widget>[
                                   const SizedBox(height: 4),
@@ -2264,6 +2618,20 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                                   '${formatCompactDate(contract.startDate)} to ${formatCompactDate(contract.endDate)}',
                               tone: UiTone.brand,
                             ),
+                            ToneBadge(
+                              label: _contractLifecycleBadgeLabel(contract),
+                              tone: _contractLifecycleTone(contract),
+                            ),
+                            if (isReadyToVacate && !isClosed)
+                              const ToneBadge(
+                                label: 'Ready to Vacate',
+                                tone: UiTone.warning,
+                              ),
+                            if (tenantKycPending)
+                              const ToneBadge(
+                                label: 'KYC Pending',
+                                tone: UiTone.warning,
+                              ),
                           ],
                         ),
                         if (contract.vacateDate != null) ...<Widget>[
@@ -2302,7 +2670,8 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                               child: CustomButton(
                                 label: 'PDF',
                                 variant: CustomButtonVariant.outline,
-                                onPressed: () => _shareContractPdf(contract),
+                                onPressed: () =>
+                                    _openContractPdfPreview(contract),
                               ),
                             ),
                           ],
@@ -2345,19 +2714,16 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: CustomButton(
-                                label:
-                                    contract.status ==
-                                        ContractStatus.readyToVacate
-                                    ? 'Close'
-                                    : 'Vacate',
-                                onPressed: () {
-                                  if (contract.status ==
-                                      ContractStatus.readyToVacate) {
-                                    _closeContract(contract);
-                                  } else {
-                                    _markReadyToVacate(contract);
-                                  }
-                                },
+                                label: vacateActionLabel,
+                                onPressed: isClosed
+                                    ? null
+                                    : () {
+                                        if (isReadyToVacate) {
+                                          _closeContract(contract);
+                                        } else {
+                                          _markReadyToVacate(contract);
+                                        }
+                                      },
                               ),
                             ),
                           ],
@@ -2366,7 +2732,12 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                         SizedBox(
                           width: double.infinity,
                           child: CustomButton(
-                            label: 'KYC Docs',
+                            label: tenantKycPending
+                                ? 'KYC Pending'
+                                : 'KYC Docs',
+                            icon: tenantKycPending
+                                ? const Icon(Icons.warning_amber_rounded)
+                                : null,
                             variant: CustomButtonVariant.outline,
                             onPressed: () => _openKycUpdateSheet(contract),
                           ),
@@ -2375,13 +2746,13 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                         SizedBox(
                           width: double.infinity,
                           child: CustomButton(
-                            label: contract.isActive
-                                ? 'Deactivate'
-                                : 'Activate',
-                            variant: contract.isActive
-                                ? CustomButtonVariant.danger
-                                : CustomButtonVariant.primary,
-                            onPressed: () => _toggleContract(contract),
+                            label: isClosed
+                                ? 'Closed Contract'
+                                : 'Close Contract',
+                            variant: CustomButtonVariant.danger,
+                            onPressed: isClosed
+                                ? null
+                                : () => _closeContract(contract),
                           ),
                         ),
                       ],
@@ -2436,12 +2807,9 @@ class _ContractDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int daysUntilExpiry = contract.endDate
-        .difference(DateTime.now())
-        .inDays;
+    final int daysUntilExpiry = _contractDaysLeft(contract);
     final bool showExpiry =
-        contract.isActive &&
-        contract.status == ContractStatus.active &&
+        _isContractActiveForDisplay(contract) &&
         daysUntilExpiry > 0;
 
     return Scaffold(
@@ -2462,25 +2830,29 @@ class _ContractDetailPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          // Header — status + contract ID
-          Row(
+          // Header: status + contract ID
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: <Widget>[
               ToneBadge(
-                label: _contractStatusLabel(contract),
-                tone: _contractStatusTone(contract),
+                label: _contractActivationLabel(contract),
+                tone: _contractActivationTone(contract),
               ),
-              if (showExpiry) ...<Widget>[
-                const SizedBox(width: 8),
+              ToneBadge(
+                label: _contractLifecycleBadgeLabel(contract),
+                tone: _contractLifecycleTone(contract),
+              ),
+              if (showExpiry)
                 ToneBadge(
                   label: '$daysUntilExpiry days left',
                   tone: daysUntilExpiry <= 30 ? UiTone.warning : UiTone.neutral,
                 ),
-              ],
             ],
           ),
           const SizedBox(height: 16),
 
-          // Property Details — grey
+          // Property Details: grey
           _DetailSection(
             title: 'Property Details',
             color: const Color(0xFFF3F4F6),
@@ -2496,7 +2868,7 @@ class _ContractDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Tenant Information — blue
+          // Tenant Information: blue
           _DetailSection(
             title: 'Tenant Information',
             color: const Color(0xFFEFF6FF),
@@ -2508,7 +2880,7 @@ class _ContractDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Owner Information — green
+          // Owner Information: green
           _DetailSection(
             title: 'Owner Information',
             color: const Color(0xFFF0FDF4),
@@ -2524,7 +2896,7 @@ class _ContractDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Financial Details — amber
+          // Financial Details: amber
           _DetailSection(
             title: 'Financial Details',
             color: const Color(0xFFFFFBEB),
@@ -2537,19 +2909,13 @@ class _ContractDetailPage extends StatelessWidget {
                 label: 'Security Deposit',
                 value: 'Rs ${contract.deposit.toStringAsFixed(0)}',
               ),
-              _DetailRow(
-                label: 'Maintenance',
-                value: (contract.whetherMaintenanceIncluded ?? false)
-                    ? 'Rs ${(contract.maintenanceAmount ?? 0).toStringAsFixed(0)}'
-                    : 'Not Included',
-              ),
               if (contract.billDay != null)
                 _DetailRow(label: 'Bill Day', value: '${contract.billDay}'),
             ],
           ),
           const SizedBox(height: 12),
 
-          // Contract Terms — purple
+          // Contract Terms: purple
           _DetailSection(
             title: 'Contract Terms',
             color: const Color(0xFFF5F3FF),
@@ -2576,65 +2942,7 @@ class _ContractDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Payment Status — grey
-          _DetailSection(
-            title: 'Payment Status',
-            color: const Color(0xFFF3F4F6),
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: <Widget>[
-                    const Expanded(
-                      child: Text(
-                        'First Month Rent',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    ToneBadge(
-                      label: (contract.whetherFirstMonthRentPaid ?? false)
-                          ? 'Paid'
-                          : 'Pending',
-                      tone: (contract.whetherFirstMonthRentPaid ?? false)
-                          ? UiTone.success
-                          : UiTone.warning,
-                      size: ToneBadgeSize.small,
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: <Widget>[
-                    const Expanded(
-                      child: Text(
-                        'Security Deposit',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    ToneBadge(
-                      label: (contract.whetherSecurityDepositPaid ?? false)
-                          ? 'Paid'
-                          : 'Pending',
-                      tone: (contract.whetherSecurityDepositPaid ?? false)
-                          ? UiTone.success
-                          : UiTone.warning,
-                      size: ToneBadgeSize.small,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // Vacate Notice — orange (conditional)
+          // Vacate Notice: orange (conditional)
           if (contract.vacateDate != null) ...<Widget>[
             const SizedBox(height: 12),
             Container(
@@ -2703,6 +3011,107 @@ class _ContractDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+}
+
+class _TenantAvatar extends StatefulWidget {
+  const _TenantAvatar({this.imageUrl});
+
+  final String? imageUrl;
+
+  @override
+  State<_TenantAvatar> createState() => _TenantAvatarState();
+}
+
+class _TenantAvatarState extends State<_TenantAvatar> {
+  String? _resolvedUrl;
+  bool _isResolving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveImageId();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TenantAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _resolvedUrl = null;
+      _resolveImageId();
+    }
+  }
+
+  Future<void> _resolveImageId() async {
+    final String value = widget.imageUrl?.trim() ?? '';
+    if (!value.startsWith('imageid:') || _isResolving) {
+      return;
+    }
+
+    final String imageId = value.substring('imageid:'.length).trim();
+    if (imageId.isEmpty) {
+      return;
+    }
+
+    setState(() => _isResolving = true);
+    try {
+      final String? resolved = await UploadService.fetchImageInfo(imageId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _resolvedUrl = resolved;
+        _isResolving = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isResolving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String rawUrl = widget.imageUrl?.trim() ?? '';
+    final String url = rawUrl.startsWith('imageid:')
+        ? (_resolvedUrl ?? '')
+        : rawUrl;
+    final Widget child;
+    if (_isResolving) {
+      child = const Center(
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    } else if (url.isEmpty) {
+      child = const Icon(
+        Icons.person_outline,
+        color: AppTheme.textMuted,
+        size: 28,
+      );
+    } else {
+      child = Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.person_outline,
+          color: AppTheme.textMuted,
+          size: 28,
+        ),
+      );
+    }
+
+    return ClipOval(
+      child: Container(
+        width: 56,
+        height: 56,
+        color: AppTheme.surfaceMuted,
+        child: child,
       ),
     );
   }
@@ -2883,6 +3292,40 @@ class _DateField extends StatelessWidget {
   }
 }
 
+class _ContractSwitchTile extends StatelessWidget {
+  const _ContractSwitchTile({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppTheme.border),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        color: AppTheme.surface,
+      ),
+      child: SwitchListTile.adaptive(
+        value: value,
+        onChanged: onChanged,
+        title: Text(
+          label,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      ),
+    );
+  }
+}
+
 class _ContractMetricCard extends StatelessWidget {
   const _ContractMetricCard({
     required this.label,
@@ -2975,6 +3418,40 @@ class _KycDocRow extends StatelessWidget {
             label: const Text('Upload'),
           ),
       ],
+    );
+  }
+}
+
+class _ContractPdfPreviewPage extends StatelessWidget {
+  const _ContractPdfPreviewPage({
+    required this.title,
+    required this.filename,
+    required this.bytes,
+  });
+
+  final String title;
+  final String filename;
+  final Uint8List bytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title, overflow: TextOverflow.ellipsis),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppTheme.border),
+        ),
+      ),
+      body: PdfPreview(
+        build: (_) async => bytes,
+        pdfFileName: filename,
+        canChangePageFormat: false,
+        canChangeOrientation: false,
+        canDebug: false,
+        allowSharing: true,
+        allowPrinting: true,
+      ),
     );
   }
 }

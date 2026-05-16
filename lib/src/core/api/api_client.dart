@@ -89,7 +89,8 @@ class ApiClient {
         return apiResponse;
       }
 
-      if (code == 2) {
+      if (code == 2 &&
+          (apiResponse.message ?? '').toLowerCase().contains('api key')) {
         // Invalid API key — refresh and retry
         return _handleApiKeyRefresh(endpoint, body);
       }

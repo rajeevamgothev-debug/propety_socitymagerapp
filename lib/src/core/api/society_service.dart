@@ -12,8 +12,9 @@ class SocietyService {
       SocietyBillingConfig();
 
   static Future<SocietyData?> fetchSocietyInfo() async {
-    final ApiResponse response =
-        await ApiClient.instance.post(ApiConfig.fetchSocietyInfo);
+    final ApiResponse response = await ApiClient.instance.post(
+      ApiConfig.fetchSocietyInfo,
+    );
 
     if (response.success && response.data != null) {
       return SocietyData.fromJson(response.data as Map<String, dynamic>);
@@ -34,22 +35,19 @@ class SocietyService {
     required SocietyMaintenanceRates maintenanceRates,
     required SocietyBillingConfig billingConfig,
   }) async {
-    return ApiClient.instance.post(
-      ApiConfig.createSociety,
-      <String, dynamic>{
-        'Name': name.trim(),
-        'CountryCode': countryCode.trim(),
-        'PhoneNumber': phoneNumber.trim(),
-        'EmailID': emailId.trim(),
-        'Est_Year': estYear,
-        'Latitude': latitude,
-        'Longitude': longitude,
-        'Location_Address': locationAddress.trim(),
-        'Address': address.trim(),
-        'Maintenance_Rates': maintenanceRates.toJson(),
-        'Billing_Config': billingConfig.toJson(),
-      },
-    );
+    return ApiClient.instance.post(ApiConfig.createSociety, <String, dynamic>{
+      'Name': name.trim(),
+      'CountryCode': countryCode.trim(),
+      'PhoneNumber': phoneNumber.trim(),
+      'EmailID': emailId.trim(),
+      'Est_Year': estYear,
+      'Latitude': latitude,
+      'Longitude': longitude,
+      'Location_Address': locationAddress.trim(),
+      'Address': address.trim(),
+      'Maintenance_Rates': maintenanceRates.toJson(),
+      'Billing_Config': billingConfig.toJson(),
+    });
   }
 
   static Future<ApiResponse> editSociety({
@@ -66,23 +64,20 @@ class SocietyService {
     required SocietyMaintenanceRates maintenanceRates,
     required SocietyBillingConfig billingConfig,
   }) async {
-    return ApiClient.instance.post(
-      ApiConfig.editSociety,
-      <String, dynamic>{
-        'SocietyID': societyId,
-        'Name': name.trim(),
-        'CountryCode': countryCode.trim(),
-        'PhoneNumber': phoneNumber.trim(),
-        'EmailID': emailId.trim(),
-        'Est_Year': estYear,
-        'Latitude': latitude,
-        'Longitude': longitude,
-        'Location_Address': locationAddress.trim(),
-        'Address': address.trim(),
-        'Maintenance_Rates': maintenanceRates.toJson(),
-        'Billing_Config': billingConfig.toJson(),
-      },
-    );
+    return ApiClient.instance.post(ApiConfig.editSociety, <String, dynamic>{
+      'SocietyID': societyId,
+      'Name': name.trim(),
+      'CountryCode': countryCode.trim(),
+      'PhoneNumber': phoneNumber.trim(),
+      'EmailID': emailId.trim(),
+      'Est_Year': estYear,
+      'Latitude': latitude,
+      'Longitude': longitude,
+      'Location_Address': locationAddress.trim(),
+      'Address': address.trim(),
+      'Maintenance_Rates': maintenanceRates.toJson(),
+      'Billing_Config': billingConfig.toJson(),
+    });
   }
 
   static List<String> validateSocietyForm({
@@ -127,8 +122,7 @@ class SocietyService {
         billingConfig.billGenerationDate > 31) {
       errors.add('Bill generation day must be between 1 and 31.');
     }
-    if (billingConfig.paymentDueDays < 1 ||
-        billingConfig.paymentDueDays > 90) {
+    if (billingConfig.paymentDueDays < 1 || billingConfig.paymentDueDays > 90) {
       errors.add('Payment due days must be between 1 and 90.');
     }
     return errors;
@@ -149,6 +143,9 @@ class SocietyService {
       ApiConfig.filterResidents,
       <String, dynamic>{
         'SocietyID': societyId,
+        'Whether_Society_Filter': societyId.isNotEmpty,
+        'Whether_SocietyID_Filter': societyId.isNotEmpty,
+        if (societyId.isNotEmpty) 'SocietyID_Array': <String>[societyId],
         'Skip': skip,
         'Limit': limit,
         'Whether_Search_Filter': search != null && search.isNotEmpty,
@@ -157,8 +154,7 @@ class SocietyService {
         if (statusFilter != null) 'Status': statusFilter,
         'Whether_Block_Filter': blockId != null && blockId.isNotEmpty,
         if (blockId != null && blockId.isNotEmpty) 'BlockID': blockId,
-        'Whether_Building_Filter':
-            buildingId != null && buildingId.isNotEmpty,
+        'Whether_Building_Filter': buildingId != null && buildingId.isNotEmpty,
         if (buildingId != null && buildingId.isNotEmpty)
           'BuildingID': buildingId,
         'Whether_Tenant_Vendor_Filter':
@@ -176,29 +172,79 @@ class SocietyService {
 
     final List<dynamic> dataList = response.data as List<dynamic>;
     final List<ResidentRecord> residents = dataList
-        .map((dynamic item) =>
-            ResidentData.fromJson(item as Map<String, dynamic>)
-                .toResidentRecord())
+        .whereType<Map<String, dynamic>>()
+        .where(
+          (Map<String, dynamic> item) => _isResidentForSociety(item, societyId),
+        )
+        .map(
+          (Map<String, dynamic> item) =>
+              ResidentData.fromJson(item).toResidentRecord(),
+        )
         .toList();
 
     return (residents: residents, count: response.count ?? residents.length);
   }
 
+  static bool _isResidentForSociety(
+    Map<String, dynamic> json,
+    String requestedSocietyId,
+  ) {
+    final String requested = requestedSocietyId.trim();
+    if (requested.isEmpty) {
+      return true;
+    }
+
+    final String recordSocietyId = _readNestedString(json, <List<String>>[
+      <String>['SocietyID'],
+      <String>['Society_ID'],
+      <String>['SocietyId'],
+      <String>['Society_Data', 'SocietyID'],
+      <String>['Society_Data', 'Society_ID'],
+      <String>['Society_Data', '_id'],
+      <String>['Society_Information', 'SocietyID'],
+      <String>['Society_Information', '_id'],
+    ]);
+
+    return recordSocietyId.isEmpty || recordSocietyId == requested;
+  }
+
+  static String _readNestedString(
+    Map<String, dynamic> json,
+    List<List<String>> paths,
+  ) {
+    for (final List<String> path in paths) {
+      dynamic value = json;
+      for (final String key in path) {
+        if (value is! Map<String, dynamic>) {
+          value = null;
+          break;
+        }
+        value = value[key];
+      }
+      final String text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+    return '';
+  }
+
   static Future<ApiResponse> createResident(
-      Map<String, dynamic> residentData) async {
+    Map<String, dynamic> residentData,
+  ) async {
     return ApiClient.instance.post(ApiConfig.createResident, residentData);
   }
 
   static Future<ApiResponse> editResident(
-      Map<String, dynamic> residentData) async {
+    Map<String, dynamic> residentData,
+  ) async {
     return ApiClient.instance.post(ApiConfig.editResident, residentData);
   }
 
   static Future<ApiResponse> activateResident(String residentId) async {
-    return ApiClient.instance.post(
-      ApiConfig.activeResident,
-      <String, dynamic>{'Society_ResidentID': residentId},
-    );
+    return ApiClient.instance.post(ApiConfig.activeResident, <String, dynamic>{
+      'Society_ResidentID': residentId,
+    });
   }
 
   static Future<ApiResponse> inactivateResident(String residentId) async {

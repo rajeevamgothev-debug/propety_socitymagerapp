@@ -5,11 +5,11 @@ import '../../core/api/auth_storage.dart';
 import '../../core/api/billing_service.dart';
 import '../../core/api/block_building_service.dart';
 import '../../core/api/notification_service.dart';
+import '../../core/api/property_service.dart';
 import '../../core/api/society_service.dart';
 import '../../core/api/support_service.dart';
 import '../../core/api/vendor_service.dart';
 import '../../core/data/mock_repository.dart';
-import '../../core/services/in_app_update_service.dart';
 import '../../core/models/api_models.dart';
 import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
@@ -17,7 +17,7 @@ import '../../core/widgets/custom_bottom_nav_bar.dart';
 import '../billing/billing_page.dart';
 import '../block/block_issues_page.dart';
 import '../block/block_security_page.dart';
-import '../bookings/bookings_page.dart';
+import '../bookings/tenant_property_bookings_page.dart';
 import '../communication/communication_page.dart';
 import '../dashboard/dashboard_page.dart';
 import '../more/more_page.dart';
@@ -63,15 +63,13 @@ class _AppShellState extends State<AppShell> {
   List<TicketRecord> _tickets = <TicketRecord>[];
   List<AnnouncementRecord> _announcements = <AnnouncementRecord>[];
   List<NotificationRecord> _notifications = <NotificationRecord>[];
+  int _propertyEnquiryCount = 0;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      InAppUpdateService.checkForUpdate(context);
-    });
   }
 
   @override
@@ -95,6 +93,7 @@ class _AppShellState extends State<AppShell> {
       _tickets = <TicketRecord>[];
       _announcements = <AnnouncementRecord>[];
       _notifications = <NotificationRecord>[];
+      _propertyEnquiryCount = 0;
     });
 
     try {
@@ -184,7 +183,36 @@ class _AppShellState extends State<AppShell> {
   Future<void> _loadNotifications() async {
     final result = await NotificationService.filterNotifications(limit: 50);
     if (mounted) {
-      _notifications = result.notifications
+      List<NotificationData> notifications = result.notifications;
+      int propertyEnquiryCount = 0;
+      if (widget.role == AppRole.propertyManager) {
+        try {
+          final enquiryResult =
+              await NotificationService.filterOpenPropertyEnquiryNotifications(
+                limit: 50,
+              );
+          notifications = NotificationService.mergePropertyEnquiryNotifications(
+            notifications,
+            enquiryResult.notifications,
+          );
+          propertyEnquiryCount = enquiryResult.count;
+        } catch (_) {
+          try {
+            final fallbackResult =
+                await PropertyService.filterPropertyEnquiries(
+                  null,
+                  limit: 1,
+                  enquiryStatus: 1,
+                );
+            propertyEnquiryCount = fallbackResult.newCount > 0
+                ? fallbackResult.newCount
+                : fallbackResult.count;
+          } catch (_) {}
+        }
+      }
+
+      _propertyEnquiryCount = propertyEnquiryCount;
+      _notifications = notifications
           .map((NotificationData item) => item.toNotificationRecord())
           .toList();
     }
@@ -484,6 +512,7 @@ class _AppShellState extends State<AppShell> {
           societyInfo: null,
           blockCount: 0,
           buildingCount: 0,
+          propertyEnquiryCountOverride: _propertyEnquiryCount,
           onShortcutSelected: (String actionKey) => _handleShortcut(actionKey),
           isLoading: _isLoading,
           onRefresh: _loadData,
@@ -653,7 +682,7 @@ class _AppShellState extends State<AppShell> {
       'pg_details' => const ResidenceOverviewPage(
         kind: ResidenceOverviewKind.pgDetails,
       ),
-      'bookings' => const BookingsPage(),
+      'bookings' => const TenantPropertyBookingsPage(),
       'my_visits' => MyVisitsPage(
         visits: _repository.visitorsForRole(widget.role),
       ),
@@ -677,28 +706,17 @@ class _AppShellState extends State<AppShell> {
       _ => null,
     };
 
-    final int capturedIndex = _selectedIndex;
-
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => Scaffold(
-          body: page ?? ModulePlaceholderPage(module: module),
-          bottomNavigationBar: CustomBottomNavBar(
-            selectedIndex: capturedIndex,
-            onSelected: (int index) {
-              Navigator.of(context).pop();
-              if (mounted) setState(() => _selectedIndex = index);
-            },
-            items: tabs
-                .map(
-                  (_TabDefinition tab) =>
-                      CustomBottomNavItem(label: tab.label, icon: tab.icon),
-                )
-                .toList(),
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => page ?? ModulePlaceholderPage(module: module),
           ),
-        ),
-      ),
-    );
+        )
+        .then((_) {
+      if (module.actionKey == 'notifications') {
+        _refreshNotifications();
+      }
+    });
   }
 
   String _prettyTitle(String actionKey) {
@@ -1378,6 +1396,14 @@ class _AppShellState extends State<AppShell> {
           readyNow: true,
         ),
         ModuleStatusItem(
+          title: 'Tenant Bookings',
+          subtitle: 'Paid booking review, accept, reject, and refunds',
+          icon: Icons.event_available_outlined,
+          phaseLabel: 'Ready now',
+          actionKey: 'bookings',
+          readyNow: true,
+        ),
+        ModuleStatusItem(
           title: 'Rental Contracts',
           subtitle: 'Contract list and lifecycle actions',
           icon: Icons.description_outlined,
@@ -1551,14 +1577,6 @@ class _AppShellState extends State<AppShell> {
           actionKey: 'my_property',
           readyNow: true,
         ),
-        ModuleStatusItem(
-          title: 'Bookings',
-          subtitle: 'Amenity booking entry point and current manual process',
-          icon: Icons.event_available_outlined,
-          phaseLabel: 'Ready now',
-          actionKey: 'bookings',
-          readyNow: true,
-        ),
       ],
       AppRole.tenant => const <ModuleStatusItem>[
         ModuleStatusItem(
@@ -1591,14 +1609,6 @@ class _AppShellState extends State<AppShell> {
           icon: Icons.home_work_outlined,
           phaseLabel: 'Ready now',
           actionKey: 'my_property',
-          readyNow: true,
-        ),
-        ModuleStatusItem(
-          title: 'Bookings',
-          subtitle: 'Amenity booking entry point and current manual process',
-          icon: Icons.event_available_outlined,
-          phaseLabel: 'Ready now',
-          actionKey: 'bookings',
           readyNow: true,
         ),
       ],

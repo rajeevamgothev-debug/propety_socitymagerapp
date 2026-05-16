@@ -6,6 +6,7 @@ import '../../core/api/property_service.dart';
 import '../../core/models/api_models.dart';
 import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/contact_launcher.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_card.dart';
 import '../../core/widgets/page_header.dart';
@@ -135,18 +136,28 @@ class _PropertyEnquiriesPageState extends State<PropertyEnquiriesPage> {
       if (!mounted) {
         return;
       }
+      final List<PropertyEnquiryData> visibleEnquiries =
+          _applyLocalEnquiryFilters(result.enquiries);
+      final int calculatedNewCount = result.enquiries
+          .where((PropertyEnquiryData enquiry) => enquiry.status == 1)
+          .length;
+      final int calculatedResolvedCount = result.enquiries
+          .where((PropertyEnquiryData enquiry) => enquiry.status == 2)
+          .length;
       setState(() {
         if (reset) {
-          _enquiries = result.enquiries;
+          _enquiries = visibleEnquiries;
         } else {
           _enquiries = <PropertyEnquiryData>[
             ..._enquiries,
-            ...result.enquiries,
+            ...visibleEnquiries,
           ];
         }
         _totalCount = result.count;
-        _newCount = result.newCount;
-        _resolvedCount = result.resolvedCount;
+        _newCount = result.newCount > 0 ? result.newCount : calculatedNewCount;
+        _resolvedCount = result.resolvedCount > 0
+            ? result.resolvedCount
+            : calculatedResolvedCount;
         _skip = skip + result.enquiries.length;
         _hasMore = (_skip) < result.count;
         _isLoadingEnquiries = false;
@@ -160,6 +171,64 @@ class _PropertyEnquiriesPageState extends State<PropertyEnquiriesPage> {
         _isLoadingEnquiries = false;
       });
     }
+  }
+
+  List<PropertyEnquiryData> _applyLocalEnquiryFilters(
+    List<PropertyEnquiryData> enquiries,
+  ) {
+    final String selectedPropertyId = _selectedPropertyId?.trim() ?? '';
+    final String search = _searchController.text.trim().toLowerCase();
+    final DateTime? start = _startDate == null
+        ? null
+        : DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+    final DateTime? end = _endDate == null
+        ? null
+        : DateTime(
+            _endDate!.year,
+            _endDate!.month,
+            _endDate!.day,
+            23,
+            59,
+            59,
+          );
+
+    return enquiries.where((PropertyEnquiryData enquiry) {
+      if (_statusFilter != null && enquiry.status != _statusFilter) {
+        return false;
+      }
+
+      final String enquiryPropertyId = (enquiry.propertyId ?? '').trim();
+      if (selectedPropertyId.isNotEmpty &&
+          enquiryPropertyId.isNotEmpty &&
+          enquiryPropertyId != selectedPropertyId) {
+        return false;
+      }
+
+      if (search.isNotEmpty) {
+        final String haystack = <String>[
+          enquiry.name,
+          enquiry.phone,
+          enquiry.email ?? '',
+          enquiry.propertyTitle ?? '',
+          enquiry.ownerName ?? '',
+        ].join(' ').toLowerCase();
+        if (!haystack.contains(search)) {
+          return false;
+        }
+      }
+
+      final DateTime? createdAt = enquiry.createdAt;
+      if (createdAt != null) {
+        if (start != null && createdAt.isBefore(start)) {
+          return false;
+        }
+        if (end != null && createdAt.isAfter(end)) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
   }
 
   void _onSearchChanged(String value) {
@@ -529,6 +598,10 @@ class _PropertyEnquiriesPageState extends State<PropertyEnquiriesPage> {
                   enquiry.ownerName,
                   property?.ownerName,
                 ]);
+                final String displayLabel = _firstNonEmpty(<String?>[
+                  enquiry.propertyDisplayLabel,
+                  _propertyTypeLabel(enquiry.propertyType),
+                ]);
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: CustomCard(
@@ -566,12 +639,12 @@ class _PropertyEnquiriesPageState extends State<PropertyEnquiriesPage> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _EnquiryDetailLine(
-                          icon: Icons.home_work_outlined,
-                          label: 'Property',
-                          value: propertyTitle.isEmpty
+                        _EnquiryPropertySummary(
+                          imageUrl: enquiry.propertyImageUrl,
+                          title: propertyTitle.isEmpty
                               ? 'Unknown property'
                               : propertyTitle,
+                          subtitle: displayLabel,
                         ),
                         const SizedBox(height: 8),
                         _EnquiryDetailLine(
@@ -581,20 +654,29 @@ class _PropertyEnquiriesPageState extends State<PropertyEnquiriesPage> {
                               ? 'Not available'
                               : ownerName,
                         ),
+                        if ((enquiry.ownerPhone ?? '').isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 8),
+                          _EnquiryDetailLine(
+                            icon: Icons.phone_outlined,
+                            label: 'Owner mobile',
+                            value: enquiry.ownerPhone!,
+                            contactType: _EnquiryContactType.phone,
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           children: <Widget>[
                             if (enquiry.phone.isNotEmpty)
-                              ToneBadge(
+                              ContactTextButton.phone(
+                                value: enquiry.phone,
                                 label: enquiry.phone,
-                                tone: UiTone.neutral,
                               ),
                             if ((enquiry.email ?? '').isNotEmpty)
-                              ToneBadge(
+                              ContactTextButton.email(
+                                value: enquiry.email!,
                                 label: enquiry.email!,
-                                tone: UiTone.neutral,
                               ),
                           ],
                         ),
@@ -664,10 +746,8 @@ class _PropertyEnquiriesPageState extends State<PropertyEnquiriesPage> {
   }
 
   String _formatDateTime(DateTime dt) {
-    final String date = _formatDate(dt);
-    final String h = dt.hour.toString().padLeft(2, '0');
-    final String m = dt.minute.toString().padLeft(2, '0');
-    return '$date $h:$m';
+    final DateTime local = dt.toLocal();
+    return '${_formatDate(local)} ${formatClock(local)}';
   }
 
   _PropertyOption? _propertyFor(String? propertyId) {
@@ -744,16 +824,97 @@ class _PropertyOption {
   }
 }
 
+String _propertyTypeLabel(int? propertyType) {
+  return switch (propertyType) {
+    1 => 'Apartment',
+    2 => 'Villa',
+    3 => 'PG',
+    4 => 'Commercial',
+    _ => '',
+  };
+}
+
+class _EnquiryPropertySummary extends StatelessWidget {
+  const _EnquiryPropertySummary({
+    required this.imageUrl,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String? imageUrl;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final String resolvedImageUrl = (imageUrl ?? '').trim();
+    return Row(
+      children: <Widget>[
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(
+            width: 52,
+            height: 52,
+            child: resolvedImageUrl.isEmpty
+                ? Container(
+                    color: AppTheme.surfaceMuted,
+                    child: const Icon(Icons.home_work_outlined),
+                  )
+                : Image.network(
+                    resolvedImageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AppTheme.surfaceMuted,
+                      child: const Icon(Icons.home_work_outlined),
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (subtitle.trim().isNotEmpty) ...<Widget>[
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppTheme.textMuted,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _EnquiryDetailLine extends StatelessWidget {
   const _EnquiryDetailLine({
     required this.icon,
     required this.label,
     required this.value,
+    this.contactType = _EnquiryContactType.none,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final _EnquiryContactType contactType;
 
   @override
   Widget build(BuildContext context) {
@@ -764,25 +925,31 @@ class _EnquiryDetailLine extends StatelessWidget {
         Icon(icon, size: 18, color: AppTheme.textMuted),
         const SizedBox(width: 8),
         Expanded(
-          child: RichText(
-            text: TextSpan(
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppTheme.textSecondary,
-              ),
-              children: <InlineSpan>[
-                TextSpan(
-                  text: '$label: ',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                TextSpan(text: value),
-              ],
-            ),
-          ),
+          child: contactType == _EnquiryContactType.phone
+              ? ContactTextButton.phone(value: value, label: '$label: $value')
+              : contactType == _EnquiryContactType.email
+                  ? ContactTextButton.email(value: value, label: '$label: $value')
+                  : RichText(
+                      text: TextSpan(
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                        children: <InlineSpan>[
+                          TextSpan(
+                            text: '$label: ',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          TextSpan(text: value),
+                        ],
+                      ),
+                    ),
         ),
       ],
     );
   }
 }
+
+enum _EnquiryContactType { none, phone, email }
 
 class _SummaryTile extends StatelessWidget {
   const _SummaryTile({

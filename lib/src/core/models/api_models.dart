@@ -15,11 +15,54 @@ String? _normalizeUploadUrl(String? value) {
   if (text.startsWith('//')) {
     return 'https:$text';
   }
-  final String path = text.replaceFirst(RegExp(r'^/+'), '');
+  String path = text.replaceFirst(RegExp(r'^/+'), '');
+  final String fileName = path.split('/').last;
+  if (!fileName.contains('.') && !fileName.endsWith('_Original')) {
+    path = '${path}_Original.png';
+  }
   if (path.startsWith(_uploadBucketFolder)) {
     return '$_uploadBucketRoot$path';
   }
   return '$_uploadBucketRoot$_uploadBucketFolder$path';
+}
+
+bool _looksLikeImageStringKey(String key) {
+  if (_looksLikeImageIdKey(key)) {
+    return false;
+  }
+
+  final String normalized = key.toLowerCase();
+  return normalized.contains('url') ||
+      normalized.contains('generation') ||
+      normalized.contains('original') ||
+      normalized.contains('image') ||
+      normalized.contains('photo') ||
+      normalized.contains('picture') ||
+      normalized.contains('avatar');
+}
+
+bool _looksLikeImageContainerKey(String key) {
+  final String normalized = key.toLowerCase();
+  return normalized == 'data' ||
+      normalized.contains('image') ||
+      normalized.contains('photo') ||
+      normalized.contains('picture') ||
+      normalized.contains('avatar') ||
+      normalized.contains('profile') ||
+      normalized.contains('vendor') ||
+      normalized.contains('tenant') ||
+      normalized.contains('resident') ||
+      normalized.contains('user');
+}
+
+bool _looksLikeImageIdKey(String key) {
+  final String normalized = key.toLowerCase();
+  return (normalized.contains('image') ||
+          normalized.contains('photo') ||
+          normalized.contains('picture') ||
+          normalized.contains('avatar') ||
+          normalized.contains('profile')) &&
+      normalized.contains('id');
 }
 
 bool? _readBool(dynamic value) {
@@ -45,6 +88,365 @@ bool? _readBool(dynamic value) {
     }
   }
   return null;
+}
+
+int _readIntValue(dynamic value, {int fallback = 0}) {
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    final String text = value.trim();
+    return int.tryParse(text) ?? double.tryParse(text)?.toInt() ?? fallback;
+  }
+  return fallback;
+}
+
+int? _readOptionalInt(dynamic value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is String && value.trim().isEmpty) {
+    return null;
+  }
+  return _readIntValue(value);
+}
+
+int? _firstOptionalInt(List<dynamic> values) {
+  for (final dynamic value in values) {
+    final int? parsed = _readOptionalInt(value);
+    if (parsed != null) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+DateTime? _parseApiTimestamp(String? value) {
+  final String text = value?.trim() ?? '';
+  if (text.isEmpty) {
+    return null;
+  }
+
+  final DateTime? parsed = DateTime.tryParse(text);
+  if (parsed == null) {
+    return null;
+  }
+
+  final bool hasTime = text.contains('T') || RegExp(r'\d\s+\d').hasMatch(text);
+  final bool hasTimezone = RegExp(r'(?:[zZ]|[+-]\d{2}:?\d{2})$').hasMatch(text);
+  if (parsed.isUtc || hasTimezone) {
+    return parsed.toLocal();
+  }
+
+  if (hasTime) {
+    return DateTime.utc(
+      parsed.year,
+      parsed.month,
+      parsed.day,
+      parsed.hour,
+      parsed.minute,
+      parsed.second,
+      parsed.millisecond,
+      parsed.microsecond,
+    ).toLocal();
+  }
+
+  return parsed;
+}
+
+const Duration _indiaTimeOffset = Duration(hours: 5, minutes: 30);
+
+DateTime? _parseApiTimestampAsIndiaTime(String? value) {
+  final String text = value?.trim() ?? '';
+  if (text.isEmpty) {
+    return null;
+  }
+
+  final DateTime? parsed = DateTime.tryParse(text);
+  if (parsed == null) {
+    return null;
+  }
+
+  final bool hasTime = text.contains('T') || RegExp(r'\d\s+\d').hasMatch(text);
+  final bool hasTimezone = RegExp(r'(?:[zZ]|[+-]\d{2}:?\d{2})$').hasMatch(text);
+  if (!hasTime) {
+    return parsed;
+  }
+
+  final DateTime utcDate = hasTimezone || parsed.isUtc
+      ? parsed.toUtc()
+      : DateTime.utc(
+          parsed.year,
+          parsed.month,
+          parsed.day,
+          parsed.hour,
+          parsed.minute,
+          parsed.second,
+          parsed.millisecond,
+          parsed.microsecond,
+        );
+  final DateTime indiaDate = utcDate.add(_indiaTimeOffset);
+  return DateTime(
+    indiaDate.year,
+    indiaDate.month,
+    indiaDate.day,
+    indiaDate.hour,
+    indiaDate.minute,
+    indiaDate.second,
+    indiaDate.millisecond,
+    indiaDate.microsecond,
+  );
+}
+
+String? _readImageUrl(dynamic value, {int depth = 0}) {
+  if (value == null) {
+    return null;
+  }
+  if (depth > 8) {
+    return null;
+  }
+
+  if (value is String) {
+    final String trimmed = value.trim();
+    return _normalizeUploadUrl(trimmed);
+  }
+
+  if (value is List) {
+    for (final dynamic item in value) {
+      final String? url = _readImageUrl(item, depth: depth + 1);
+      if (url != null) {
+        return url;
+      }
+    }
+    return null;
+  }
+
+  if (value is Map) {
+    for (final String key in <String>[
+      'Image_Original_URL',
+      'Image_URL',
+      'Image_250_URL',
+      'Image_500_URL',
+      'Image_750_URL',
+      'Image_Generation_Name',
+      'Image_Original_Name',
+      'Image_Name',
+      'ImageUrl',
+      'URL',
+      'url',
+      'Profile_Image_URL',
+      'Profile_Image_Original_URL',
+      'Profile_Image_250_URL',
+      'Profile_Image_500_URL',
+      'Profile_Image_Generation_Name',
+      'Profile_Photo_URL',
+      'Profile_Photo_Information',
+      'Profile_Photo_Data',
+      'Photo_URL',
+      'Photo_Information',
+      'Photo_Data',
+      'Avatar_URL',
+      'Avatar_Information',
+      'Avatar_Data',
+      'Tenant_Profile_Image_URL',
+      'Tenant_Image_URL',
+      'Tenant_Vendor_Image_URL',
+      'Tenant_Profile_Image_Generation_Name',
+      'Tenant_Image_Generation_Name',
+      'Tenant_Profile_Photo_Information',
+      'Tenant_Photo_Information',
+      'Resident_Profile_Image_URL',
+      'Resident_Image_URL',
+      'Resident_Profile_Image_Generation_Name',
+      'Resident_Image_Generation_Name',
+      'Resident_Profile_Photo_Information',
+      'Resident_Photo_Information',
+      'Resident_Profile_Photo_Data',
+      'Image_Information',
+      'Image_Information_Data',
+      'Image_Data',
+      'Image_Details',
+      'Images',
+      'Image_Array',
+      'Image_Information_Array',
+      'Profile_Image_Information',
+      'Profile_Image_Data',
+      'Resident_Profile_Image_Information',
+      'Resident_Image_Information',
+      'Tenant_Profile_Image_Information',
+      'Tenant_Image_Information',
+      'Tenant_Vendor_Image_Information',
+      'Vendor_Image_Information',
+      'Vendor_Image_Data',
+      'Vendor_Profile_Image_Information',
+      'Vendor_Profile_Image_Data',
+      'User_Image_Information',
+      'User_Profile_Image_Information',
+      'User_Profile_Image_Data',
+      'Resident_User_Data',
+      'Vendor_Data',
+      'Tenant_Vendor_Data',
+      'Resident_Vendor_Data',
+      'User_Data',
+      'Data',
+    ]) {
+      final dynamic raw = value[key];
+      if (raw is String && !_looksLikeImageStringKey(key)) {
+        continue;
+      }
+      final String? url = _readImageUrl(raw, depth: depth + 1);
+      if (url != null) {
+        return url;
+      }
+    }
+
+    for (final MapEntry<dynamic, dynamic> entry in value.entries) {
+      final String key = entry.key?.toString() ?? '';
+      final dynamic raw = entry.value;
+      String? url;
+      if (raw is String) {
+        if (_looksLikeImageStringKey(key)) {
+          url = _normalizeUploadUrl(raw);
+        }
+      } else if (_looksLikeImageContainerKey(key)) {
+        url = _readImageUrl(raw, depth: depth + 1);
+      }
+      if (url != null) {
+        return url;
+      }
+    }
+  }
+
+  return null;
+}
+
+String? _readImageId(dynamic value, {int depth = 0}) {
+  if (value == null) {
+    return null;
+  }
+  if (depth > 8) {
+    return null;
+  }
+
+  if (value is List) {
+    for (final dynamic item in value) {
+      final String? imageId = _readImageId(item, depth: depth + 1);
+      if (imageId != null) {
+        return imageId;
+      }
+    }
+    return null;
+  }
+
+  if (value is Map) {
+    for (final String key in <String>[
+      'ImageID',
+      'Image_ID',
+      'Profile_ImageID',
+      'Profile_Image_ID',
+      'Resident_Profile_ImageID',
+      'Resident_Profile_Image_ID',
+      'Resident_ImageID',
+      'Resident_Image_ID',
+      'Tenant_Profile_ImageID',
+      'Tenant_Profile_Image_ID',
+      'Tenant_ImageID',
+      'Tenant_Image_ID',
+      'Vendor_ImageID',
+      'Vendor_Profile_ImageID',
+      'Vendor_Image_ID',
+      'User_ImageID',
+      'User_Profile_ImageID',
+      'Profile_PhotoID',
+      'Profile_Photo_ID',
+      'Resident_Profile_PhotoID',
+      'Tenant_Profile_PhotoID',
+      'Image_Information',
+      'Image_Information_Data',
+      'Image_Data',
+      'Image_Details',
+      'Images',
+      'Image_Array',
+      'Image_Information_Array',
+      'Profile_Image_Information',
+      'Profile_Image_Data',
+      'Resident_Profile_Image_Information',
+      'Resident_Image_Information',
+      'Resident_Profile_Image_Data',
+      'Tenant_Profile_Image_Information',
+      'Tenant_Image_Information',
+      'Tenant_Vendor_Image_Information',
+      'Tenant_Profile_Image_Data',
+      'Vendor_Image_Information',
+      'Vendor_Profile_Image_Information',
+      'Vendor_Image_Data',
+      'User_Profile_Image_Information',
+      'Resident_User_Data',
+      'Vendor_Data',
+      'Tenant_Vendor_Data',
+      'Resident_Vendor_Data',
+      'User_Data',
+      'Data',
+    ]) {
+      final dynamic raw = value[key];
+      if (raw is String) {
+        final String text = raw.trim();
+        if (text.isNotEmpty && _looksLikeImageIdKey(key)) {
+          return text;
+        }
+      }
+      final String? nested = _readImageId(raw, depth: depth + 1);
+      if (nested != null) {
+        return nested;
+      }
+    }
+
+    for (final MapEntry<dynamic, dynamic> entry in value.entries) {
+      final String key = entry.key?.toString() ?? '';
+      final dynamic raw = entry.value;
+      if (raw is String) {
+        final String text = raw.trim();
+        if (text.isNotEmpty && _looksLikeImageIdKey(key)) {
+          return text;
+        }
+      } else if (_looksLikeImageContainerKey(key)) {
+        final String? nested = _readImageId(raw, depth: depth + 1);
+        if (nested != null) {
+          return nested;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+String? _firstImageUrl(Map<String, dynamic> json, List<String> keys) {
+  for (final String key in keys) {
+    final String? url = _readImageUrl(json[key]);
+    if (url != null) {
+      return url;
+    }
+  }
+  return null;
+}
+
+String? _firstImageId(Map<String, dynamic> json, List<String> keys) {
+  for (final String key in keys) {
+    final String? imageId = _readImageId(json[key]);
+    if (imageId != null) {
+      return imageId;
+    }
+  }
+  return null;
+}
+
+String? _imageIdReference(String? imageId) {
+  final String text = imageId?.trim() ?? '';
+  if (text.isEmpty) {
+    return null;
+  }
+  return 'imageid:$text';
 }
 
 // ---------------------------------------------------------------------------
@@ -234,14 +636,34 @@ class PropertySummaryData {
     required this.approvedPropertiesCount,
     required this.rejectedPropertiesCount,
     required this.pendingPropertiesCount,
+    this.newEnquiriesCount = 0,
   });
 
   factory PropertySummaryData.fromJson(Map<String, dynamic> json) {
+    int readInt(List<String> keys) {
+      for (final String key in keys) {
+        if (json.containsKey(key)) {
+          return _readIntValue(json[key]);
+        }
+      }
+      return 0;
+    }
+
     return PropertySummaryData(
-      totalPropertiesCount: json['Total_Properties_Count'] as int? ?? 0,
-      approvedPropertiesCount: json['Approved_Properties_Count'] as int? ?? 0,
-      rejectedPropertiesCount: json['Rejected_Properties_Count'] as int? ?? 0,
-      pendingPropertiesCount: json['Pending_Properties_Count'] as int? ?? 0,
+      totalPropertiesCount: readInt(<String>['Total_Properties_Count']),
+      approvedPropertiesCount: readInt(<String>['Approved_Properties_Count']),
+      rejectedPropertiesCount: readInt(<String>['Rejected_Properties_Count']),
+      pendingPropertiesCount: readInt(<String>['Pending_Properties_Count']),
+      newEnquiriesCount: readInt(<String>[
+        'New_Enquiries_Count',
+        'Open_Enquiries_Count',
+        'Unresolved_Enquiries_Count',
+        'Total_Unseen_Leads',
+        'Total_Unseen_Enquiries',
+        'Pending_Enquiries_Count',
+        'Total_Leads',
+        'Total_Enquiries_Count',
+      ]),
     );
   }
 
@@ -249,6 +671,7 @@ class PropertySummaryData {
   final int approvedPropertiesCount;
   final int rejectedPropertiesCount;
   final int pendingPropertiesCount;
+  final int newEnquiriesCount;
 }
 
 class RentalContractSummaryData {
@@ -399,13 +822,14 @@ class SubscriptionCalculationData {
   });
 
   factory SubscriptionCalculationData.fromJson(Map<String, dynamic> json) {
+    int readInt(String key) => _readIntValue(json[key]);
+
     return SubscriptionCalculationData(
       subscriptionPrice: (json['Subscription_Price'] as num?)?.toDouble() ?? 0,
-      activeRentalContractsCount:
-          json['Active_Rental_Contracts_Count'] as int? ?? 0,
-      freeContractsCount: json['Free_Contracts_Count'] as int? ?? 0,
-      extraContractsCount: json['Extra_Contracts_Count'] as int? ?? 0,
-      totalAvailableContracts: json['Total_Available_Contracts'] as int? ?? 0,
+      activeRentalContractsCount: readInt('Active_Rental_Contracts_Count'),
+      freeContractsCount: readInt('Free_Contracts_Count'),
+      extraContractsCount: readInt('Extra_Contracts_Count'),
+      totalAvailableContracts: readInt('Total_Available_Contracts'),
       amountPerContract: (json['Amount_Per_Contract'] as num?)?.toDouble() ?? 0,
       extraContractsAmount:
           (json['Extra_Contracts_Amount'] as num?)?.toDouble() ?? 0,
@@ -673,6 +1097,47 @@ class BillData {
           readString(payload, 'Flat_Or_Unit_No'),
         ]) ??
         'N/A';
+    final String? tenantImageUrl = _firstImageUrl(
+      <String, dynamic>{
+        ...?contractInfo,
+        'Tenant_Data': payload['Tenant_Data'],
+        'Tenant_Vendor_Data': payload['Tenant_Vendor_Data'],
+        'Top_Level_Tenant_Image_Information':
+            payload['Tenant_Image_Information'],
+        'Top_Level_Tenant_Profile_Image_Information':
+            payload['Tenant_Profile_Image_Information'],
+        'Top_Level_Tenant_Vendor_Image_Information':
+            payload['Tenant_Vendor_Image_Information'],
+      },
+      <String>[
+        'Tenant_Profile_Image_Information',
+        'Tenant_Image_Information',
+        'Tenant_Vendor_Image_Information',
+        'Tenant_Profile_Image',
+        'Tenant_Image',
+        'Tenant_Profile_Photo',
+        'Tenant_Photo',
+        'Tenant_Profile_Picture',
+        'Profile_Photo',
+        'Profile_Picture',
+        'Avatar',
+        'Tenant_Profile_Image_URL',
+        'Tenant_Image_URL',
+        'Tenant_Profile_Photo_URL',
+        'Tenant_Photo_URL',
+        'Profile_Photo_URL',
+        'Tenant_Vendor_Data',
+        'Tenant_Data',
+        'Profile_Image_Information',
+        'Profile_Image_Data',
+        'Profile_Photo_Information',
+        'Profile_Photo_Data',
+        'Profile_Image_URL',
+        'Top_Level_Tenant_Image_Information',
+        'Top_Level_Tenant_Profile_Image_Information',
+        'Top_Level_Tenant_Vendor_Image_Information',
+      ],
+    );
 
     return BillRecord(
       id: billId,
@@ -708,6 +1173,16 @@ class BillData {
           readString(payload, 'Bill_Payment_Image_URL'),
         ]),
       ),
+      tenantImageUrl: tenantImageUrl,
+      rentalContractId: firstNonEmpty(<String?>[
+        readString(contractInfo, 'Rental_ContractID'),
+        readString(payload, 'Rental_ContractID'),
+        readString(payload, 'Property_Rental_ContractID'),
+      ]),
+      propertyId: firstNonEmpty(<String?>[
+        readString(contractInfo, 'PropertyID'),
+        readString(payload, 'PropertyID'),
+      ]),
       walletCredited:
           payload['Whether_Bill_Amount_Credited_To_Wallet'] as bool?,
       walletCreditTime: _parseDate(
@@ -827,6 +1302,7 @@ class SupportTicketData {
     this.createdAt,
     this.targetName,
     this.imageUrl,
+    this.residentImageUrl,
     this.societyName,
     this.blockName,
     this.buildingName,
@@ -838,6 +1314,7 @@ class SupportTicketData {
     this.propertyFlatNo,
     this.tenantName,
     this.tenantPhone,
+    this.tenantImageUrl,
   });
 
   factory SupportTicketData.fromJson(Map<String, dynamic> json) {
@@ -865,6 +1342,62 @@ class SupportTicketData {
         json['Resident_Data'] is Map<String, dynamic>
         ? json['Resident_Data'] as Map<String, dynamic>
         : null;
+    final Map<String, dynamic> residentImageSource = <String, dynamic>{
+      ...?residentData,
+      'Vendor_Data': json['Vendor_Data'],
+      'Tenant_Vendor_Data': json['Tenant_Vendor_Data'],
+      'Resident_Vendor_Data': json['Resident_Vendor_Data'],
+      'User_Data': json['User_Data'],
+      'Resident_User_Data': json['Resident_User_Data'],
+      'Top_Level_Resident_Image_Information':
+          json['Resident_Image_Information'],
+      'Top_Level_Profile_Image_Information': json['Profile_Image_Information'],
+      'Top_Level_Resident_Profile_Image_Information':
+          json['Resident_Profile_Image_Information'],
+    };
+    final List<String> residentImageKeys = <String>[
+      'Profile_Image_Information',
+      'Resident_Profile_Image_Information',
+      'Resident_Image_Information',
+      'Profile_Image',
+      'Profile_Photo',
+      'Profile_Picture',
+      'Avatar',
+      'Resident_Profile_Photo',
+      'Resident_Photo',
+      'Resident_Profile_Picture',
+      'Profile_Image_URL',
+      'Profile_Photo_URL',
+      'Resident_Profile_Image_URL',
+      'Resident_Image_URL',
+      'Resident_Profile_Photo_URL',
+      'Resident_Photo_URL',
+      'Image_Information',
+      'Image_Information_Data',
+      'Image_Data',
+      'Profile_Image_Data',
+      'Profile_Photo_Information',
+      'Profile_Photo_Data',
+      'Resident_Profile_Image_Data',
+      'Resident_Profile_Photo_Information',
+      'Resident_Profile_Photo_Data',
+      'Vendor_Data',
+      'Tenant_Vendor_Data',
+      'Resident_Vendor_Data',
+      'User_Data',
+      'Resident_User_Data',
+      'Top_Level_Resident_Image_Information',
+      'Top_Level_Profile_Image_Information',
+      'Top_Level_Resident_Profile_Image_Information',
+    ];
+    final String? residentProfileImageUrl = _firstImageUrl(
+      residentImageSource,
+      residentImageKeys,
+    );
+    final String? residentProfileImageId = _firstImageId(
+      residentImageSource,
+      residentImageKeys,
+    );
     // For property manager tickets: Property_Data and Rental_Contract_Data
     final Map<String, dynamic>? propertyData =
         json['Property_Data'] is Map<String, dynamic>
@@ -874,6 +1407,58 @@ class SupportTicketData {
         json['Rental_Contract_Data'] is Map<String, dynamic>
         ? json['Rental_Contract_Data'] as Map<String, dynamic>
         : null;
+    final Map<String, dynamic> tenantImageSource = <String, dynamic>{
+      ...?contractData,
+      'Tenant_Data': json['Tenant_Data'],
+      'Tenant_Vendor_Data': json['Tenant_Vendor_Data'],
+      'Vendor_Data': json['Vendor_Data'],
+      'User_Data': json['User_Data'],
+      'Top_Level_Tenant_Image_Information': json['Tenant_Image_Information'],
+      'Top_Level_Tenant_Profile_Image_Information':
+          json['Tenant_Profile_Image_Information'],
+      'Top_Level_Tenant_Vendor_Image_Information':
+          json['Tenant_Vendor_Image_Information'],
+    };
+    final List<String> tenantImageKeys = <String>[
+      'Tenant_Profile_Image_Information',
+      'Tenant_Image_Information',
+      'Tenant_Vendor_Image_Information',
+      'Tenant_Profile_Image',
+      'Tenant_Profile_Photo',
+      'Tenant_Photo',
+      'Tenant_Profile_Picture',
+      'Profile_Photo',
+      'Profile_Picture',
+      'Avatar',
+      'Tenant_Profile_Image_URL',
+      'Tenant_Image_URL',
+      'Tenant_Profile_Photo_URL',
+      'Tenant_Photo_URL',
+      'Profile_Image_Information',
+      'Profile_Image_Data',
+      'Profile_Photo_Information',
+      'Profile_Photo_Data',
+      'Profile_Image_URL',
+      'Profile_Photo_URL',
+      'Image_Information',
+      'Image_Information_Data',
+      'Image_Data',
+      'Tenant_Data',
+      'Tenant_Vendor_Data',
+      'Vendor_Data',
+      'User_Data',
+      'Top_Level_Tenant_Image_Information',
+      'Top_Level_Tenant_Profile_Image_Information',
+      'Top_Level_Tenant_Vendor_Image_Information',
+    ];
+    final String? tenantProfileImageUrl = _firstImageUrl(
+      tenantImageSource,
+      tenantImageKeys,
+    );
+    final String? tenantProfileImageId = _firstImageId(
+      tenantImageSource,
+      tenantImageKeys,
+    );
 
     String? readString(Map<String, dynamic>? source, String key) {
       final dynamic value = source?[key];
@@ -901,14 +1486,25 @@ class SupportTicketData {
       ticketStatus: json['Ticket_Status'] as int? ?? 1,
       priority: json['Priority'] as int? ?? 1,
       category: json['Category'] as int? ?? 1,
-      updatedAt: json['updatedAt'] as String? ?? json['Updated_At'] as String?,
+      updatedAt:
+          json['updatedAt'] as String? ??
+          json['updated_at'] as String? ??
+          json['UpdatedAt'] as String? ??
+          json['Updated_At'] as String? ??
+          json['Updated_Time'] as String? ??
+          json['Time'] as String?,
       assignee: json['Assignee_Name'] as String?,
       createdAt:
           json['createdAt'] as String? ??
           json['created_at'] as String? ??
-          json['Created_At'] as String?,
+          json['CreatedAt'] as String? ??
+          json['Created_At'] as String? ??
+          json['Created_Time'] as String? ??
+          json['Time'] as String?,
       targetName: vendorTypeData?['Name'] as String?,
       imageUrl: imageInfo?['Image_Original_URL'] as String?,
+      residentImageUrl:
+          residentProfileImageUrl ?? _imageIdReference(residentProfileImageId),
       societyName: societyData?['Name'] as String?,
       blockName: blockData?['Name'] as String?,
       buildingName: buildingData?['Name'] as String?,
@@ -942,6 +1538,8 @@ class SupportTicketData {
           propertyData?['Flat_Or_Unit_No'] as String?,
       tenantName: contractData?['Tenant_Name'] as String?,
       tenantPhone: contractData?['Tenant_PhoneNumber'] as String?,
+      tenantImageUrl:
+          tenantProfileImageUrl ?? _imageIdReference(tenantProfileImageId),
     );
   }
 
@@ -956,6 +1554,7 @@ class SupportTicketData {
   final String? createdAt;
   final String? targetName;
   final String? imageUrl;
+  final String? residentImageUrl;
   final String? societyName;
   final String? blockName;
   final String? buildingName;
@@ -967,6 +1566,7 @@ class SupportTicketData {
   final String? propertyFlatNo;
   final String? tenantName;
   final String? tenantPhone;
+  final String? tenantImageUrl;
 
   TicketRecord toTicketRecord() {
     return TicketRecord(
@@ -976,11 +1576,12 @@ class SupportTicketData {
       status: _mapTicketStatus(ticketStatus),
       priority: _mapPriority(priority),
       category: _mapCategory(category),
-      updatedAt: DateTime.tryParse(updatedAt ?? '') ?? DateTime.now(),
+      updatedAt: _parseApiTimestamp(updatedAt) ?? DateTime.now(),
       assignee: assignee,
-      createdAt: DateTime.tryParse(createdAt ?? ''),
+      createdAt: _parseApiTimestamp(createdAt),
       targetName: targetName,
       imageUrl: imageUrl,
+      residentImageUrl: residentImageUrl,
       societyName: societyName,
       blockName: blockName,
       buildingName: buildingName,
@@ -992,6 +1593,7 @@ class SupportTicketData {
       propertyFlatNo: propertyFlatNo,
       tenantName: tenantName,
       tenantPhone: tenantPhone,
+      tenantImageUrl: tenantImageUrl,
     );
   }
 
@@ -1066,9 +1668,14 @@ class AnnouncementData {
       description: json['Description'] as String? ?? '',
       priority: json['Priority'] as int? ?? 1,
       createdAt:
+          json['created_at'] as String? ??
           json['createdAt'] as String? ??
+          json['CreatedAt'] as String? ??
           json['Created_At'] as String? ??
-          json['created_at'] as String?,
+          json['Announcement_Created_At'] as String? ??
+          json['Announcement_Date'] as String? ??
+          json['Created_Time'] as String? ??
+          json['Time'] as String?,
       isRead:
           json['Is_Read'] as bool? ?? json['Whether_Read'] as bool? ?? false,
       blockIds: blockIdArray.map((dynamic item) => '$item').toList(),
@@ -1103,7 +1710,7 @@ class AnnouncementData {
       title: title,
       message: description,
       category: AnnouncementCategory.maintenance,
-      createdAt: DateTime.tryParse(createdAt ?? '') ?? DateTime.now(),
+      createdAt: _parseApiTimestampAsIndiaTime(createdAt) ?? DateTime.now(),
       unread: !isRead,
       priorityLabel: _mapPriorityLabel(priority),
       blockIds: blockIds,
@@ -1187,7 +1794,7 @@ class IncidentData {
       status: _mapIncidentStatus(incidentStatus),
       priority: _mapPriority(priority),
       category: 'Incident${location != null ? ' - $location' : ''}',
-      updatedAt: DateTime.tryParse(createdAt ?? '') ?? DateTime.now(),
+      updatedAt: _parseApiTimestamp(createdAt) ?? DateTime.now(),
     );
   }
 
@@ -1198,7 +1805,7 @@ class IncidentData {
       description: description,
       status: _mapIncidentRecordStatus(incidentStatus),
       priority: _mapIncidentRecordPriority(priority),
-      createdAt: DateTime.tryParse(createdAt ?? '') ?? DateTime.now(),
+      createdAt: _parseApiTimestamp(createdAt) ?? DateTime.now(),
       isActive: isActive,
       location: location,
       blockName: blockName,
@@ -1484,7 +2091,12 @@ class PropertyData {
       currentSubscriptionExpiryDate:
           currentSubscription?['Subscription_Expiry_Date'] as String?,
       currentSubscriptionExtraResidentContracts:
-          (currentSubscription?['Extra_Resident_Contracts'] as num?)?.toInt(),
+          _firstOptionalInt(<dynamic>[
+            currentSubscription?['Extra_Resident_Contracts'],
+            currentSubscription?['Extra_Resident_Contracts_Count'],
+            currentSubscription?['Extra_Contracts_Count'],
+            currentSubscription?['Purchased_Resident_Contracts_Count'],
+          ]),
       currentSubscriptionPaymentStatus:
           (currentSubscription?['Payment_Status'] as num?)?.toInt(),
       currentSubscriptionPaymentDate:
@@ -1498,15 +2110,42 @@ class PropertyData {
             )
           : null,
       totalPurchasedResidentContractsCreationCount:
-          json['Total_Purchased_Resident_Contracts_Creation_Count'] as int?,
+          _firstOptionalInt(<dynamic>[
+            json['Total_Purchased_Resident_Contracts_Creation_Count'],
+            json['Total_Purchased_Resident_Contracts_Count'],
+            json['Purchased_Resident_Contracts_Count'],
+            json['Extra_Resident_Contracts'],
+            json['Extra_Resident_Contracts_Count'],
+            json['Extra_Contracts_Count'],
+          ]),
       availableResidentContractsCreationCount:
-          json['Available_Resident_Contracts_Creation_Count'] as int?,
+          _firstOptionalInt(<dynamic>[
+            json['Available_Resident_Contracts_Creation_Count'],
+            json['Available_Resident_Contracts_Count'],
+            json['Available_Contracts_Count'],
+            json['Total_Available_Contracts'],
+          ]),
       freeResidentContractsCount:
-          json['Total_Free_Resident_Contracts_Count'] as int?,
+          _firstOptionalInt(<dynamic>[
+            json['Total_Free_Resident_Contracts_Count'],
+            json['Free_Resident_Contracts_Count'],
+            json['Free_Contracts_Count'],
+          ]),
       usedResidentContractsCount:
-          json['Used_Resident_Contracts_Creation_Count'] as int?,
+          _firstOptionalInt(<dynamic>[
+            json['Used_Resident_Contracts_Creation_Count'],
+            json['Used_Resident_Contracts_Count'],
+            json['Active_Rental_Contracts_Count'],
+            json['Active_Resident_Contracts_Count'],
+            json['Used_Contracts_Count'],
+          ]),
       totalResidentContractsCount:
-          json['Total_Resident_Contracts_Creation_Count'] as int?,
+          _firstOptionalInt(<dynamic>[
+            json['Total_Resident_Contracts_Creation_Count'],
+            json['Total_Resident_Contracts_Count'],
+            json['Total_Available_Contracts'],
+            json['Total_Contracts_Count'],
+          ]),
       carpetArea: (json['Carpet_Area'] as num?)?.toDouble(),
       noOfFloors: json['No_Of_Floors'] as int?,
       gender: json['Gender'] as int?,
@@ -1654,6 +2293,11 @@ class PropertyData {
       currentSubscriptionExpiryDate: currentSubscriptionExpiryDate,
       totalLeads: totalLeads,
       totalUnseenLeads: totalUnseenLeads,
+      totalPurchasedResidentContractsCreationCount:
+          totalPurchasedResidentContractsCreationCount,
+      freeResidentContractsCount: freeResidentContractsCount,
+      usedResidentContractsCount: usedResidentContractsCount,
+      totalResidentContractsCount: totalResidentContractsCount,
       availableResidentContractsCreationCount:
           availableResidentContractsCreationCount,
     );
@@ -1756,6 +2400,7 @@ class RentalContractData {
     this.flatNo,
     this.tenantPhone,
     this.tenantEmail,
+    this.tenantImageUrl,
     this.ownerPhone,
     this.ownerEmail,
     this.ownerAddress,
@@ -1777,10 +2422,113 @@ class RentalContractData {
   });
 
   factory RentalContractData.fromJson(Map<String, dynamic> json) {
-    final Map<String, dynamic>? propertyData =
-        json['Property_Data'] is Map<String, dynamic>
-        ? json['Property_Data'] as Map<String, dynamic>
-        : null;
+    Map<String, dynamic>? readMap(String key) {
+      final dynamic value = json[key];
+      return value is Map<String, dynamic> ? value : null;
+    }
+
+    final Map<String, dynamic>? propertyData = readMap('Property_Data');
+    final Map<String, dynamic>? tenantData =
+        readMap('Tenant_Data') ??
+        readMap('Tenant_Vendor_Data') ??
+        readMap('Tenant_Vendor_Information') ??
+        readMap('Tenant_Information') ??
+        readMap('Tenant_User_Data') ??
+        readMap('User_Information') ??
+        readMap('Vendor_Information');
+    final Map<String, dynamic> tenantImageSource = <String, dynamic>{
+      ...?tenantData,
+      'Tenant_Data': json['Tenant_Data'],
+      'Tenant_Vendor_Data': json['Tenant_Vendor_Data'],
+      'Tenant_Vendor_Information': json['Tenant_Vendor_Information'],
+      'Tenant_Vendor_Details': json['Tenant_Vendor_Details'],
+      'Tenant_Information': json['Tenant_Information'],
+      'Tenant_User_Data': json['Tenant_User_Data'],
+      'Tenant_User_Information': json['Tenant_User_Information'],
+      'Vendor_Data': json['Vendor_Data'],
+      'Vendor_Information': json['Vendor_Information'],
+      'User_Data': json['User_Data'],
+      'User_Information': json['User_Information'],
+      'Profile_Information': json['Profile_Information'],
+      'Tenant_Profile_ImageID': json['Tenant_Profile_ImageID'],
+      'Tenant_Profile_Image_ID': json['Tenant_Profile_Image_ID'],
+      'Tenant_ImageID': json['Tenant_ImageID'],
+      'Tenant_Image_ID': json['Tenant_Image_ID'],
+      'Tenant_Profile_PhotoID': json['Tenant_Profile_PhotoID'],
+      'Tenant_Profile_Photo_ID': json['Tenant_Profile_Photo_ID'],
+      'Profile_ImageID': json['Profile_ImageID'],
+      'Profile_Image_ID': json['Profile_Image_ID'],
+      'Profile_PhotoID': json['Profile_PhotoID'],
+      'Profile_Photo_ID': json['Profile_Photo_ID'],
+      'Tenant_Profile_Image_URL': json['Tenant_Profile_Image_URL'],
+      'Tenant_Image_URL': json['Tenant_Image_URL'],
+      'Tenant_Profile_Photo_URL': json['Tenant_Profile_Photo_URL'],
+      'Tenant_Photo_URL': json['Tenant_Photo_URL'],
+      'Tenant_Profile_Image_Generation_Name':
+          json['Tenant_Profile_Image_Generation_Name'],
+      'Tenant_Image_Generation_Name': json['Tenant_Image_Generation_Name'],
+      'Profile_Image_URL': json['Profile_Image_URL'],
+      'Profile_Photo_URL': json['Profile_Photo_URL'],
+      'Top_Level_Tenant_Image_Information': json['Tenant_Image_Information'],
+      'Top_Level_Tenant_Profile_Image_Information':
+          json['Tenant_Profile_Image_Information'],
+      'Top_Level_Tenant_Vendor_Image_Information':
+          json['Tenant_Vendor_Image_Information'],
+      'Profile_Image_Information': json['Profile_Image_Information'],
+      'Profile_Photo_Information': json['Profile_Photo_Information'],
+      'Profile_Photo_Data': json['Profile_Photo_Data'],
+    };
+    final List<String> tenantImageKeys = <String>[
+      'Tenant_Profile_Image_Information',
+      'Tenant_Image_Information',
+      'Tenant_Vendor_Image_Information',
+      'Tenant_Profile_Image_Data',
+      'Tenant_Vendor_Profile_Image_Information',
+      'Tenant_Vendor_Profile_Image_Data',
+      'Tenant_Profile_Photo_Information',
+      'Tenant_Profile_Photo_Data',
+      'Tenant_Vendor_Profile_Photo_Information',
+      'Tenant_Vendor_Profile_Photo_Data',
+      'Tenant_Profile_Image',
+      'Tenant_Image',
+      'Tenant_Profile_Photo',
+      'Tenant_Photo',
+      'Tenant_Profile_Picture',
+      'Profile_Photo',
+      'Profile_Picture',
+      'Avatar',
+      'Tenant_Profile_Image_URL',
+      'Tenant_Image_URL',
+      'Tenant_Profile_Photo_URL',
+      'Tenant_Photo_URL',
+      'Profile_Photo_URL',
+      'Tenant_Vendor_Information',
+      'Tenant_Vendor_Details',
+      'Tenant_Vendor_Data',
+      'Tenant_Information',
+      'Tenant_User_Data',
+      'Tenant_User_Information',
+      'Tenant_Data',
+      'Vendor_Information',
+      'Vendor_Data',
+      'User_Information',
+      'User_Data',
+      'Profile_Information',
+      'Profile_Image_Information',
+      'Profile_Image_Data',
+      'Profile_Photo_Information',
+      'Profile_Photo_Data',
+      'Profile_Image_URL',
+      'Top_Level_Tenant_Image_Information',
+      'Top_Level_Tenant_Profile_Image_Information',
+      'Top_Level_Tenant_Vendor_Image_Information',
+    ];
+    final String? tenantImageUrl =
+        _firstImageUrl(tenantImageSource, tenantImageKeys) ??
+        _readImageUrl(tenantImageSource);
+    final String? tenantImageId =
+        _firstImageId(tenantImageSource, tenantImageKeys) ??
+        _readImageId(tenantImageSource);
     return RentalContractData(
       contractId:
           json['Rental_ContractID'] as String? ?? json['_id'] as String? ?? '',
@@ -1826,6 +2574,7 @@ class RentalContractData {
           json['Tenant_PhoneNumber'] as String? ??
           json['Tenant_Phone'] as String?,
       tenantEmail: json['Tenant_EmailID'] as String?,
+      tenantImageUrl: tenantImageUrl ?? _imageIdReference(tenantImageId),
       ownerPhone:
           json['Owner_PhoneNumber'] as String? ??
           json['Owner_Phone'] as String?,
@@ -1876,6 +2625,7 @@ class RentalContractData {
   final String? flatNo;
   final String? tenantPhone;
   final String? tenantEmail;
+  final String? tenantImageUrl;
   final String? ownerPhone;
   final String? ownerEmail;
   final String? ownerAddress;
@@ -1905,11 +2655,12 @@ class RentalContractData {
       deposit: deposit,
       startDate: startDate,
       endDate: endDate,
-      status: _mapContractStatus(contractStatus),
+      status: _mapContractStatus(contractStatus, tenantStatus: tenantStatus),
       isActive: isActive,
       flatNo: flatNo,
       tenantPhone: tenantPhone,
       tenantEmail: tenantEmail,
+      tenantImageUrl: tenantImageUrl,
       ownerPhone: ownerPhone,
       ownerEmail: ownerEmail,
       ownerAddress: ownerAddress,
@@ -1938,12 +2689,18 @@ class RentalContractData {
     return ContractDocumentData.fromJson(json);
   }
 
-  static ContractStatus _mapContractStatus(int status) {
+  static ContractStatus _mapContractStatus(int status, {int? tenantStatus}) {
+    if (status == 3) {
+      return ContractStatus.closed;
+    }
+    if (status == 2) {
+      return ContractStatus.expired;
+    }
+    if (tenantStatus == 1 || status == 4) {
+      return ContractStatus.readyToVacate;
+    }
     return switch (status) {
       1 => ContractStatus.active,
-      2 => ContractStatus.expired,
-      3 => ContractStatus.closed,
-      4 => ContractStatus.readyToVacate,
       _ => ContractStatus.active,
     };
   }
@@ -2021,6 +2778,7 @@ class ResidentData {
     this.buildingName,
     this.blockId,
     this.buildingId,
+    this.imageUrl,
   });
 
   factory ResidentData.fromJson(Map<String, dynamic> json) {
@@ -2032,6 +2790,121 @@ class ResidentData {
         json['Building_Data'] is Map<String, dynamic>
         ? json['Building_Data'] as Map<String, dynamic>
         : null;
+    final Map<String, dynamic> residentImageSource = <String, dynamic>{
+      ...json,
+      'Resident_Data': json['Resident_Data'],
+      'Vendor_Data': json['Vendor_Data'],
+      'Vendor_Information': json['Vendor_Information'],
+      'Tenant_Vendor_Data': json['Tenant_Vendor_Data'],
+      'Tenant_Vendor_Information': json['Tenant_Vendor_Information'],
+      'Tenant_Vendor_Details': json['Tenant_Vendor_Details'],
+      'Resident_Vendor_Data': json['Resident_Vendor_Data'],
+      'Resident_Vendor_Information': json['Resident_Vendor_Information'],
+      'User_Data': json['User_Data'],
+      'User_Information': json['User_Information'],
+      'Resident_User_Data': json['Resident_User_Data'],
+      'Resident_User_Information': json['Resident_User_Information'],
+      'Tenant_Data': json['Tenant_Data'],
+      'Tenant_Information': json['Tenant_Information'],
+      'Tenant_User_Data': json['Tenant_User_Data'],
+      'Tenant_User_Information': json['Tenant_User_Information'],
+      'Profile_Data': json['Profile_Data'],
+      'Profile_Information': json['Profile_Information'],
+      'Top_Level_Profile_Image_Information': json['Profile_Image_Information'],
+      'Top_Level_Resident_Profile_Image_Information':
+          json['Resident_Profile_Image_Information'],
+      'Top_Level_Resident_Image_Information':
+          json['Resident_Image_Information'],
+      'Top_Level_Tenant_Profile_Image_Information':
+          json['Tenant_Profile_Image_Information'],
+      'Top_Level_Tenant_Image_Information': json['Tenant_Image_Information'],
+      'Top_Level_Vendor_Image_Information': json['Vendor_Image_Information'],
+    };
+    final List<String> residentImageKeys = <String>[
+      'Profile_Image_Information',
+      'Resident_Profile_Image_Information',
+      'Resident_Image_Information',
+      'Tenant_Profile_Image_Information',
+      'Tenant_Image_Information',
+      'Vendor_Image_Information',
+      'User_Profile_Image_Information',
+      'Profile_Image',
+      'Profile_Photo',
+      'Profile_Picture',
+      'Avatar',
+      'Resident_Profile_Photo',
+      'Resident_Photo',
+      'Resident_Profile_Picture',
+      'Tenant_Profile_Photo',
+      'Tenant_Photo',
+      'Tenant_Profile_Picture',
+      'Profile_Image_URL',
+      'Profile_Photo_URL',
+      'Resident_Profile_Image_URL',
+      'Resident_Image_URL',
+      'Resident_Profile_Photo_URL',
+      'Resident_Photo_URL',
+      'Tenant_Profile_Image_URL',
+      'Tenant_Image_URL',
+      'Tenant_Profile_Photo_URL',
+      'Tenant_Photo_URL',
+      'Image_Information',
+      'Image_Information_Data',
+      'Image_Data',
+      'Images',
+      'Image_Array',
+      'Image_Information_Array',
+      'Profile_Image_Data',
+      'Profile_Photo_Information',
+      'Profile_Photo_Data',
+      'Resident_Profile_Image_Data',
+      'Resident_Profile_Photo_Information',
+      'Resident_Profile_Photo_Data',
+      'Tenant_Profile_Image_Data',
+      'Tenant_Profile_Photo_Information',
+      'Tenant_Profile_Photo_Data',
+      'Vendor_Data',
+      'Vendor_Information',
+      'Vendor_Profile_Image_Information',
+      'Vendor_Profile_Image_Data',
+      'Vendor_Profile_Photo_Information',
+      'Vendor_Profile_Photo_Data',
+      'Tenant_Vendor_Data',
+      'Tenant_Vendor_Information',
+      'Tenant_Vendor_Details',
+      'Tenant_Vendor_Profile_Image_Information',
+      'Tenant_Vendor_Profile_Photo_Information',
+      'Resident_Vendor_Data',
+      'Resident_Vendor_Information',
+      'User_Data',
+      'User_Information',
+      'User_Profile_Image_Data',
+      'User_Profile_Photo_Information',
+      'User_Profile_Photo_Data',
+      'Resident_User_Data',
+      'Resident_User_Information',
+      'Tenant_Data',
+      'Tenant_Information',
+      'Tenant_User_Data',
+      'Tenant_User_Information',
+      'Resident_Data',
+      'Profile_Data',
+      'Profile_Information',
+      'Top_Level_Profile_Image_Information',
+      'Top_Level_Resident_Profile_Image_Information',
+      'Top_Level_Resident_Image_Information',
+      'Top_Level_Tenant_Profile_Image_Information',
+      'Top_Level_Tenant_Image_Information',
+      'Top_Level_Vendor_Image_Information',
+    ];
+    final String? profileImageUrl = _firstImageUrl(
+      residentImageSource,
+      residentImageKeys,
+    ) ?? _readImageUrl(residentImageSource);
+    final String? profileImageId = _firstImageId(
+      residentImageSource,
+      residentImageKeys,
+    ) ?? _readImageId(residentImageSource);
 
     String? readString(Map<String, dynamic>? source, String key) {
       final dynamic value = source?[key];
@@ -2087,6 +2960,7 @@ class ResidentData {
         readString(buildingData, 'BuildingID'),
         readString(buildingData, '_id'),
       ]),
+      imageUrl: profileImageUrl ?? _imageIdReference(profileImageId),
     );
   }
 
@@ -2103,6 +2977,7 @@ class ResidentData {
   final String? buildingName;
   final String? blockId;
   final String? buildingId;
+  final String? imageUrl;
 
   ResidentRecord toResidentRecord() {
     return ResidentRecord(
@@ -2123,6 +2998,7 @@ class ResidentData {
       buildingName: buildingName,
       blockId: blockId,
       buildingId: buildingId,
+      imageUrl: imageUrl,
     );
   }
 
@@ -2355,6 +3231,74 @@ class NotificationData {
     this.data = const <String, dynamic>{},
   });
 
+  factory NotificationData.fromPropertyEnquiry(PropertyEnquiryData enquiry) {
+    final String enquiryId = enquiry.enquiryId.trim();
+    final String propertyTitle = enquiry.propertyTitle?.trim() ?? '';
+    final String name = enquiry.name.trim();
+    final String propertyTypeLabel = _propertyTypeLabel(enquiry.propertyType);
+    final String subTypeLabel = _propertySubTypeLabel(
+      enquiry.propertyType,
+      enquiry.subType,
+    );
+    final String sharingTypeLabel = _pgSharingTypeLabel(enquiry.pgSharingType);
+    final String propertyDisplayLabel = <String>[
+      if (propertyTitle.isNotEmpty) propertyTitle,
+      if (propertyTypeLabel.isNotEmpty) propertyTypeLabel,
+      if (subTypeLabel.isNotEmpty) subTypeLabel,
+      if (enquiry.propertyType == 3 && sharingTypeLabel.isNotEmpty)
+        sharingTypeLabel,
+    ].join(' - ');
+    final String title = name.isEmpty
+        ? 'New Property Enquiry'
+        : 'New Property Enquiry - $name';
+
+    final List<String> messageParts = <String>[
+      if (name.isNotEmpty) 'Name: $name',
+      if (enquiry.phone.trim().isNotEmpty) 'Mobile: ${enquiry.phone.trim()}',
+      if ((enquiry.email ?? '').trim().isNotEmpty)
+        'Email: ${(enquiry.email ?? '').trim()}',
+      if (propertyDisplayLabel.isNotEmpty) 'Property: $propertyDisplayLabel',
+      if ((enquiry.ownerName ?? '').trim().isNotEmpty)
+        'Owner: ${(enquiry.ownerName ?? '').trim()}',
+      'Status: ${enquiry.status == 2 ? 'Resolved' : 'New'}',
+    ];
+
+    return NotificationData(
+      notificationId:
+          'local-property-enquiry:${enquiryId.isNotEmpty ? enquiryId : '${name}_${enquiry.createdAt?.millisecondsSinceEpoch ?? 0}'}',
+      title: title,
+      message: messageParts.join('\n'),
+      type: 'enquiry',
+      isRead: false,
+      createdAt: enquiry.createdAt ?? DateTime.now(),
+      referenceType: 'property_enquiry',
+      referenceId: enquiryId,
+      data: <String, dynamic>{
+        'Name': name,
+        'FinalPhoneNumber': enquiry.phone.trim(),
+        if ((enquiry.email ?? '').trim().isNotEmpty)
+          'EmailID': (enquiry.email ?? '').trim(),
+        if ((enquiry.propertyId ?? '').trim().isNotEmpty)
+          'PropertyID': (enquiry.propertyId ?? '').trim(),
+        if (propertyTitle.isNotEmpty) 'Property_Title': propertyTitle,
+        if (enquiry.propertyType != null) 'Property_Type': enquiry.propertyType,
+        if (propertyTypeLabel.isNotEmpty)
+          'Property_Type_Label': propertyTypeLabel,
+        if (enquiry.subType != null) 'Sub_Type': enquiry.subType,
+        if (subTypeLabel.isNotEmpty) 'Sub_Type_Label': subTypeLabel,
+        if (enquiry.pgSharingType != null)
+          'PG_Sharing_Type': enquiry.pgSharingType,
+        if (sharingTypeLabel.isNotEmpty)
+          'PG_Sharing_Type_Label': sharingTypeLabel,
+        if (propertyDisplayLabel.isNotEmpty)
+          'Property_Display_Label': propertyDisplayLabel,
+        if ((enquiry.ownerName ?? '').trim().isNotEmpty)
+          'Owner_Name': (enquiry.ownerName ?? '').trim(),
+        'Enquiry_Status': enquiry.status,
+      },
+    );
+  }
+
   factory NotificationData.fromJson(Map<String, dynamic> json) {
     final String referenceType = '${json['Reference_Type'] ?? ''}';
     final String rawType =
@@ -2376,11 +3320,10 @@ class NotificationData {
       isRead:
           json['Whether_Read'] as bool? ?? json['Is_Read'] as bool? ?? false,
       createdAt:
-          DateTime.tryParse(
+          _parseApiTimestamp(
             json['createdAt'] as String? ??
                 json['Created_At'] as String? ??
-                json['created_at'] as String? ??
-                '',
+                json['created_at'] as String?,
           ) ??
           DateTime.now(),
       referenceType: referenceType,
@@ -2401,6 +3344,33 @@ class NotificationData {
   final String referenceId;
   final Map<String, dynamic> data;
 
+  bool get isLocalPropertyEnquiry =>
+      notificationId.startsWith('local-property-enquiry:');
+
+  NotificationData copyWith({
+    String? notificationId,
+    String? title,
+    String? message,
+    String? type,
+    bool? isRead,
+    DateTime? createdAt,
+    String? referenceType,
+    String? referenceId,
+    Map<String, dynamic>? data,
+  }) {
+    return NotificationData(
+      notificationId: notificationId ?? this.notificationId,
+      title: title ?? this.title,
+      message: message ?? this.message,
+      type: type ?? this.type,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+      referenceType: referenceType ?? this.referenceType,
+      referenceId: referenceId ?? this.referenceId,
+      data: data ?? this.data,
+    );
+  }
+
   NotificationRecord toNotificationRecord() {
     return NotificationRecord(
       id: notificationId,
@@ -2416,13 +3386,28 @@ class NotificationData {
     String rawType,
     String referenceType,
   ) {
-    final String normalizedReference = referenceType.toLowerCase();
-    if (normalizedReference.contains('rental_contract')) return 'contract';
-    if (normalizedReference.contains('property_enquiry')) return 'enquiry';
-    if (normalizedReference.contains('support_ticket')) return 'support';
+    final String normalizedReference = referenceType.toLowerCase().trim();
+    final String normalizedRaw = rawType.toLowerCase().trim();
+
     if (normalizedReference.contains('bill')) return 'billing';
+    if (normalizedReference.contains('rental_contract')) return 'contract';
     if (normalizedReference.contains('announcement')) return 'announcement';
-    return rawType;
+    if (normalizedReference.contains('support_ticket')) return 'support';
+    if (normalizedReference.contains('property_enquiry') ||
+        normalizedReference.contains('enquiry') ||
+        normalizedReference.contains('lead')) {
+      return 'enquiry';
+    }
+
+    return switch (normalizedRaw) {
+      '1' || '5' => 'billing',
+      '2' => 'contract',
+      '3' => 'announcement',
+      '4' => 'support',
+      '6' => 'enquiry',
+      '7' => 'system',
+      _ => normalizedRaw.isEmpty ? 'general' : normalizedRaw,
+    };
   }
 }
 
@@ -2440,10 +3425,20 @@ class PropertyEnquiryData {
     this.propertyId,
     this.propertyTitle,
     this.ownerName,
+    this.ownerPhone,
+    this.propertyImageUrl,
+    this.propertyDisplayLabel,
+    this.propertyType,
+    this.subType,
+    this.pgSharingType,
     this.createdAt,
   });
 
   factory PropertyEnquiryData.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic>? propertyData =
+        json['Property_Data'] is Map<String, dynamic>
+        ? json['Property_Data'] as Map<String, dynamic>
+        : null;
     return PropertyEnquiryData(
       enquiryId:
           json['Property_EnquiryID'] as String? ??
@@ -2457,23 +3452,68 @@ class PropertyEnquiryData {
           json['Phone'] as String? ??
           '',
       // Website uses Enquiry_Status (1=New, 2=Resolved); legacy field is Status (bool)
-      status:
-          json['Enquiry_Status'] as int? ??
-          ((json['Status'] as bool?) == true ? 2 : 1),
-      email: json['EmailID'] as String?,
-      propertyId: json['PropertyID'] as String?,
+      status: _readEnquiryStatus(json),
+      email: json['EmailID'] as String? ?? json['Email'] as String?,
+      propertyId:
+          json['PropertyID'] as String? ??
+          propertyData?['PropertyID'] as String? ??
+          propertyData?['_id'] as String?,
       propertyTitle:
           json['Property_Title'] as String? ??
           json['Property_Name'] as String? ??
-          json['Title'] as String?,
+          json['Title'] as String? ??
+          propertyData?['Property_Title'] as String? ??
+          propertyData?['Title'] as String?,
       ownerName:
+          json['Property_Owner_Name'] as String? ??
           json['Owner_Name'] as String? ??
           json['OwnerName'] as String? ??
-          json['Owner'] as String?,
-      createdAt: DateTime.tryParse(
-        json['Time'] as String? ?? json['created_at'] as String? ?? '',
+          json['Owner'] as String? ??
+          propertyData?['Owner_Name'] as String? ??
+          propertyData?['OwnerName'] as String?,
+      ownerPhone:
+          json['Property_Owner_Phone'] as String? ??
+          propertyData?['Owner_Phone'] as String?,
+      propertyImageUrl:
+          json['Property_Image_URL'] as String? ??
+          json['Image_URL'] as String? ??
+          propertyData?['Image_URL'] as String?,
+      propertyDisplayLabel:
+          json['Property_Display_Label'] as String? ??
+          json['Property_Type_Label'] as String?,
+      propertyType:
+          _readOptionalInt(json['Property_Type']) ??
+          _readOptionalInt(propertyData?['Property_Type']),
+      subType:
+          _readOptionalInt(json['Sub_Type']) ??
+          _readOptionalInt(propertyData?['Sub_Type']),
+      pgSharingType:
+          _readOptionalInt(json['PG_Sharing_Type']) ??
+          _readOptionalInt(propertyData?['PG_Sharing_Type']),
+      createdAt: _parseApiTimestamp(
+        json['Time'] as String? ??
+            json['created_at'] as String? ??
+            json['createdAt'] as String? ??
+            json['Created_At'] as String? ??
+            '',
       ),
     );
+  }
+
+  static int _readEnquiryStatus(Map<String, dynamic> json) {
+    final int? explicitStatus = _readOptionalInt(
+      json['Enquiry_Status'] ?? json['EnquiryStatus'],
+    );
+    if (explicitStatus == 1 || explicitStatus == 2) {
+      return explicitStatus!;
+    }
+
+    final int? legacyNumericStatus = _readOptionalInt(json['Status']);
+    if (legacyNumericStatus == 1 || legacyNumericStatus == 2) {
+      return legacyNumericStatus!;
+    }
+
+    return 1;
   }
 
   final String enquiryId;
@@ -2484,7 +3524,68 @@ class PropertyEnquiryData {
   final String? propertyId;
   final String? propertyTitle;
   final String? ownerName;
+  final String? ownerPhone;
+  final String? propertyImageUrl;
+  final String? propertyDisplayLabel;
+  final int? propertyType;
+  final int? subType;
+  final int? pgSharingType;
   final DateTime? createdAt;
+}
+
+String _propertyTypeLabel(int? propertyType) {
+  return switch (propertyType) {
+    1 => 'Apartment',
+    2 => 'Villa',
+    3 => 'PG',
+    4 => 'Commercial',
+    _ => '',
+  };
+}
+
+String _propertySubTypeLabel(int? propertyType, int? subType) {
+  return switch (propertyType) {
+    1 => switch (subType) {
+      1 => '1 BHK',
+      2 => '2 BHK',
+      3 => '3 BHK',
+      4 => '4 BHK',
+      5 => 'Studio',
+      _ => '',
+    },
+    2 => switch (subType) {
+      1 => '2 BHK Villa',
+      2 => '3 BHK Villa',
+      3 => '4 BHK Villa',
+      4 => 'Duplex Villa',
+      _ => '',
+    },
+    3 => switch (subType) {
+      1 => 'Mens PG',
+      2 => 'Womens PG',
+      3 => 'Coliving',
+      _ => '',
+    },
+    4 => switch (subType) {
+      1 => 'Office',
+      2 => 'Retail',
+      3 => 'Ware House',
+      4 => 'Show Room',
+      _ => '',
+    },
+    _ => '',
+  };
+}
+
+String _pgSharingTypeLabel(int? pgSharingType) {
+  return switch (pgSharingType) {
+    1 => 'Single Sharing',
+    2 => 'Double Sharing',
+    3 => 'Triple Sharing',
+    4 => 'Quad Sharing',
+    5 => 'Dorm',
+    _ => '',
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -2614,7 +3715,7 @@ class SocietyData {
               json['Wallet_Information'] as Map<String, dynamic>,
             )
           : null,
-      updatedAt: DateTime.tryParse(
+      updatedAt: _parseApiTimestamp(
         (json['updated_at'] ?? json['Updated_At'] ?? '').toString(),
       ),
     );

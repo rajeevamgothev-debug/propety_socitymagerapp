@@ -9,6 +9,133 @@ import 'api_client.dart' show ApiResponse;
 import 'api_config.dart';
 import 'auth_storage.dart';
 
+const String _uploadedImageBucketRoot =
+    'https://urbaneasyflats.s3.ap-south-1.amazonaws.com/';
+const String _uploadedImageBucketFolder = 'dev/';
+
+String? _normalizeUploadedImageUrl(String? value) {
+  final String text = value?.trim() ?? '';
+  if (text.isEmpty) {
+    return null;
+  }
+  if (text.startsWith('http://') || text.startsWith('https://')) {
+    return text;
+  }
+  if (text.startsWith('//')) {
+    return 'https:$text';
+  }
+
+  String path = text.replaceFirst(RegExp(r'^/+'), '');
+  final String fileName = path.split('/').last;
+  if (!fileName.contains('.') && !fileName.endsWith('_Original')) {
+    path = '${path}_Original.png';
+  }
+  if (path.startsWith(_uploadedImageBucketFolder)) {
+    return '$_uploadedImageBucketRoot$path';
+  }
+  return '$_uploadedImageBucketRoot$_uploadedImageBucketFolder$path';
+}
+
+bool _looksLikeUploadedImageStringKey(String key) {
+  final String normalized = key.toLowerCase();
+  return normalized.contains('url') ||
+      normalized.contains('generation') ||
+      normalized.contains('original') ||
+      normalized.contains('image') ||
+      normalized.contains('photo') ||
+      normalized.contains('picture') ||
+      normalized.contains('avatar');
+}
+
+bool _looksLikeUploadedImageContainerKey(String key) {
+  final String normalized = key.toLowerCase();
+  return normalized == 'data' ||
+      normalized.contains('image') ||
+      normalized.contains('photo') ||
+      normalized.contains('picture') ||
+      normalized.contains('avatar') ||
+      normalized.contains('profile') ||
+      normalized.contains('vendor') ||
+      normalized.contains('tenant') ||
+      normalized.contains('resident') ||
+      normalized.contains('user');
+}
+
+String? _readUploadedImageUrl(dynamic value, {int depth = 0}) {
+  if (value == null || depth > 8) {
+    return null;
+  }
+
+  if (value is String) {
+    return _normalizeUploadedImageUrl(value);
+  }
+
+  if (value is List) {
+    for (final dynamic item in value) {
+      final String? url = _readUploadedImageUrl(item, depth: depth + 1);
+      if (url != null) {
+        return url;
+      }
+    }
+    return null;
+  }
+
+  if (value is Map) {
+    for (final String key in <String>[
+      'Image_Original_URL',
+      'Image_URL',
+      'Image_250_URL',
+      'Image_500_URL',
+      'Image_750_URL',
+      'Image_Generation_Name',
+      'Image_Original_Name',
+      'Profile_Image_Original_URL',
+      'Profile_Image_URL',
+      'Profile_Image_Generation_Name',
+      'Profile_Photo_URL',
+      'Profile_Photo_Information',
+      'Tenant_Profile_Image_Information',
+      'Resident_Profile_Image_Information',
+      'Vendor_Image_Information',
+      'User_Profile_Image_Information',
+      'Image_Information',
+      'Image_Information_Data',
+      'Image_Data',
+      'Data',
+    ]) {
+      final dynamic raw = value[key];
+      if (raw is String && !_looksLikeUploadedImageStringKey(key)) {
+        continue;
+      }
+      final String? url = _readUploadedImageUrl(
+        raw,
+        depth: depth + 1,
+      );
+      if (url != null) {
+        return url;
+      }
+    }
+
+    for (final MapEntry<dynamic, dynamic> entry in value.entries) {
+      final String key = entry.key?.toString() ?? '';
+      final dynamic raw = entry.value;
+      String? url;
+      if (raw is String) {
+        if (_looksLikeUploadedImageStringKey(key)) {
+          url = _normalizeUploadedImageUrl(raw);
+        }
+      } else if (_looksLikeUploadedImageContainerKey(key)) {
+        url = _readUploadedImageUrl(raw, depth: depth + 1);
+      }
+      if (url != null) {
+        return url;
+      }
+    }
+  }
+
+  return null;
+}
+
 class UploadService {
   UploadService._();
 
@@ -109,9 +236,7 @@ class UploadService {
     );
 
     if (response.success && response.data != null) {
-      final Map<String, dynamic> data =
-          response.data as Map<String, dynamic>;
-      return data['Image_Original_URL'] as String?;
+      return _readUploadedImageUrl(response.data);
     }
     return null;
   }

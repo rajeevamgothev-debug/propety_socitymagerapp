@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/services.dart' show ByteData, rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -12,6 +14,24 @@ class RentalBillPdfService {
       'assets/urban_easyflats_receipt_logo.jpg';
 
   static Future<void> shareBillPdf(BillRecord bill) async {
+    await Printing.sharePdf(
+      bytes: await buildBillPdf(bill),
+      filename: billPdfFilename(bill),
+    );
+  }
+
+  static String billPdfFilename(BillRecord bill) {
+    final bool isSocietyBill =
+        _hasValue(bill.societyName) ||
+        _hasValue(bill.blockName) ||
+        _hasValue(bill.buildingName);
+    final String documentTitle = isSocietyBill
+        ? 'Society Resident Bill'
+        : 'Rental Bill';
+    return '${_fileSafe(documentTitle)}-${_fileSafe(bill.unitLabel)}-${_fileDate(DateTime.now())}.pdf';
+  }
+
+  static Future<Uint8List> buildBillPdf(BillRecord bill) async {
     final pw.Document document = pw.Document();
     final pw.MemoryImage? receiptLogo = await _loadReceiptLogo();
     final bool isSocietyBill =
@@ -101,7 +121,7 @@ class RentalBillPdfService {
                     ),
                     decoration: pw.BoxDecoration(
                       color: _statusBackground(bill.status),
-                      borderRadius: pw.BorderRadius.circular(999),
+                      borderRadius: pw.BorderRadius.circular(8),
                     ),
                     child: pw.Text(
                       bill.status.label,
@@ -161,19 +181,30 @@ class RentalBillPdfService {
       ),
     );
 
-    await Printing.sharePdf(
-      bytes: await document.save(),
-      filename:
-          '${_fileSafe(documentTitle)}-${_fileSafe(bill.unitLabel)}-${_fileDate(DateTime.now())}.pdf',
-    );
+    return document.save();
   }
 
   /// Generate and share a tabular PDF report for a list of bills.
   static Future<void> shareBillsReportPdf(List<BillRecord> bills) async {
+    await Printing.sharePdf(
+      bytes: await buildBillsReportPdf(bills),
+      filename: billsReportPdfFilename(bills),
+    );
+  }
+
+  static String billsReportPdfFilename(List<BillRecord> bills) {
+    final String filenameDate = _fileDate(DateTime.now());
+    final bool isSocietyReport = _isSocietyBillSet(bills);
+    final String reportTitle = isSocietyReport
+        ? 'Society Bills Report'
+        : 'Rental Bills Report';
+    return '${_fileSafe(reportTitle)}_$filenameDate.pdf';
+  }
+
+  static Future<Uint8List> buildBillsReportPdf(List<BillRecord> bills) async {
     final pw.Document document = pw.Document();
     final pw.MemoryImage? receiptLogo = await _loadReceiptLogo();
     final String generatedAt = _reportDateTime(DateTime.now());
-    final String filenameDate = _fileDate(DateTime.now());
     final bool isSocietyReport = _isSocietyBillSet(bills);
     final String reportTitle = isSocietyReport
         ? 'Society Bills Report'
@@ -186,11 +217,7 @@ class RentalBillPdfService {
       document.addPage(
         _societyBillsReportPage(bills, generatedAt, receiptLogo),
       );
-      await Printing.sharePdf(
-        bytes: await document.save(),
-        filename: '${_fileSafe(reportTitle)}_$filenameDate.pdf',
-      );
-      return;
+      return document.save();
     }
 
     document.addPage(
@@ -292,10 +319,7 @@ class RentalBillPdfService {
       ),
     );
 
-    await Printing.sharePdf(
-      bytes: await document.save(),
-      filename: '${_fileSafe(reportTitle)}_$filenameDate.pdf',
-    );
+    return document.save();
   }
 
   static pw.Page _societyBillsReportPage(
@@ -605,8 +629,8 @@ class RentalBillPdfService {
       width: double.infinity,
       padding: const pw.EdgeInsets.all(14),
       decoration: pw.BoxDecoration(
-        color: PdfColors.green50,
-        border: pw.Border.all(color: PdfColors.green200, width: 0.8),
+        color: PdfColors.blue50,
+        border: pw.Border.all(color: PdfColors.blue200, width: 0.8),
         borderRadius: pw.BorderRadius.circular(8),
       ),
       child: pw.Column(
@@ -622,7 +646,7 @@ class RentalBillPdfService {
             style: pw.TextStyle(
               fontSize: 24,
               fontWeight: pw.FontWeight.bold,
-              color: PdfColors.green800,
+              color: PdfColors.blue800,
             ),
           ),
         ],

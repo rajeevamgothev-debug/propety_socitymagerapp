@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/api/auth_storage.dart';
 import '../../core/api/public_discovery_service.dart';
 import '../../core/models/api_models.dart';
 import '../../core/models/app_models.dart';
@@ -2163,6 +2164,8 @@ class _PropertyEnquirySheetState extends State<_PropertyEnquirySheet> {
   bool _isClosing = false;
   String? _localError;
 
+  bool get _isLoggedIn => AuthStorage.isLoggedIn;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -2205,6 +2208,39 @@ class _PropertyEnquirySheetState extends State<_PropertyEnquirySheet> {
       });
     } finally {
       if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _submitLoggedInEnquiry() async {
+    setState(() {
+      _isSubmitting = true;
+      _localError = null;
+    });
+
+    try {
+      final String status =
+          await PublicDiscoveryService.createAuthenticatedPropertyEnquiry(
+        propertyId: widget.property.propertyId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+      _isClosing = true;
+      Navigator.of(context).pop(status);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _localError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted && !_isClosing) {
         setState(() {
           _isSubmitting = false;
         });
@@ -2269,7 +2305,9 @@ class _PropertyEnquirySheetState extends State<_PropertyEnquirySheet> {
           shrinkWrap: true,
           children: <Widget>[
             Text(
-              _otpSent ? 'Verify and submit' : 'Property enquiry',
+              _isLoggedIn
+                  ? 'Confirm enquiry'
+                  : (_otpSent ? 'Verify and submit' : 'Property enquiry'),
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -2282,7 +2320,14 @@ class _PropertyEnquirySheetState extends State<_PropertyEnquirySheet> {
                   ),
             ),
             const SizedBox(height: 16),
-            if (!_otpSent) ...<Widget>[
+            if (_isLoggedIn) ...<Widget>[
+              Text(
+                'We will use your logged-in profile details for this enquiry.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+              ),
+            ] else if (!_otpSent) ...<Widget>[
               TextField(
                 controller: _nameController,
                 decoration: const InputDecoration(
@@ -2353,11 +2398,15 @@ class _PropertyEnquirySheetState extends State<_PropertyEnquirySheet> {
                 ],
                 Expanded(
                   child: CustomButton(
-                    label: _otpSent ? 'Submit enquiry' : 'Send OTP',
+                    label: _isLoggedIn
+                        ? 'Submit enquiry'
+                        : (_otpSent ? 'Submit enquiry' : 'Send OTP'),
                     isLoading: _isSubmitting,
                     onPressed: _isSubmitting
                         ? null
-                        : (_otpSent ? _submitEnquiry : _sendOtp),
+                        : (_isLoggedIn
+                            ? _submitLoggedInEnquiry
+                            : (_otpSent ? _submitEnquiry : _sendOtp)),
                   ),
                 ),
               ],

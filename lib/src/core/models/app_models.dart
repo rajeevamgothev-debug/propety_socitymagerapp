@@ -566,6 +566,9 @@ class BillRecord {
     this.maintenanceAmount,
     this.tokenAmount,
     this.paymentImageUrl,
+    this.tenantImageUrl,
+    this.rentalContractId,
+    this.propertyId,
     this.walletCredited,
     this.walletCreditTime,
     this.walletCreditedTime,
@@ -606,6 +609,9 @@ class BillRecord {
   final double? maintenanceAmount;
   final double? tokenAmount;
   final String? paymentImageUrl;
+  final String? tenantImageUrl;
+  final String? rentalContractId;
+  final String? propertyId;
   final bool? walletCredited;
   final DateTime? walletCreditTime;
   final DateTime? walletCreditedTime;
@@ -625,6 +631,95 @@ class BillRecord {
   final double? rentAmount;
   final double? depositAmount;
   final DateTime? vacateDate;
+
+  BillRecord copyWith({
+    String? id,
+    String? title,
+    String? unitLabel,
+    double? amount,
+    DateTime? dueDate,
+    BillStatus? status,
+    String? category,
+    String? note,
+    int? billTypeCode,
+    double? finalAmount,
+    DateTime? billDate,
+    DateTime? paidDate,
+    int? paymentType,
+    int? manualOnlinePaymentMode,
+    String? paymentNote,
+    double? billAmount,
+    double? maintenanceAmount,
+    double? tokenAmount,
+    String? paymentImageUrl,
+    String? tenantImageUrl,
+    String? rentalContractId,
+    String? propertyId,
+    bool? walletCredited,
+    DateTime? walletCreditTime,
+    DateTime? walletCreditedTime,
+    String? residentName,
+    String? residentPhone,
+    String? residentEmail,
+    String? residentTypeLabel,
+    String? societyName,
+    String? blockName,
+    String? buildingName,
+    String? propertyTitle,
+    String? ownerName,
+    String? ownerPhone,
+    String? ownerEmail,
+    DateTime? contractStartDate,
+    DateTime? contractEndDate,
+    double? rentAmount,
+    double? depositAmount,
+    DateTime? vacateDate,
+  }) {
+    return BillRecord(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      unitLabel: unitLabel ?? this.unitLabel,
+      amount: amount ?? this.amount,
+      dueDate: dueDate ?? this.dueDate,
+      status: status ?? this.status,
+      category: category ?? this.category,
+      note: note ?? this.note,
+      billTypeCode: billTypeCode ?? this.billTypeCode,
+      finalAmount: finalAmount ?? this.finalAmount,
+      billDate: billDate ?? this.billDate,
+      paidDate: paidDate ?? this.paidDate,
+      paymentType: paymentType ?? this.paymentType,
+      manualOnlinePaymentMode:
+          manualOnlinePaymentMode ?? this.manualOnlinePaymentMode,
+      paymentNote: paymentNote ?? this.paymentNote,
+      billAmount: billAmount ?? this.billAmount,
+      maintenanceAmount: maintenanceAmount ?? this.maintenanceAmount,
+      tokenAmount: tokenAmount ?? this.tokenAmount,
+      paymentImageUrl: paymentImageUrl ?? this.paymentImageUrl,
+      tenantImageUrl: tenantImageUrl ?? this.tenantImageUrl,
+      rentalContractId: rentalContractId ?? this.rentalContractId,
+      propertyId: propertyId ?? this.propertyId,
+      walletCredited: walletCredited ?? this.walletCredited,
+      walletCreditTime: walletCreditTime ?? this.walletCreditTime,
+      walletCreditedTime: walletCreditedTime ?? this.walletCreditedTime,
+      residentName: residentName ?? this.residentName,
+      residentPhone: residentPhone ?? this.residentPhone,
+      residentEmail: residentEmail ?? this.residentEmail,
+      residentTypeLabel: residentTypeLabel ?? this.residentTypeLabel,
+      societyName: societyName ?? this.societyName,
+      blockName: blockName ?? this.blockName,
+      buildingName: buildingName ?? this.buildingName,
+      propertyTitle: propertyTitle ?? this.propertyTitle,
+      ownerName: ownerName ?? this.ownerName,
+      ownerPhone: ownerPhone ?? this.ownerPhone,
+      ownerEmail: ownerEmail ?? this.ownerEmail,
+      contractStartDate: contractStartDate ?? this.contractStartDate,
+      contractEndDate: contractEndDate ?? this.contractEndDate,
+      rentAmount: rentAmount ?? this.rentAmount,
+      depositAmount: depositAmount ?? this.depositAmount,
+      vacateDate: vacateDate ?? this.vacateDate,
+    );
+  }
 }
 
 class VisitorRecord {
@@ -662,6 +757,7 @@ class TicketRecord {
     this.createdAt,
     this.targetName,
     this.imageUrl,
+    this.residentImageUrl,
     this.societyName,
     this.blockName,
     this.buildingName,
@@ -673,6 +769,7 @@ class TicketRecord {
     this.propertyFlatNo,
     this.tenantName,
     this.tenantPhone,
+    this.tenantImageUrl,
   });
 
   final String id;
@@ -686,6 +783,7 @@ class TicketRecord {
   final DateTime? createdAt;
   final String? targetName;
   final String? imageUrl;
+  final String? residentImageUrl;
   final String? societyName;
   final String? blockName;
   final String? buildingName;
@@ -697,6 +795,7 @@ class TicketRecord {
   final String? propertyFlatNo;
   final String? tenantName;
   final String? tenantPhone;
+  final String? tenantImageUrl;
 }
 
 class AnnouncementRecord {
@@ -768,6 +867,10 @@ class PropertyRecord {
     this.currentSubscriptionExpiryDate,
     this.totalLeads,
     this.totalUnseenLeads,
+    this.totalPurchasedResidentContractsCreationCount,
+    this.freeResidentContractsCount,
+    this.usedResidentContractsCount,
+    this.totalResidentContractsCount,
     this.availableResidentContractsCreationCount,
   });
 
@@ -792,6 +895,10 @@ class PropertyRecord {
   final String? currentSubscriptionExpiryDate;
   final int? totalLeads;
   final int? totalUnseenLeads;
+  final int? totalPurchasedResidentContractsCreationCount;
+  final int? freeResidentContractsCount;
+  final int? usedResidentContractsCount;
+  final int? totalResidentContractsCount;
   final int? availableResidentContractsCreationCount;
 }
 
@@ -810,6 +917,7 @@ class RentalContractRecord {
     this.flatNo,
     this.tenantPhone,
     this.tenantEmail,
+    this.tenantImageUrl,
     this.ownerPhone,
     this.ownerEmail,
     this.ownerAddress,
@@ -843,6 +951,7 @@ class RentalContractRecord {
   final String? flatNo;
   final String? tenantPhone;
   final String? tenantEmail;
+  final String? tenantImageUrl;
   final String? ownerPhone;
   final String? ownerEmail;
   final String? ownerAddress;
@@ -890,6 +999,7 @@ class ResidentRecord {
     this.buildingName,
     this.blockId,
     this.buildingId,
+    this.imageUrl,
   });
 
   final String id;
@@ -905,6 +1015,41 @@ class ResidentRecord {
   final String? buildingName;
   final String? blockId;
   final String? buildingId;
+  final String? imageUrl;
+
+  ResidentRecord copyWith({
+    String? id,
+    String? name,
+    String? phone,
+    String? flatNo,
+    ResidentType? residentType,
+    bool? status,
+    String? email,
+    String? flatType,
+    double? rent,
+    String? blockName,
+    String? buildingName,
+    String? blockId,
+    String? buildingId,
+    String? imageUrl,
+  }) {
+    return ResidentRecord(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      flatNo: flatNo ?? this.flatNo,
+      residentType: residentType ?? this.residentType,
+      status: status ?? this.status,
+      email: email ?? this.email,
+      flatType: flatType ?? this.flatType,
+      rent: rent ?? this.rent,
+      blockName: blockName ?? this.blockName,
+      buildingName: buildingName ?? this.buildingName,
+      blockId: blockId ?? this.blockId,
+      buildingId: buildingId ?? this.buildingId,
+      imageUrl: imageUrl ?? this.imageUrl,
+    );
+  }
 }
 
 class BankAccountRecord {
@@ -978,6 +1123,7 @@ class IncidentRecord {
 }
 
 String formatCompactDate(DateTime date) {
+  final DateTime localDate = date.toLocal();
   const List<String> months = <String>[
     'Jan',
     'Feb',
@@ -992,12 +1138,13 @@ String formatCompactDate(DateTime date) {
     'Nov',
     'Dec',
   ];
-  return '${date.day} ${months[date.month - 1]} ${date.year}';
+  return '${localDate.day} ${months[localDate.month - 1]} ${localDate.year}';
 }
 
 String formatClock(DateTime date) {
-  final int hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
-  final String minute = date.minute.toString().padLeft(2, '0');
-  final String suffix = date.hour >= 12 ? 'PM' : 'AM';
+  final DateTime localDate = date.toLocal();
+  final int hour = localDate.hour % 12 == 0 ? 12 : localDate.hour % 12;
+  final String minute = localDate.minute.toString().padLeft(2, '0');
+  final String suffix = localDate.hour >= 12 ? 'PM' : 'AM';
   return '$hour:$minute $suffix';
 }

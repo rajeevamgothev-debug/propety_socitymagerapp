@@ -12,10 +12,13 @@ coverage/
 # Android/Gradle
 **/android/**/GeneratedPluginRegistrant.java
 **/android/.gradle/
+.gradle-user/
 **/android/local.properties
 **/android/captures/
-
-
+**/android/key.properties
+**/android/app/google-services.json
+**/android/app/*.jks
+**/android/app/*.keystore
 
 # iOS/Pods and generated Flutter files
 **/ios/Pods/
