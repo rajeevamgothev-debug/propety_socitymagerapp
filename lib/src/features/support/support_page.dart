@@ -654,7 +654,8 @@ class _SupportPageState extends State<SupportPage> {
       content = RefreshIndicator(onRefresh: _refreshAll, child: content);
     }
 
-    return content;
+    // FIX: Added Material ancestor for TextField.
+    return Material(type: MaterialType.transparency, child: content);
   }
 
   String _ticketStatusLabel(TicketStatus status) {
@@ -883,8 +884,11 @@ class _SupportPageState extends State<SupportPage> {
         bool isSubmitting = false;
         final NavigatorState sheetNavigator = Navigator.of(context);
 
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
+        // FIX: Added Material ancestor for TextField.
+        return Material(
+          type: MaterialType.transparency,
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setModalState) {
             Future<void> submit() async {
               final String targetId = ticketType == 1
                   ? (_vendor?.societyId ?? '')
@@ -1121,7 +1125,8 @@ class _SupportPageState extends State<SupportPage> {
                 ),
               ),
             );
-          },
+            },
+          ),
         );
       },
     ).whenComplete(() {
@@ -1232,8 +1237,11 @@ class _SupportPageState extends State<SupportPage> {
       isScrollControlled: true,
       builder: (BuildContext context) {
         final NavigatorState sheetNavigator = Navigator.of(context);
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
+        // FIX: Added Material ancestor for TextField.
+        return Material(
+          type: MaterialType.transparency,
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setModalState) {
             if (!initialized) {
               initialized = true;
               Future<void>.microtask(() => loadTargets(setModalState));
@@ -1580,7 +1588,8 @@ class _SupportPageState extends State<SupportPage> {
                 ),
               ),
             );
-          },
+            },
+          ),
         );
       },
     ).whenComplete(() {
