@@ -110,7 +110,7 @@ Auth screens: LandingPage → LoginPage → OtpPage → ProfileSetupPage → App
 
 ## Android Build Config
 
-- **Namespace/applicationId:** `com.urbaneasy.manager`
+- **Namespace/applicationId:** `com.urbaneasy.managernews`
 - **Signing:** release keystore at `android/app/upload-keystore.jks`, properties in `android/key.properties`
 - **Java/Kotlin target:** 17
 - **Gradle:** Kotlin DSL (`build.gradle.kts`)
