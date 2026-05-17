@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -9,15 +8,14 @@ import 'core/api/auth_storage.dart';
 import 'core/api/vendor_service.dart';
 import 'core/models/app_models.dart';
 import 'core/services/in_app_update_service.dart';
+import 'core/services/notification_tap_router.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/login_page.dart';
+import 'features/auth/blocked_account_page.dart';
 import 'features/auth/otp_page.dart';
 import 'features/auth/profile_setup_page.dart';
-import 'features/bookings/tenant_property_bookings_page.dart';
 import 'features/landing/landing_page.dart';
-import 'features/notifications/notifications_page.dart';
-import 'features/properties/property_enquiries_page.dart';
 import 'features/shell/app_shell.dart';
 
 class UrbanEasyFlatsApp extends StatefulWidget {
@@ -38,11 +36,15 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
     with WidgetsBindingObserver {
   bool _isInitializing = true;
   bool _isAuthenticated = false;
+  bool _isAccountBlocked = false;
+  String? _accountBlockReason;
   bool _needsProfileSetup = false;
   String? _phoneNumber;
   AuthSource? _authSource;
   AppRole _currentRole = AppRole.tenant;
   bool _hasScheduledUpdateCheck = false;
+  String? _pendingNotificationPayload;
+  bool _isOpeningPendingNotification = false;
 
   @override
   void initState() {
@@ -84,6 +86,8 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
       setState(() {
         _currentRole = role;
         _isAuthenticated = true;
+        _isAccountBlocked = AuthStorage.whetherAccountBlockedByAdmin;
+        _accountBlockReason = AuthStorage.accountBlockReason;
         _isInitializing = false;
       });
     } else {
@@ -97,6 +101,7 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
     PushNotificationService.initialize(
       onNotificationTap: _handleNotificationTap,
     ).catchError((_) {});
+    _flushPendingNotificationTap();
 
   }
 
@@ -111,46 +116,62 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
 
   /// Opens NotificationsPage when the user taps a push notification.
   void _handleNotificationTap(String? payload) {
-    if (!_isAuthenticated) return;
+    if (payload == null || payload.trim().isEmpty) {
+      return;
+    }
+
+    if (!_isAuthenticated || UrbanEasyFlatsApp.navigatorKey.currentState == null) {
+      _pendingNotificationPayload = payload;
+      _flushPendingNotificationTap();
+      return;
+    }
+
     UrbanEasyFlatsApp.navigatorKey.currentState?.push(
       MaterialPageRoute<void>(
-        builder: (_) => _pageForNotificationPayload(payload),
+        builder: (_) => NotificationTapRouter.buildPage(
+          role: _currentRole,
+          payload: payload,
+        ),
       ),
     );
   }
 
-  Widget _pageForNotificationPayload(String? payload) {
-    if (payload == null || payload.trim().isEmpty) {
-      return const NotificationsPage();
+  void _flushPendingNotificationTap() {
+    if (_isOpeningPendingNotification) {
+      return;
     }
-    try {
-      final Object? decoded = jsonDecode(payload);
-      if (decoded is! Map<String, dynamic>) {
-        return const NotificationsPage();
-      }
-      final String screen = '${decoded['screen'] ?? ''}'.trim();
-      final Map<String, dynamic> data = decoded['data'] is Map
-          ? Map<String, dynamic>.from(decoded['data'] as Map)
-          : <String, dynamic>{};
-      final String propertyId =
-          '${data['propertyId'] ?? data['PropertyID'] ?? ''}'.trim();
+    if (!_isAuthenticated || _pendingNotificationPayload == null) {
+      return;
+    }
+    if (UrbanEasyFlatsApp.navigatorKey.currentState == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _flushPendingNotificationTap();
+        }
+      });
+      return;
+    }
 
-      return switch (screen) {
-        'property_enquiry_detail' => PropertyEnquiriesPage(
-            initialPropertyId: propertyId.isEmpty ? null : propertyId,
+    _isOpeningPendingNotification = true;
+    final String payload = _pendingNotificationPayload!;
+    _pendingNotificationPayload = null;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        _isOpeningPendingNotification = false;
+        return;
+      }
+
+      UrbanEasyFlatsApp.navigatorKey.currentState?.push(
+        MaterialPageRoute<void>(
+          builder: (_) => NotificationTapRouter.buildPage(
+            role: _currentRole,
+            payload: payload,
           ),
-        'booking_detail' || 'tenant_booking_detail' =>
-          const TenantPropertyBookingsPage(),
-        'announcement_detail' => const NotificationsPage(),
-        'support_ticket_detail' => const NotificationsPage(),
-        'bill_detail' || 'payment_history' => const NotificationsPage(),
-        'agreement_detail' => const NotificationsPage(),
-        'wallet_detail' || 'settings' => const NotificationsPage(),
-        _ => const NotificationsPage(),
-      };
-    } catch (_) {
-      return const NotificationsPage();
-    }
+        ),
+      );
+      _isOpeningPendingNotification = false;
+    });
   }
 
   Future<AppRole> _resolveRole([AuthSource? fallbackSource]) async {
@@ -195,6 +216,11 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
   }
 
   Future<void> _onOtpVerified(bool needsProfile) async {
+    if (AuthStorage.whetherAccountBlockedByAdmin) {
+      await _completeAuthentication();
+      return;
+    }
+
     if (needsProfile) {
       setState(() {
         _needsProfileSetup = true;
@@ -223,10 +249,13 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
     setState(() {
       _currentRole = role;
       _isAuthenticated = true;
+      _isAccountBlocked = AuthStorage.whetherAccountBlockedByAdmin;
+      _accountBlockReason = AuthStorage.accountBlockReason;
       _isInitializing = false;
       _needsProfileSetup = false;
     });
     unawaited(PushNotificationService.syncToken());
+    _flushPendingNotificationTap();
   }
 
   void _logout() {
@@ -236,17 +265,27 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
     }
     setState(() {
       _isAuthenticated = false;
+      _isAccountBlocked = false;
+      _accountBlockReason = null;
       _phoneNumber = null;
       _authSource = null;
       _needsProfileSetup = false;
       _currentRole = AppRole.tenant;
     });
+    _pendingNotificationPayload = null;
   }
 
   Widget _buildHome() {
     if (_isInitializing) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_isAccountBlocked) {
+      return BlockedAccountPage(
+        reason: _accountBlockReason,
+        onLogout: _logout,
       );
     }
 
@@ -302,7 +341,7 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
         duration: const Duration(milliseconds: 220),
         child: KeyedSubtree(
           key: ValueKey<String>(
-            '${_isInitializing}_${_isAuthenticated}_${_needsProfileSetup}_${_authSource}_${_phoneNumber != null}',
+            '${_isInitializing}_${_isAuthenticated}_${_isAccountBlocked}_${_needsProfileSetup}_${_authSource}_${_phoneNumber != null}',
           ),
           child: _buildHome(),
         ),

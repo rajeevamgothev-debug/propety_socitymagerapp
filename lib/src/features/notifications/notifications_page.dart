@@ -443,9 +443,6 @@ class _NotificationCard extends StatelessWidget {
           _NotificationActions(
             onMarkRead: onMarkRead,
             onViewDetails: () => _showDetailsSheet(context, display),
-            onContactSupport: display.canContact
-                ? () => _launchPhone(display.phone)
-                : null,
           ),
         ],
       ),
@@ -466,6 +463,7 @@ class _NotificationCard extends StatelessWidget {
       isScrollControlled: true,
       builder: (BuildContext context) => _NotificationDetailsSheet(
         display: display,
+        onPhoneTap: _launchPhone,
       ),
     );
   }
@@ -600,6 +598,13 @@ class _NotificationCard extends StatelessWidget {
   }
 
   static String _propertyImageUrl(NotificationData notification) {
+    final String residentImageUrl = _dataText(notification, <String>[
+      'Tenant_Image_URL',
+      'Resident_Image_URL',
+      'tenantImage',
+      'residentImage',
+    ]);
+    if (residentImageUrl.isNotEmpty) return residentImageUrl;
     if (!_isEnquiryNotification(notification)) return '';
     return _dataText(notification, <String>[
       'Property_Image_URL',
@@ -640,7 +645,7 @@ class _NotificationLogo extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: imageUrl.isEmpty
               ? Image.asset(
-                  'assets/urban_easyflats_receipt_logo.jpg',
+                  'assets/manager_logo.jpg',
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) =>
                       Icon(Icons.home_work_rounded, color: toneColor),
@@ -862,12 +867,18 @@ class _NotificationInfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final bool isPhone = detail.isPhone;
+    final Color callColor = AppTheme.primary;
     final Widget content = Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(detail.icon, size: 17, color: theme.colorScheme.onSurfaceVariant),
+          Icon(
+            detail.icon,
+            size: 17,
+            color: isPhone ? callColor : theme.colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: 8),
           SizedBox(
             width: 98,
@@ -876,7 +887,7 @@ class _NotificationInfoRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: isPhone ? callColor : theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -887,10 +898,17 @@ class _NotificationInfoRow extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface,
+                color: isPhone ? callColor : theme.colorScheme.onSurface,
+                fontWeight: isPhone ? FontWeight.w800 : FontWeight.w400,
+                decoration:
+                    isPhone ? TextDecoration.underline : TextDecoration.none,
               ),
             ),
           ),
+          if (isPhone) ...<Widget>[
+            const SizedBox(width: 8),
+            Icon(Icons.call_rounded, size: 16, color: callColor),
+          ],
         ],
       ),
     );
@@ -907,12 +925,10 @@ class _NotificationActions extends StatelessWidget {
   const _NotificationActions({
     required this.onMarkRead,
     required this.onViewDetails,
-    required this.onContactSupport,
   });
 
   final VoidCallback? onMarkRead;
   final VoidCallback? onViewDetails;
-  final VoidCallback? onContactSupport;
 
   @override
   Widget build(BuildContext context) {
@@ -930,20 +946,19 @@ class _NotificationActions extends StatelessWidget {
           icon: const Icon(Icons.open_in_new_rounded, size: 18),
           label: const Text('View Details'),
         ),
-        FilledButton.icon(
-          onPressed: onContactSupport,
-          icon: const Icon(Icons.support_agent_rounded, size: 18),
-          label: const Text('Contact Support'),
-        ),
       ],
     );
   }
 }
 
 class _NotificationDetailsSheet extends StatelessWidget {
-  const _NotificationDetailsSheet({required this.display});
+  const _NotificationDetailsSheet({
+    required this.display,
+    required this.onPhoneTap,
+  });
 
   final NotificationDisplayModel display;
+  final ValueChanged<String> onPhoneTap;
 
   @override
   Widget build(BuildContext context) {
@@ -979,7 +994,7 @@ class _NotificationDetailsSheet extends StatelessWidget {
               const SizedBox(height: 14),
               _NotificationContextSection(
                 details: display.contextDetails,
-                onPhoneTap: (_) {},
+                onPhoneTap: onPhoneTap,
               ),
             ],
           ],
@@ -1109,6 +1124,12 @@ class NotificationDisplayModel {
           icon: Icons.apartment_rounded,
           label: isAnnouncement ? 'Society' : 'Property',
           value: propertyName,
+        ),
+      if (phone.isNotEmpty)
+        _NotificationDetail(
+          icon: Icons.phone_rounded,
+          label: 'Phone',
+          value: phone,
         ),
       if (isAnnouncement && priority.isNotEmpty)
         _NotificationDetail(

@@ -464,6 +464,9 @@ class VendorData {
     this.imageId,
     this.societyId,
     this.propertyId,
+    this.whetherAccountBlockedByAdmin = false,
+    this.accountBlockReason,
+    this.whetherAccountDeleteRequested = false,
     this.billCollectionSummary,
     this.supportTicketSummary,
     this.propertySummary,
@@ -489,6 +492,21 @@ class VendorData {
           imageInformation?['Image_ID'] as String?,
       societyId: json['SocietyID'] as String?,
       propertyId: json['PropertyID'] as String?,
+      whetherAccountBlockedByAdmin:
+          _readBool(
+            json['Whether_Account_Blocked_By_Admin'] ??
+                json['whether_account_blocked_by_admin'],
+          ) ??
+          false,
+      accountBlockReason:
+          json['Account_Block_Reason'] as String? ??
+          json['account_block_reason'] as String?,
+      whetherAccountDeleteRequested:
+          _readBool(
+            json['Whether_Account_Delete_Requested'] ??
+                json['whether_account_delete_requested'],
+          ) ??
+          false,
       billCollectionSummary:
           json['Bill_Collection_Summary'] is Map<String, dynamic>
           ? BillCollectionSummaryData.fromJson(
@@ -529,6 +547,9 @@ class VendorData {
   final String? imageId;
   final String? societyId;
   final String? propertyId;
+  final bool whetherAccountBlockedByAdmin;
+  final String? accountBlockReason;
+  final bool whetherAccountDeleteRequested;
   final BillCollectionSummaryData? billCollectionSummary;
   final SupportTicketSummaryData? supportTicketSummary;
   final PropertySummaryData? propertySummary;
@@ -3389,6 +3410,11 @@ class NotificationData {
     final String normalizedReference = referenceType.toLowerCase().trim();
     final String normalizedRaw = rawType.toLowerCase().trim();
 
+    if (normalizedReference.contains('incident') ||
+        normalizedRaw.contains('security_alert') ||
+        normalizedRaw.contains('securityalert')) {
+      return 'security_alert';
+    }
     if (normalizedReference.contains('bill')) return 'billing';
     if (normalizedReference.contains('rental_contract')) return 'contract';
     if (normalizedReference.contains('announcement')) return 'announcement';

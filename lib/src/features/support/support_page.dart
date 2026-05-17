@@ -434,213 +434,18 @@ class _SupportPageState extends State<SupportPage> {
             final String displayTimestampLabel = ticket.createdAt == null
                 ? 'Updated'
                 : 'Created';
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: CustomCard(
-                padding: CustomCardPadding.sm,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (showSocietyResidentSummary) ...<Widget>[
-                      _buildSocietyResidentSummary(ticket, theme),
-                      const SizedBox(height: 16),
-                      const Divider(height: 1),
-                      const SizedBox(height: 14),
-                    ],
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            ticket.title,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ToneBadge(
-                          label: ticket.priority.label,
-                          tone: ticket.priority.tone,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      ticket.description,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: <Widget>[
-                        ToneBadge(
-                          label: _ticketStatusLabel(ticket.status),
-                          tone: ticket.status.tone,
-                        ),
-                        ToneBadge(label: ticket.category, tone: UiTone.neutral),
-                        if (ticket.assignee != null)
-                          ToneBadge(
-                            label: 'Assigned: ${ticket.assignee}',
-                            tone: UiTone.brand,
-                          ),
-                        if ((ticket.targetName ?? '').isNotEmpty)
-                          ToneBadge(
-                            label: ticket.targetName!,
-                            tone: UiTone.brand,
-                          ),
-                        if ((ticket.propertyTitle ?? '').isNotEmpty)
-                          ToneBadge(
-                            label: ticket.propertyTitle!,
-                            tone: UiTone.neutral,
-                          ),
-                        if ((ticket.tenantName ?? '').isNotEmpty)
-                          ToneBadge(
-                            label: ticket.tenantName!,
-                            tone: UiTone.brand,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (!showSocietyResidentSummary &&
-                        ((ticket.societyName ?? '').isNotEmpty ||
-                            (ticket.blockName ?? '').isNotEmpty ||
-                            (ticket.buildingName ?? '').isNotEmpty ||
-                            (ticket.flatNo ?? '').isNotEmpty)) ...<Widget>[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primarySoft,
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.radiusSmall,
-                          ),
-                        ),
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: <Widget>[
-                            if ((ticket.societyName ?? '').isNotEmpty)
-                              Text(ticket.societyName!),
-                            if ((ticket.blockName ?? '').isNotEmpty)
-                              Text('Block ${ticket.blockName!}'),
-                            if ((ticket.buildingName ?? '').isNotEmpty)
-                              Text('Building ${ticket.buildingName!}'),
-                            if ((ticket.flatNo ?? '').isNotEmpty)
-                              Text('Flat ${ticket.flatNo!}'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    if (widget.role == AppRole.propertyManager &&
-                        ((ticket.propertyTitle ?? '').isNotEmpty ||
-                            (ticket.propertyFlatNo ?? '').isNotEmpty ||
-                            (ticket.tenantName ?? '').isNotEmpty ||
-                            (ticket.tenantPhone ?? '').isNotEmpty)) ...<Widget>[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primarySoft,
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.radiusSmall,
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            _SupportTicketAvatar(
-                              imageUrl: ticket.tenantImageUrl,
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: <Widget>[
-                                  if ((ticket.propertyTitle ?? '').isNotEmpty)
-                                    Text(ticket.propertyTitle!),
-                                  if ((ticket.propertyFlatNo ?? '').isNotEmpty)
-                                    Text('Unit ${ticket.propertyFlatNo!}'),
-                                  if ((ticket.tenantName ?? '').isNotEmpty)
-                                    Text(ticket.tenantName!),
-                                  if ((ticket.tenantPhone ?? '').isNotEmpty)
-                                    ContactTextButton.phone(
-                                      value: ticket.tenantPhone!,
-                                      label: ticket.tenantPhone!,
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    Text(
-                      '$displayTimestampLabel ${formatCompactDate(displayTimestamp)} at ${formatClock(displayTimestamp)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppTheme.textMuted,
-                      ),
-                    ),
-                    if ((ticket.imageUrl ?? '').isNotEmpty &&
-                        !showSocietyResidentSummary) ...<Widget>[
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.network(
-                          ticket.imageUrl!,
-                          width: double.infinity,
-                          height: 156,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            height: 156,
-                            color: AppTheme.surfaceMuted,
-                            alignment: Alignment.center,
-                            child: const Text('Unable to load attachment'),
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    if (_isManagementRole)
-                      Column(
-                        children: <Widget>[
-                          SizedBox(
-                            width: double.infinity,
-                            child: CustomButton(
-                              label: 'Details',
-                              variant: CustomButtonVariant.outline,
-                              onPressed: () => _showTicketDetails(ticket),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            child: _StatusActionMenu(
-                              ticket: ticket,
-                              onAction: (int status) =>
-                                  _handleStatusAction(ticket, status),
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      SizedBox(
-                        width: double.infinity,
-                        child: CustomButton(
-                          label: 'View Details',
-                          variant: CustomButtonVariant.outline,
-                          onPressed: () => _showTicketDetails(ticket),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+            return _SupportTicketCard(
+              ticket: ticket,
+              role: widget.role,
+              showSocietyResidentSummary: showSocietyResidentSummary,
+              displayTimestampLabel: displayTimestampLabel,
+              displayTimestamp: displayTimestamp,
+              theme: theme,
+              onDetails: () => _showTicketDetails(ticket),
+              onAction: _isManagementRole
+                  ? (int status) => _handleStatusAction(ticket, status)
+                  : null,
+              onContactRefresh: widget.onRefresh,
             );
           }),
         if (!isBusy && _errorMessage == null && _totalCount > _pageSize)
@@ -981,6 +786,9 @@ class _SupportPageState extends State<SupportPage> {
                 widget.onRefresh?.call();
               } catch (error) {
                 _showMessage(error.toString().replaceFirst('Exception: ', ''));
+                if (!mounted || sheetClosed) {
+                  return;
+                }
                 setModalState(() {
                   isSubmitting = false;
                 });
@@ -1342,6 +1150,9 @@ class _SupportPageState extends State<SupportPage> {
                 widget.onRefresh?.call();
               } catch (error) {
                 _showMessage(error.toString().replaceFirst('Exception: ', ''));
+                if (!mounted || sheetClosed) {
+                  return;
+                }
                 safeSetModalState(setModalState, () {
                   isSubmitting = false;
                 });
@@ -2156,6 +1967,335 @@ class _MetricCard extends StatelessWidget {
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SupportTicketCard extends StatelessWidget {
+  const _SupportTicketCard({
+    required this.ticket,
+    required this.role,
+    required this.showSocietyResidentSummary,
+    required this.displayTimestampLabel,
+    required this.displayTimestamp,
+    required this.theme,
+    required this.onDetails,
+    required this.onAction,
+    this.onContactRefresh,
+  });
+
+  final TicketRecord ticket;
+  final AppRole role;
+  final bool showSocietyResidentSummary;
+  final String displayTimestampLabel;
+  final DateTime displayTimestamp;
+  final ThemeData theme;
+  final VoidCallback onDetails;
+  final ValueChanged<int>? onAction;
+  final VoidCallback? onContactRefresh;
+
+  bool get _isManagementRole =>
+      role.isSocietyScope || role == AppRole.propertyManager;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool hasHeroImage = (ticket.imageUrl ?? '').isNotEmpty;
+    final Color accent = ticket.priority.tone == UiTone.danger
+        ? theme.colorScheme.error
+        : ticket.priority.tone == UiTone.warning
+            ? theme.colorScheme.secondary
+            : theme.colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: CustomCard(
+        padding: CustomCardPadding.none,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.08),
+                  border: Border(
+                    left: BorderSide(color: accent, width: 4),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            ticket.title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            ticket.description,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: AppTheme.textSecondary,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ToneBadge(
+                      label: ticket.priority.label,
+                      tone: ticket.priority.tone,
+                      size: ToneBadgeSize.small,
+                    ),
+                  ],
+                ),
+              ),
+              if (hasHeroImage)
+                GestureDetector(
+                  onTap: onDetails,
+                  child: Image.network(
+                    ticket.imageUrl!,
+                    height: 176,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 176,
+                      color: AppTheme.surfaceMuted,
+                      alignment: Alignment.center,
+                      child: const Text('Unable to load attachment'),
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        ToneBadge(
+                          label: ticket.status.label,
+                          tone: ticket.status.tone,
+                          size: ToneBadgeSize.small,
+                        ),
+                        ToneBadge(
+                          label: ticket.category,
+                          tone: UiTone.neutral,
+                          size: ToneBadgeSize.small,
+                        ),
+                        if (ticket.assignee != null)
+                          ToneBadge(
+                            label: 'Assigned: ${ticket.assignee}',
+                            tone: UiTone.brand,
+                            size: ToneBadgeSize.small,
+                          ),
+                        if ((ticket.targetName ?? '').isNotEmpty)
+                          ToneBadge(
+                            label: ticket.targetName!,
+                            tone: UiTone.brand,
+                            size: ToneBadgeSize.small,
+                          ),
+                        if ((ticket.propertyTitle ?? '').isNotEmpty)
+                          ToneBadge(
+                            label: ticket.propertyTitle!,
+                            tone: UiTone.neutral,
+                            size: ToneBadgeSize.small,
+                          ),
+                        if ((ticket.tenantName ?? '').isNotEmpty)
+                          ToneBadge(
+                            label: ticket.tenantName!,
+                            tone: UiTone.brand,
+                            size: ToneBadgeSize.small,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (showSocietyResidentSummary) ...<Widget>[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          _SupportTicketAvatar(
+                            imageUrl: ticket.residentImageUrl,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  (ticket.residentName?.trim().isNotEmpty == true
+                                          ? ticket.residentName!.trim()
+                                          : (ticket.targetName?.trim().isNotEmpty == true
+                                              ? ticket.targetName!.trim()
+                                              : 'Resident Details')),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                if ((ticket.societyName ?? '').isNotEmpty)
+                                  Text(ticket.societyName!),
+                                if ((ticket.blockName ?? '').isNotEmpty)
+                                  Text('Block ${ticket.blockName!}'),
+                                if ((ticket.buildingName ?? '').isNotEmpty)
+                                  Text('Building ${ticket.buildingName!}'),
+                                if ((ticket.flatNo ?? '').isNotEmpty)
+                                  Text('Flat ${ticket.flatNo!}'),
+                                if ((ticket.residentPhone ?? '').isNotEmpty) ...<Widget>[
+                                  const SizedBox(height: 8),
+                                  ContactTextButton.phone(
+                                    value: ticket.residentPhone!,
+                                    label: ticket.residentPhone!,
+                                  ),
+                                ],
+                                if ((ticket.residentEmail ?? '').isNotEmpty) ...<Widget>[
+                                  const SizedBox(height: 6),
+                                  Text(ticket.residentEmail!),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (!showSocietyResidentSummary &&
+                        ((ticket.societyName ?? '').isNotEmpty ||
+                            (ticket.blockName ?? '').isNotEmpty ||
+                            (ticket.buildingName ?? '').isNotEmpty ||
+                            (ticket.flatNo ?? '').isNotEmpty)) ...<Widget>[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceMuted,
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusSmall,
+                          ),
+                        ),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            if ((ticket.societyName ?? '').isNotEmpty)
+                              Text(ticket.societyName!),
+                            if ((ticket.blockName ?? '').isNotEmpty)
+                              Text('Block ${ticket.blockName!}'),
+                            if ((ticket.buildingName ?? '').isNotEmpty)
+                              Text('Building ${ticket.buildingName!}'),
+                            if ((ticket.flatNo ?? '').isNotEmpty)
+                              Text('Flat ${ticket.flatNo!}'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (_isManagementRole &&
+                        ((ticket.propertyTitle ?? '').isNotEmpty ||
+                            (ticket.propertyFlatNo ?? '').isNotEmpty ||
+                            (ticket.tenantName ?? '').isNotEmpty ||
+                            (ticket.tenantPhone ?? '').isNotEmpty)) ...<Widget>[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primarySoft,
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusSmall,
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            _SupportTicketAvatar(
+                              imageUrl: ticket.tenantImageUrl,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  if ((ticket.propertyTitle ?? '').isNotEmpty)
+                                    Text(ticket.propertyTitle!),
+                                  if ((ticket.propertyFlatNo ?? '').isNotEmpty)
+                                    Text('Unit ${ticket.propertyFlatNo!}'),
+                                  if ((ticket.tenantName ?? '').isNotEmpty)
+                                    Text(ticket.tenantName!),
+                                  if ((ticket.tenantPhone ?? '').isNotEmpty)
+                                    ContactTextButton.phone(
+                                      value: ticket.tenantPhone!,
+                                      label: ticket.tenantPhone!,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 16,
+                          color: AppTheme.textMuted,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$displayTimestampLabel ${formatCompactDate(displayTimestamp)} at ${formatClock(displayTimestamp)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (_isManagementRole)
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: CustomButton(
+                              label: 'Details',
+                              variant: CustomButtonVariant.outline,
+                              onPressed: onDetails,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _StatusActionMenu(
+                              ticket: ticket,
+                              onAction: onAction ?? (_) {},
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        child: CustomButton(
+                          label: 'View Details',
+                          variant: CustomButtonVariant.outline,
+                          onPressed: onDetails,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

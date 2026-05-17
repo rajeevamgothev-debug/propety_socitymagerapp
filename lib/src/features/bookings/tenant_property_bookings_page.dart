@@ -57,7 +57,7 @@ class _TenantPropertyBookingsPageState
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Booking accepted. Admin review pending.')),
+        const SnackBar(content: Text('Booking accepted.')),
       );
     } catch (error) {
       _showError(error);
@@ -71,26 +71,26 @@ class _TenantPropertyBookingsPageState
       useRootNavigator: true,
       builder: (BuildContext dialogContext) => AlertDialog(
         title: const Text('Reject booking'),
-        content: SingleChildScrollView(
-          child: TextField(
-            controller: controller,
-            minLines: 3,
-            maxLines: 5,
-            textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
-              labelText: 'Reason',
-              border: OutlineInputBorder(),
-            ),
+        scrollable: true,
+        content: TextField(
+          controller: controller,
+          minLines: 3,
+          maxLines: 5,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(
+            labelText: 'Reason',
+            border: OutlineInputBorder(),
           ),
         ),
         actions: <Widget>[
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
+            onPressed: () => Navigator.of(dialogContext, rootNavigator: true).pop(),
             child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
+                Navigator.of(dialogContext, rootNavigator: true).pop(controller.text.trim()),
             child: const Text('Reject'),
           ),
         ],
@@ -106,9 +106,7 @@ class _TenantPropertyBookingsPageState
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Booking rejected. Admin will decide refund.'),
-        ),
+        const SnackBar(content: Text('Booking rejected.')),
       );
       await _load();
     } catch (error) {
@@ -268,7 +266,6 @@ class _BookingCard extends StatelessWidget {
         : propertyImageUrl;
     final _PropertyVisual visual = _propertyVisual(booking);
     final _StatusTone bookingTone = _statusTone(booking.bookingStatus);
-    final _StatusTone paymentTone = _statusTone(booking.paymentStatus);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -385,33 +382,14 @@ class _BookingCard extends StatelessWidget {
                   children: <Widget>[
                     Expanded(
                       child: _MetricTile(
-                        label: 'Booking payment',
-                        value: 'Rs ${booking.bookingAmount.toStringAsFixed(0)}',
-                        icon: Icons.payments_outlined,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _MetricTile(
-                        label: 'Payment',
-                        value: _statusLabel(booking.paymentStatus),
+                        label: 'Booking status',
+                        value: _statusLabel(booking.bookingStatus),
                         icon: Icons.verified_outlined,
-                        tone: paymentTone,
+                        tone: bookingTone,
                       ),
                     ),
                   ],
                 ),
-                if (booking.razorpayPaymentId.trim().isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 10),
-                  Text(
-                    'Payment ID: ${booking.razorpayPaymentId}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
                 if (onAccept != null || onReject != null) ...<Widget>[
                   const SizedBox(height: 14),
                   Row(
