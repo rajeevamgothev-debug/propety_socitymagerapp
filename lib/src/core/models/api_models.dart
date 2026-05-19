@@ -3136,11 +3136,16 @@ class WalletTransactionData {
     required this.amount,
     required this.previousBalance,
     required this.newBalance,
-    required this.date,
+    this.date,
     this.description,
   });
 
   factory WalletTransactionData.fromJson(Map<String, dynamic> json) {
+    final String? rawTimestamp = json['created_at'] as String? ??
+        json['createdAt'] as String? ??
+        json['Transaction_Date'] as String? ??
+        json['Date'] as String?;
+    final DateTime? parsedTimestamp = _parseApiTimestamp(rawTimestamp);
     return WalletTransactionData(
       transactionId:
           json['TransactionID'] as String? ?? json['_id'] as String? ?? '',
@@ -3148,11 +3153,7 @@ class WalletTransactionData {
       amount: (json['Amount'] as num?)?.toDouble() ?? 0,
       previousBalance: (json['Previous_Balance'] as num?)?.toDouble() ?? 0,
       newBalance: (json['New_Balance'] as num?)?.toDouble() ?? 0,
-      date:
-          DateTime.tryParse(
-            json['createdAt'] as String? ?? json['Date'] as String? ?? '',
-          ) ??
-          DateTime.now(),
+      date: parsedTimestamp,
       description: json['Description'] as String?,
     );
   }
@@ -3162,7 +3163,7 @@ class WalletTransactionData {
   final double amount;
   final double previousBalance;
   final double newBalance;
-  final DateTime date;
+  final DateTime? date;
   final String? description;
 }
 
@@ -3175,7 +3176,8 @@ class WithdrawalData {
     required this.withdrawalId,
     required this.amount,
     required this.status,
-    required this.date,
+    this.date,
+    this.processedAt,
     this.previousBalance,
     this.newBalance,
     this.utr,
@@ -3191,17 +3193,22 @@ class WithdrawalData {
   factory WithdrawalData.fromJson(Map<String, dynamic> json) {
     final Map<String, dynamic>? bankAccountDetails =
         json['Bank_Account_Details'] as Map<String, dynamic>?;
+    final String? rawCreatedAt = json['created_at'] as String? ??
+        json['createdAt'] as String? ??
+        json['Withdrawal_Date'] as String? ??
+        json['Date'] as String?;
+    final String? rawProcessedAt = json['processed_at'] as String? ??
+        json['Payout_Processed_At'] as String? ??
+        json['payout_completed_at'] as String? ??
+        json['updated_at'] as String?;
 
     return WithdrawalData(
       withdrawalId:
           json['WithdrawalID'] as String? ?? json['_id'] as String? ?? '',
       amount: (json['Amount'] as num?)?.toDouble() ?? 0,
       status: json['Withdrawal_Status'] as int? ?? 1,
-      date:
-          DateTime.tryParse(
-            json['createdAt'] as String? ?? json['Date'] as String? ?? '',
-          ) ??
-          DateTime.now(),
+      date: _parseApiTimestamp(rawCreatedAt),
+      processedAt: _parseApiTimestamp(rawProcessedAt),
       previousBalance: (json['Previous_Balance'] as num?)?.toDouble(),
       newBalance: (json['New_Balance'] as num?)?.toDouble(),
       utr: json['UTR'] as String?,
@@ -3222,7 +3229,8 @@ class WithdrawalData {
   final String withdrawalId;
   final double amount;
   final int status; // 1=pending, 2=success, 3=failed
-  final DateTime date;
+  final DateTime? date;
+  final DateTime? processedAt;
   final double? previousBalance;
   final double? newBalance;
   final String? utr;

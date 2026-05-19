@@ -47,6 +47,18 @@ class ApiClient {
     final String? sessionId = AuthStorage.sessionId;
     final String? vendorId = AuthStorage.vendorId;
 
+    if (_requiresAuthenticatedVendor(endpoint) &&
+        ((sessionId ?? '').isEmpty || (vendorId ?? '').isEmpty)) {
+      onSessionExpired?.call();
+      return const ApiResponse(
+        success: false,
+        extras: <String, dynamic>{
+          'code': 1,
+          'msg': 'Session Expired',
+        },
+      );
+    }
+
     if (apiKey != null && apiKey.isNotEmpty) {
       requestBody['ApiKey'] = apiKey;
     }
@@ -179,5 +191,21 @@ class ApiClient {
       _pendingRequests.clear();
       rethrow;
     }
+  }
+
+  bool _requiresAuthenticatedVendor(String endpoint) {
+    const Set<String> publicEndpoints = <String>{
+      ApiConfig.generateDeviceId,
+      ApiConfig.splashScreen,
+      ApiConfig.generateOtp,
+      ApiConfig.validateOtp,
+      ApiConfig.filterAllStates,
+      ApiConfig.filterAllCities,
+      ApiConfig.fetchAppCommonSettings,
+      ApiConfig.validateIfsc,
+      ApiConfig.validateUpi,
+    };
+
+    return !publicEndpoints.contains(endpoint);
   }
 }

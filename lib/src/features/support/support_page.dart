@@ -78,19 +78,31 @@ class _SupportPageState extends State<SupportPage> {
 
   Future<void> _bootstrap() async {
     await _loadVendor();
+    if (!mounted) {
+      return;
+    }
     await _loadTickets();
   }
 
   Future<void> _loadVendor() async {
+    VendorData? vendor;
     try {
-      _vendor = await VendorService.fetchVendorInfo();
+      vendor = await VendorService.fetchVendorInfo();
     } catch (_) {
-      _vendor = null;
+      vendor = null;
     }
+    if (!mounted) {
+      return;
+    }
+    _vendor = vendor;
+
     // Resolve societyId from the society API (Vendor model has no SocietyID).
     if (widget.role.isSocietyScope && _societyId.isEmpty) {
       try {
         final SocietyData? society = await SocietyService.fetchSocietyInfo();
+        if (!mounted) {
+          return;
+        }
         _societyId = society?.societyId ?? '';
       } catch (_) {}
     }
@@ -230,6 +242,9 @@ class _SupportPageState extends State<SupportPage> {
                   suffixIcon: IconButton(
                     onPressed: () {
                       _searchDebounce?.cancel();
+                      if (!mounted) {
+                        return;
+                      }
                       setState(() {
                         _skip = 0;
                       });
@@ -243,6 +258,9 @@ class _SupportPageState extends State<SupportPage> {
                   _searchDebounce = Timer(
                     const Duration(milliseconds: 300),
                     () {
+                      if (!mounted) {
+                        return;
+                      }
                       setState(() {
                         _skip = 0;
                       });
@@ -252,6 +270,9 @@ class _SupportPageState extends State<SupportPage> {
                 },
                 onSubmitted: (_) {
                   _searchDebounce?.cancel();
+                  if (!mounted) {
+                    return;
+                  }
                   setState(() {
                     _skip = 0;
                   });
@@ -742,6 +763,9 @@ class _SupportPageState extends State<SupportPage> {
           child: StatefulBuilder(
             builder: (BuildContext context, StateSetter setModalState) {
             Future<void> submit() async {
+              if (isSubmitting || sheetClosed || !mounted) {
+                return;
+              }
               final String targetId = ticketType == 1
                   ? (_vendor?.societyId ?? '')
                   : (_vendor?.propertyId ?? '');
@@ -754,6 +778,9 @@ class _SupportPageState extends State<SupportPage> {
                 return;
               }
 
+              if (!mounted || sheetClosed) {
+                return;
+              }
               setModalState(() {
                 isSubmitting = true;
               });
@@ -780,9 +807,14 @@ class _SupportPageState extends State<SupportPage> {
                   return;
                 }
                 sheetClosed = true;
-                sheetNavigator.pop();
+                if (sheetNavigator.mounted) {
+                  sheetNavigator.pop();
+                }
                 _showMessage('Support ticket created successfully.');
                 await _loadTickets();
+                if (!mounted) {
+                  return;
+                }
                 widget.onRefresh?.call();
               } catch (error) {
                 _showMessage(error.toString().replaceFirst('Exception: ', ''));
@@ -986,9 +1018,11 @@ class _SupportPageState extends State<SupportPage> {
       },
     ).whenComplete(() {
       sheetClosed = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        titleController.dispose();
-        descriptionController.dispose();
+      Future<void>.delayed(const Duration(milliseconds: 700), () {
+        try {
+          titleController.dispose();
+          descriptionController.dispose();
+        } catch (_) {}
       });
     });
   }
@@ -1103,6 +1137,9 @@ class _SupportPageState extends State<SupportPage> {
             }
 
             Future<void> submit() async {
+              if (isSubmitting || sheetClosed || !mounted) {
+                return;
+              }
               final String ticketTypeIdForApi = ticketType == 'society'
                   ? (_vendor?.societyId ?? '')
                   : selectedTypeId;
@@ -1144,9 +1181,14 @@ class _SupportPageState extends State<SupportPage> {
                   return;
                 }
                 sheetClosed = true;
-                sheetNavigator.pop();
+                if (sheetNavigator.mounted) {
+                  sheetNavigator.pop();
+                }
                 _showMessage('Support ticket created successfully.');
                 await _loadTickets();
+                if (!mounted) {
+                  return;
+                }
                 widget.onRefresh?.call();
               } catch (error) {
                 _showMessage(error.toString().replaceFirst('Exception: ', ''));
@@ -1452,9 +1494,11 @@ class _SupportPageState extends State<SupportPage> {
       },
     ).whenComplete(() {
       sheetClosed = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        titleController.dispose();
-        descriptionController.dispose();
+      Future<void>.delayed(const Duration(milliseconds: 700), () {
+        try {
+          titleController.dispose();
+          descriptionController.dispose();
+        } catch (_) {}
       });
     });
   }
@@ -1638,10 +1682,19 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   void _showMessage(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    if (!mounted) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final ScaffoldMessengerState? messenger =
+          ScaffoldMessenger.maybeOf(context);
+      messenger
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    });
   }
 }
 

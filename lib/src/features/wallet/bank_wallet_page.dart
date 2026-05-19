@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
@@ -12,6 +14,8 @@ import '../../core/widgets/custom_tab_bar.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/tone_badge.dart';
 
+typedef RoleKey = String;
+
 class BankWalletPage extends StatefulWidget {
   const BankWalletPage({super.key});
 
@@ -19,13 +23,16 @@ class BankWalletPage extends StatefulWidget {
   State<BankWalletPage> createState() => _BankWalletPageState();
 }
 
-class _BankWalletPageState extends State<BankWalletPage> {
+class _BankWalletPageState extends State<BankWalletPage>
+    with WidgetsBindingObserver {
   static const int _pageSize = 10;
 
   int _currentTab = 0;
 
   // Wallet summary
   WalletSummaryData? _walletSummary;
+  VendorData? _vendorData;
+  Timer? _statusTimer;
 
   // Accounts tab
   bool _isLoadingAccounts = true;
@@ -48,16 +55,40 @@ class _BankWalletPageState extends State<BankWalletPage> {
   int _withdrawalsTotal = 0;
   int _withdrawalsSkip = 0;
   int? _withdrawalStatusFilter;
+  WithdrawalAvailability? _withdrawalAvailability;
+  bool _isCheckingWithdrawalAvailability = false;
+  String? _withdrawalAvailabilityError;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAll();
+    _statusTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) {
+        unawaited(_loadWithdrawalAvailability());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _statusTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_loadWithdrawalAvailability());
+    }
   }
 
   Future<void> _loadAll() async {
     await Future.wait<void>(<Future<void>>[
       _loadWalletSummary(),
+      _loadWithdrawalAvailability(),
       _loadAccounts(reset: true),
       _loadTransactions(reset: true),
       _loadWithdrawals(reset: true),
@@ -69,9 +100,81 @@ class _BankWalletPageState extends State<BankWalletPage> {
       final VendorData? vendor = await VendorService.fetchVendorInfo();
       if (!mounted) return;
       setState(() {
+        _vendorData = vendor;
         _walletSummary = vendor?.walletInfo;
       });
     } catch (_) {}
+  }
+
+  Future<void> _loadWithdrawalAvailability() async {
+    try {
+      final WithdrawalAvailability availability =
+          await WalletService.checkWithdrawalAvailability();
+      debugPrint(
+        'Withdrawal restriction loaded: role=${_currentWithdrawalRole()} '
+        'now=${DateTime.now().toIso8601String()} '
+        'allowed=${availability.allowed} message=${availability.message}',
+      );
+      if (!mounted) return;
+      setState(() {
+        _withdrawalAvailability = availability;
+        _withdrawalAvailabilityError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final String message = error.toString().replaceFirst('Exception: ', '');
+      setState(() {
+        _withdrawalAvailabilityError = message;
+        _withdrawalAvailability = WithdrawalAvailability(
+          allowed: false,
+          message: message.isEmpty
+              ? 'Unable to verify withdrawal availability.'
+              : message,
+        );
+      });
+    }
+  }
+
+  Future<WithdrawalAvailability?> _refreshWithdrawalAvailability({
+    bool showLoading = false,
+  }) async {
+    if (showLoading && mounted) {
+      setState(() {
+        _isCheckingWithdrawalAvailability = true;
+        _withdrawalAvailabilityError = null;
+      });
+    }
+    try {
+      final WithdrawalAvailability availability =
+          await WalletService.checkWithdrawalAvailability();
+      debugPrint(
+        'Withdrawal restriction checked: role=${_currentWithdrawalRole()} '
+        'now=${DateTime.now().toIso8601String()} '
+        'allowed=${availability.allowed} message=${availability.message}',
+      );
+      if (!mounted) return availability;
+      setState(() {
+        _withdrawalAvailability = availability;
+        _withdrawalAvailabilityError = null;
+        _isCheckingWithdrawalAvailability = false;
+      });
+      return availability;
+    } catch (error) {
+      final String message = error.toString().replaceFirst('Exception: ', '');
+      if (mounted) {
+        setState(() {
+          _withdrawalAvailabilityError = message;
+          _withdrawalAvailability = WithdrawalAvailability(
+            allowed: false,
+            message: message.isEmpty
+                ? 'Unable to verify withdrawal availability.'
+                : message,
+          );
+          _isCheckingWithdrawalAvailability = false;
+        });
+      }
+      return null;
+    }
   }
 
   Future<void> _loadAccounts({bool reset = false}) async {
@@ -227,6 +330,7 @@ class _BankWalletPageState extends State<BankWalletPage> {
 
     int accountType = account?.accountType ?? 1;
     bool isDefault = account?.isDefault ?? false;
+    bool sheetClosed = false;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -239,6 +343,7 @@ class _BankWalletPageState extends State<BankWalletPage> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             Future<void> validateCurrent() async {
+              if (sheetClosed || !mounted) return;
               setModalState(() {
                 isValidating = true;
                 validationMessage = null;
@@ -270,13 +375,16 @@ class _BankWalletPageState extends State<BankWalletPage> {
                 validationMessage =
                     error.toString().replaceFirst('Exception: ', '');
               } finally {
-                setModalState(() {
-                  isValidating = false;
-                });
+                if (!sheetClosed && mounted) {
+                  setModalState(() {
+                    isValidating = false;
+                  });
+                }
               }
             }
 
             Future<void> submit() async {
+              if (sheetClosed || !mounted) return;
               if (accountType == 1 &&
                   (holderController.text.trim().isEmpty ||
                       numberController.text.trim().isEmpty ||
@@ -290,6 +398,7 @@ class _BankWalletPageState extends State<BankWalletPage> {
                 return;
               }
 
+              if (sheetClosed || !mounted) return;
               setModalState(() {
                 isSubmitting = true;
               });
@@ -317,7 +426,9 @@ class _BankWalletPageState extends State<BankWalletPage> {
                 } else {
                   await WalletService.editBankAccount(payload);
                 }
-                if (!mounted) return;
+                if (!mounted || sheetClosed) return;
+                sheetClosed = true;
+                FocusScope.of(context).unfocus();
                 Navigator.of(context).pop();
                 _showMessage(account == null
                     ? 'Account added successfully.'
@@ -325,10 +436,12 @@ class _BankWalletPageState extends State<BankWalletPage> {
                 await _loadAccounts(reset: true);
                 await _loadWalletSummary();
               } catch (error) {
-                _showMessage(error.toString().replaceFirst('Exception: ', ''));
-                setModalState(() {
-                  isSubmitting = false;
-                });
+                if (!sheetClosed && mounted) {
+                  _showMessage(error.toString().replaceFirst('Exception: ', ''));
+                  setModalState(() {
+                    isSubmitting = false;
+                  });
+                }
               }
             }
 
@@ -454,6 +567,7 @@ class _BankWalletPageState extends State<BankWalletPage> {
       },
     );
 
+    await Future<void>.delayed(const Duration(milliseconds: 250));
     holderController.dispose();
     numberController.dispose();
     ifscController.dispose();
@@ -463,6 +577,18 @@ class _BankWalletPageState extends State<BankWalletPage> {
   }
 
   Future<void> _openWithdrawSheet() async {
+    final WithdrawalAvailability? availability =
+        await _refreshWithdrawalAvailability(showLoading: true);
+    if (availability == null) {
+      _showMessage('Unable to verify withdrawal availability. Please try again.');
+      return;
+    }
+    if (!availability.allowed) {
+      _showWithdrawalBlockedDialog(availability);
+      return;
+    }
+    final _WithdrawalWindow window = _buildWithdrawalWindow();
+
     final List<BankAccountData> activeAccounts =
         _accounts.where((BankAccountData item) => item.isActive).toList();
     if (activeAccounts.isEmpty) {
@@ -473,6 +599,7 @@ class _BankWalletPageState extends State<BankWalletPage> {
     String selectedAccountId = activeAccounts.first.accountId;
     final TextEditingController amountController = TextEditingController();
     bool isSubmitting = false;
+    bool sheetClosed = false;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -481,6 +608,7 @@ class _BankWalletPageState extends State<BankWalletPage> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             Future<void> submit() async {
+              if (sheetClosed || !mounted) return;
               final double? amount =
                   double.tryParse(amountController.text.trim());
               if (amount == null || amount <= 0) {
@@ -488,6 +616,7 @@ class _BankWalletPageState extends State<BankWalletPage> {
                 return;
               }
 
+              if (sheetClosed || !mounted) return;
               setModalState(() {
                 isSubmitting = true;
               });
@@ -497,20 +626,24 @@ class _BankWalletPageState extends State<BankWalletPage> {
                   selectedAccountId,
                   amount,
                 );
-                if (!mounted) return;
+                if (!mounted || sheetClosed) return;
+                sheetClosed = true;
+                FocusScope.of(context).unfocus();
                 Navigator.of(context).pop();
                 _showMessage(
                     response.message ?? 'Withdrawal request created.');
                 await Future.wait<void>(<Future<void>>[
                   _loadWalletSummary(),
+                  _loadWithdrawalAvailability(),
                   _loadWithdrawals(reset: true),
                 ]);
               } catch (error) {
-                if (!mounted) return;
-                _showMessage(error.toString().replaceFirst('Exception: ', ''));
-                setModalState(() {
-                  isSubmitting = false;
-                });
+                if (!sheetClosed && mounted) {
+                  _showMessage(error.toString().replaceFirst('Exception: ', ''));
+                  setModalState(() {
+                    isSubmitting = false;
+                  });
+                }
               }
             }
 
@@ -522,15 +655,42 @@ class _BankWalletPageState extends State<BankWalletPage> {
                   16,
                   MediaQuery.of(context).viewInsets.bottom + 24,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: ListView(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   children: <Widget>[
                     Text(
                       'Withdraw wallet amount',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
+                    ),
+                    const SizedBox(height: 12),
+                    CustomCard(
+                      padding: CustomCardPadding.sm,
+                      color: const Color(0xFFF7F8FA),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Admin message / comment',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            window.comment.isNotEmpty
+                                ? window.comment
+                                : 'No admin comment set.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(color: AppTheme.textSecondary),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
@@ -591,7 +751,65 @@ class _BankWalletPageState extends State<BankWalletPage> {
       },
     );
 
+    await Future<void>.delayed(const Duration(milliseconds: 250));
     amountController.dispose();
+  }
+
+  void _showWithdrawalBlockedDialog(WithdrawalAvailability availability) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Withdrawals unavailable'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(availability.message),
+              if (availability.availableAfter != null) ...<Widget>[
+                const SizedBox(height: 8),
+                Text('Available after: ${availability.availableAfter}'),
+              ],
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  RoleKey _currentWithdrawalRole() {
+    final int vendorType = _vendorData?.vendorType ?? 2;
+    return vendorType == 1 ? 'SOCIETY' : 'PROPERTY';
+  }
+
+  _WithdrawalWindow _buildWithdrawalWindow() {
+    final String roleLabel = _currentWithdrawalRole() == 'SOCIETY'
+        ? 'Society Manager'
+        : 'Property Manager';
+    final WithdrawalAvailability? availability = _withdrawalAvailability;
+    if (availability == null) {
+      return _WithdrawalWindow(
+        false,
+        _withdrawalAvailabilityError ?? 'Checking withdrawal availability...',
+        roleLabel,
+        _withdrawalAvailabilityError ?? 'Checking withdrawal availability...',
+        null,
+      );
+    }
+    return _WithdrawalWindow(
+      availability.allowed,
+      availability.message,
+      roleLabel,
+      availability.allowed ? '' : availability.message,
+      availability.availableAfter,
+    );
   }
 
   @override
@@ -653,6 +871,9 @@ class _BankWalletPageState extends State<BankWalletPage> {
                 setState(() {
                   _currentTab = value;
                 });
+                if (value == 2) {
+                  unawaited(_loadWithdrawalAvailability());
+                }
               },
               tabs: const <CustomTabItem>[
                 CustomTabItem(label: 'Accounts'),
@@ -673,9 +894,16 @@ class _BankWalletPageState extends State<BankWalletPage> {
             )
           : _currentTab == 2
               ? FloatingActionButton.extended(
-                  onPressed: _openWithdrawSheet,
+                  onPressed: _isCheckingWithdrawalAvailability ||
+                          _withdrawalAvailability?.allowed != true
+                      ? null
+                      : _openWithdrawSheet,
                   icon: const Icon(Icons.call_made_rounded),
-                  label: const Text('Withdraw'),
+                  label: Text(_isCheckingWithdrawalAvailability
+                      ? 'Checking'
+                      : (_withdrawalAvailability?.allowed == false
+                          ? 'Unavailable'
+                          : 'Withdraw')),
                 )
               : null,
     );
@@ -919,7 +1147,7 @@ class _BankWalletPageState extends State<BankWalletPage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${formatCompactDate(tx.date)} at ${formatClock(tx.date)}',
+                          formatLedgerTimestamp(tx.date),
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: AppTheme.textMuted),
                         ),
@@ -965,7 +1193,69 @@ class _BankWalletPageState extends State<BankWalletPage> {
 
   List<Widget> _buildWithdrawalsTab(ThemeData theme) {
     final bool hasMore = _withdrawalsSkip < _withdrawalsTotal;
+    final _WithdrawalWindow window = _buildWithdrawalWindow();
     return <Widget>[
+      CustomCard(
+        padding: CustomCardPadding.sm,
+        color: window.enabled
+            ? const Color(0xFFEAF7EE)
+            : const Color(0xFFFDECEC),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: window.enabled
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFFDC2626),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Withdrawals ${window.enabled ? 'Enabled' : 'Disabled'}',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_isCheckingWithdrawalAvailability)
+              const LinearProgressIndicator(minHeight: 3)
+            else
+              Text(
+                window.enabled
+                    ? 'Withdrawal available. Normal payout flow is active.'
+                    : (window.comment.isNotEmpty
+                        ? window.comment
+                        : window.message),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: AppTheme.textSecondary),
+              ),
+            if (!window.enabled && window.availableAfter != null) ...<Widget>[
+              const SizedBox(height: 6),
+              Text(
+                'Available after: ${window.availableAfter}',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: AppTheme.textMuted),
+              ),
+            ],
+            if (_withdrawalAvailabilityError != null) ...<Widget>[
+              const SizedBox(height: 6),
+              Text(
+                _withdrawalAvailabilityError!,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: const Color(0xFFDC2626)),
+              ),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
       // Status filter
       DropdownButtonFormField<int?>(
         value: _withdrawalStatusFilter,
@@ -1077,7 +1367,7 @@ class _BankWalletPageState extends State<BankWalletPage> {
                   ],
                   const SizedBox(height: 4),
                   Text(
-                    '${formatCompactDate(wd.date)} at ${formatClock(wd.date)}',
+                    formatLedgerTimestamp(wd.processedAt ?? wd.date),
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: AppTheme.textMuted),
                   ),
@@ -1119,11 +1409,32 @@ class _BankWalletPageState extends State<BankWalletPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    });
   }
 }
+
+class _WithdrawalWindow {
+  const _WithdrawalWindow(
+    this.enabled,
+    this.message,
+    this.roleLabel,
+    this.comment,
+    this.availableAfter,
+  );
+
+  final bool enabled;
+  final String message;
+  final String roleLabel;
+  final String comment;
+  final String? availableAfter;
+}
+
 
 class _WalletTile extends StatelessWidget {
   const _WalletTile({

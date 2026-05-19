@@ -1148,3 +1148,17 @@ String formatClock(DateTime date) {
   final String suffix = localDate.hour >= 12 ? 'PM' : 'AM';
   return '$hour:$minute $suffix';
 }
+
+String formatLedgerTimestamp(DateTime? date) {
+  if (date == null) return 'Date unavailable';
+  final DateTime localDate = date.toLocal();
+  final DateTime now = DateTime.now();
+  final DateTime today = DateTime(now.year, now.month, now.day);
+  final DateTime valueDay = DateTime(localDate.year, localDate.month, localDate.day);
+  final String clock = formatClock(localDate);
+  if (valueDay == today) return 'Today • $clock';
+  if (valueDay == today.subtract(const Duration(days: 1))) {
+    return 'Yesterday • $clock';
+  }
+  return '${formatCompactDate(localDate)} • $clock';
+}

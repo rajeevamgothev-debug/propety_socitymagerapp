@@ -153,6 +153,8 @@ class ApiConfig {
       '/Filter_All_Wallet_Transactions';
   static const String filterWalletWithdrawals =
       '/Filter_All_Wallet_Withdrawals';
+  static const String checkWithdrawalAvailability =
+      '/Check_Withdrawal_Availability';
   static const String withdrawWalletAmount = '/Withdraw_Wallet_Amount';
 
   // Notifications

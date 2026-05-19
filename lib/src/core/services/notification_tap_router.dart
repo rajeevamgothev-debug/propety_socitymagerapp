@@ -34,10 +34,10 @@ class NotificationTapRouter {
     if (role == AppRole.tenant ||
         role == AppRole.pgResident ||
         role == AppRole.visitor) {
-      return _buildTenantPage(request, role);
+      return NotificationRouteScaffold(child: _buildTenantPage(request, role));
     }
 
-    return _buildManagementPage(request, role);
+    return NotificationRouteScaffold(child: _buildManagementPage(request, role));
   }
 
   static Widget _buildTenantPage(NotificationPayload request, AppRole role) {
@@ -115,6 +115,20 @@ class NotificationTapRouter {
       case NotificationType.unknown:
         return const NotificationsPage();
     }
+  }
+}
+
+class NotificationRouteScaffold extends StatelessWidget {
+  const NotificationRouteScaffold({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F7),
+      body: SafeArea(child: child),
+    );
   }
 }
 

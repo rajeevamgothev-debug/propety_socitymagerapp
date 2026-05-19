@@ -16,7 +16,7 @@ class SupportService {
     required int priority,
     String? imageId,
   }) async {
-    return ApiClient.instance.post(
+    final ApiResponse response = await ApiClient.instance.post(
       ApiConfig.createSupportTicket,
       <String, dynamic>{
         'Vendor_Ticket_Type': ticketType,
@@ -29,6 +29,16 @@ class SupportService {
         if (imageId != null) 'ImageID': imageId,
       },
     );
+
+    if (!response.success) {
+      throw Exception(
+        response.status ??
+            response.message ??
+            'Failed to create support ticket.',
+      );
+    }
+
+    return response;
   }
 
   /// Filter support tickets for tenant.

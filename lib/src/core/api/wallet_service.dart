@@ -134,6 +134,14 @@ class WalletService {
   }
 
   // Withdrawals
+  static Future<WithdrawalAvailability> checkWithdrawalAvailability() async {
+    final ApiResponse response = await ApiClient.instance.post(
+      ApiConfig.checkWithdrawalAvailability,
+      <String, dynamic>{},
+    );
+    return WithdrawalAvailability.fromResponse(response);
+  }
+
   static Future<({List<WithdrawalData> withdrawals, int count})>
       filterWithdrawals({
     int skip = 0,
@@ -176,4 +184,46 @@ class WalletService {
       },
     );
   }
+}
+
+class WithdrawalAvailability {
+  const WithdrawalAvailability({
+    required this.allowed,
+    required this.message,
+    this.availableAfter,
+    this.role,
+    this.availableAmount,
+  });
+
+  factory WithdrawalAvailability.fromResponse(ApiResponse response) {
+    final Map<String, dynamic> extras = response.extras;
+    final dynamic data = extras['Data'];
+    final Map<String, dynamic> dataMap =
+        data is Map<String, dynamic> ? data : <String, dynamic>{};
+    final bool allowed = (extras['withdrawal_allowed'] as bool?) ??
+        (dataMap['withdrawal_allowed'] as bool?) ??
+        response.success;
+    final String message = (extras['message'] ??
+            extras['msg'] ??
+            dataMap['message'] ??
+            (allowed ? 'Withdrawal available' : 'Withdrawals are disabled.'))
+        .toString();
+    final String? availableAfter =
+        (extras['available_after'] ?? dataMap['available_after'])?.toString();
+    final num? amount = dataMap['available_amount'] as num?;
+    return WithdrawalAvailability(
+      allowed: allowed,
+      message: message,
+      availableAfter:
+          availableAfter == null || availableAfter.isEmpty ? null : availableAfter,
+      role: dataMap['role']?.toString(),
+      availableAmount: amount?.toDouble(),
+    );
+  }
+
+  final bool allowed;
+  final String message;
+  final String? availableAfter;
+  final String? role;
+  final double? availableAmount;
 }
