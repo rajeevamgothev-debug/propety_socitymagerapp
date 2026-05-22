@@ -10,6 +10,7 @@ import 'core/models/app_models.dart';
 import 'core/services/in_app_update_service.dart';
 import 'core/services/notification_tap_router.dart';
 import 'core/services/push_notification_service.dart';
+import 'core/services/version_update_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/login_page.dart';
 import 'features/auth/blocked_account_page.dart';
@@ -17,6 +18,7 @@ import 'features/auth/otp_page.dart';
 import 'features/auth/profile_setup_page.dart';
 import 'features/landing/landing_page.dart';
 import 'features/shell/app_shell.dart';
+import 'features/update/app_update_gate_page.dart';
 
 class UrbanEasyFlatsApp extends StatefulWidget {
   const UrbanEasyFlatsApp({super.key});
@@ -43,6 +45,8 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
   AuthSource? _authSource;
   AppRole _currentRole = AppRole.tenant;
   bool _hasScheduledUpdateCheck = false;
+  AppUpdateDecision? _appUpdateDecision;
+  bool _softUpdateDismissed = false;
   String? _pendingNotificationPayload;
   bool _isOpeningPendingNotification = false;
 
@@ -71,6 +75,7 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
     ApiClient.instance.onSessionExpired = _logout;
 
     await AuthService.initializeApp();
+    await _checkBackendDrivenUpdate();
 
     if (!mounted) {
       return;
@@ -102,7 +107,6 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
       onNotificationTap: _handleNotificationTap,
     ).catchError((_) {});
     _flushPendingNotificationTap();
-
   }
 
   void _scheduleInAppUpdateCheck() {
@@ -114,13 +118,27 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
     });
   }
 
+  Future<void> _checkBackendDrivenUpdate() async {
+    final AppUpdateDecision decision = await VersionUpdateService.check(
+      appCode: 'manager',
+    );
+    if (!mounted || !decision.requiresUpdate) {
+      return;
+    }
+    setState(() {
+      _appUpdateDecision = decision;
+      _softUpdateDismissed = false;
+    });
+  }
+
   /// Opens NotificationsPage when the user taps a push notification.
   void _handleNotificationTap(String? payload) {
     if (payload == null || payload.trim().isEmpty) {
       return;
     }
 
-    if (!_isAuthenticated || UrbanEasyFlatsApp.navigatorKey.currentState == null) {
+    if (!_isAuthenticated ||
+        UrbanEasyFlatsApp.navigatorKey.currentState == null) {
       _pendingNotificationPayload = payload;
       _flushPendingNotificationTap();
       return;
@@ -276,24 +294,32 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
   }
 
   Widget _buildHome() {
-    if (_isInitializing) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+    final AppUpdateDecision? updateDecision = _appUpdateDecision;
+    if (updateDecision != null &&
+        updateDecision.requiresUpdate &&
+        (updateDecision.isForce || !_softUpdateDismissed)) {
+      return AppUpdateGatePage(
+        decision: updateDecision,
+        appName: 'UrbanEasyFlats Manager',
+        logoAsset: 'assets/manager_logo.jpg',
+        onLater: () {
+          setState(() {
+            _softUpdateDismissed = true;
+          });
+        },
       );
+    }
+
+    if (_isInitializing) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_isAccountBlocked) {
-      return BlockedAccountPage(
-        reason: _accountBlockReason,
-        onLogout: _logout,
-      );
+      return BlockedAccountPage(reason: _accountBlockReason, onLogout: _logout);
     }
 
     if (_isAuthenticated) {
-      return AppShell(
-        role: _currentRole,
-        onLogout: _logout,
-      );
+      return AppShell(role: _currentRole, onLogout: _logout);
     }
 
     if (_needsProfileSetup) {
@@ -337,6 +363,12 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
       theme: AppTheme.lightTheme,
       navigatorKey: UrbanEasyFlatsApp.navigatorKey,
       scaffoldMessengerKey: UrbanEasyFlatsApp.scaffoldMessengerKey,
+      builder: (BuildContext context, Widget? child) {
+        return ColoredBox(
+          color: AppTheme.background,
+          child: SafeArea(child: child ?? const SizedBox.shrink()),
+        );
+      },
       home: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
         child: KeyedSubtree(

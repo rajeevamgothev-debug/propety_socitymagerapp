@@ -19,19 +19,18 @@ class PageHeader extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          colors: <Color>[
-            Color(0xFFF8FBFF),
-            Colors.white,
-            Color(0xFFF8FAFC),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x0D17202A),
+            blurRadius: 22,
+            offset: Offset(0, 12),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,32 +40,26 @@ class PageHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
+                  width: 42,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: AppTheme.primarySoft,
+                    color: AppTheme.secondary,
                     borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    'Mobile workspace',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppTheme.primaryHover,
-                      fontWeight: FontWeight.w700,
-                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   title,
                   style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   description,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: AppTheme.textSecondary,
                   ),
@@ -74,7 +67,10 @@ class PageHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) ...<Widget>[const SizedBox(width: 12), trailing!],
+          if (trailing != null) ...<Widget>[
+            const SizedBox(width: 12),
+            trailing!,
+          ],
         ],
       ),
     );

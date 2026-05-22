@@ -65,8 +65,8 @@ class PremiumNotificationContent {
       'Ticket_Status_Label',
       'Enquiry_Status_Label',
     ]);
-    final String backendTitle = message.notification?.title ??
-        _first(data, <String>['title', 'Title']);
+    final String backendTitle =
+        message.notification?.title ?? _first(data, <String>['title', 'Title']);
     final String backendBody =
         message.notification?.body ?? _first(data, <String>['body', 'Message']);
     final _Copy copy = _copyFor(
@@ -91,35 +91,7 @@ class PremiumNotificationContent {
       screen: screen.isEmpty ? _screenFor(type) : screen,
       priority: _priorityFor(type, data),
       actions: _actionsFor(type),
-      imageUrl: residentImage.isNotEmpty
-          ? residentImage
-          : _first(data, <String>[
-        'image',
-        'imageUrl',
-        'residentImage',
-        'Resident_Image_URL',
-        'tenantImage',
-        'Tenant_Image_URL',
-        'propertyImage',
-        'property_image',
-        'Property_Image_URL',
-        'Property_Image_Document',
-        'Property_Image',
-        'Property_Image_1',
-        'Property_Image_2',
-        'Property_Image_3',
-        'Image_URL',
-        'Notification_Image',
-        'notificationImage',
-        'societyBanner',
-        'Society_Banner',
-        'ticketImage',
-        'Ticket_Image',
-        'visitorPhoto',
-        'Visitor_Photo',
-        'big_picture',
-        'picture',
-      ]),
+      imageUrl: _imageUrlFor(type, data, residentImage),
       data: data,
     );
   }
@@ -158,6 +130,11 @@ class PremiumNotificationContent {
   }
 
   bool get isUrgent => priority == 'urgent' || priority == 'max';
+
+  bool get usesCompactImage =>
+      type == 'rent_due' ||
+      type == 'payment_success' ||
+      type == 'payment_failed';
 
   Priority get androidPriority {
     return switch (priority) {
@@ -211,6 +188,51 @@ class PremiumNotificationContent {
     return data;
   }
 
+  static String _imageUrlFor(
+    String type,
+    Map<String, dynamic> data,
+    String residentImage,
+  ) {
+    final bool isBillType =
+        type == 'rent_due' ||
+        type == 'payment_success' ||
+        type == 'payment_failed';
+    final String propertyImage = _first(data, <String>[
+      'propertyImage',
+      'propertyImageUrl',
+      'property_image',
+      'Property_Image_URL',
+      'Property_Image_Document',
+      'Property_Image',
+      'Property_Image_1',
+      'Property_Image_2',
+      'Property_Image_3',
+      'Image_URL',
+    ]);
+    final String genericImage = _first(data, <String>[
+      'image',
+      'imageUrl',
+      'Notification_Image',
+      'notificationImage',
+      'societyBanner',
+      'Society_Banner',
+      'ticketImage',
+      'Ticket_Image',
+      'visitorPhoto',
+      'Visitor_Photo',
+      'big_picture',
+      'picture',
+    ]);
+
+    if (isBillType) {
+      return propertyImage.isNotEmpty ? propertyImage : genericImage;
+    }
+    if (residentImage.isNotEmpty) {
+      return residentImage;
+    }
+    return propertyImage.isNotEmpty ? propertyImage : genericImage;
+  }
+
   static String _normalizeType(String rawType, String referenceType) {
     final String raw = rawType.toLowerCase().trim();
     final String reference = referenceType.toLowerCase().trim();
@@ -260,7 +282,9 @@ class PremiumNotificationContent {
       return 'payments';
     }
     if (type == 'ticket' || type == 'maintenance') return 'tickets';
-    if (type == 'society_notice' || type == 'emergency_alert' || type == 'security_alert') {
+    if (type == 'society_notice' ||
+        type == 'emergency_alert' ||
+        type == 'security_alert') {
       return 'announcements';
     }
     if (type == 'enquiry') return 'enquiries';
@@ -275,12 +299,13 @@ class PremiumNotificationContent {
       'booking' => 'booking_detail',
       'booking_accepted' ||
       'booking_approved' ||
-      'booking_rejected' =>
-        'tenant_booking_detail',
+      'booking_rejected' => 'tenant_booking_detail',
       'rent_due' => 'bill_detail',
       'payment_success' || 'payment_failed' || 'wallet' => 'payment_history',
       'agreement' => 'rental_contract_detail',
-      'society_notice' || 'emergency_alert' || 'security_alert' => 'announcement_detail',
+      'society_notice' ||
+      'emergency_alert' ||
+      'security_alert' => 'announcement_detail',
       'ticket' || 'maintenance' => 'support_ticket_detail',
       'visitor' => 'visitor_detail',
       _ => 'notifications',
@@ -288,9 +313,10 @@ class PremiumNotificationContent {
   }
 
   static String _priorityFor(String type, Map<String, dynamic> data) {
-    final String explicit = _first(data, <String>['priority', 'Priority_Label'])
-        .toLowerCase()
-        .trim();
+    final String explicit = _first(data, <String>[
+      'priority',
+      'Priority_Label',
+    ]).toLowerCase().trim();
     if (explicit.contains('urgent') || explicit.contains('emergency')) {
       return 'urgent';
     }
@@ -307,57 +333,57 @@ class PremiumNotificationContent {
   static List<AndroidNotificationAction> _actionsFor(String type) {
     return switch (type) {
       'enquiry' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('view_enquiry', 'View'),
-          AndroidNotificationAction('call_tenant', 'Call'),
-        ],
+        AndroidNotificationAction('view_enquiry', 'View'),
+        AndroidNotificationAction('call_tenant', 'Call'),
+      ],
       'booking' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('view_booking', 'View'),
-          AndroidNotificationAction('call_tenant', 'Call'),
-        ],
+        AndroidNotificationAction('view_booking', 'View'),
+        AndroidNotificationAction('call_tenant', 'Call'),
+      ],
       'booking_rejected' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('view_reason', 'Reason'),
-          AndroidNotificationAction('find_similar', 'Similar'),
-        ],
-      'booking_accepted' || 'booking_approved' =>
-        const <AndroidNotificationAction>[
-          AndroidNotificationAction('view_booking', 'View'),
-          AndroidNotificationAction('view_property', 'Property'),
-        ],
+        AndroidNotificationAction('view_reason', 'Reason'),
+        AndroidNotificationAction('find_similar', 'Similar'),
+      ],
+      'booking_accepted' ||
+      'booking_approved' => const <AndroidNotificationAction>[
+        AndroidNotificationAction('view_booking', 'View'),
+        AndroidNotificationAction('view_property', 'Property'),
+      ],
       'rent_due' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('pay_now', 'Pay'),
-          AndroidNotificationAction('view_bill', 'Bill'),
-        ],
+        AndroidNotificationAction('pay_now', 'Pay'),
+        AndroidNotificationAction('view_bill', 'Bill'),
+      ],
       'payment_failed' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('retry_payment', 'Retry'),
-          AndroidNotificationAction('view_bill', 'Bill'),
-        ],
+        AndroidNotificationAction('retry_payment', 'Retry'),
+        AndroidNotificationAction('view_bill', 'Bill'),
+      ],
       'payment_success' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('view_receipt', 'Receipt'),
-          AndroidNotificationAction('view_history', 'History'),
-        ],
+        AndroidNotificationAction('view_receipt', 'Receipt'),
+        AndroidNotificationAction('view_history', 'History'),
+      ],
       'society_notice' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('view_notice', 'View'),
-        ],
+        AndroidNotificationAction('view_notice', 'View'),
+      ],
       'emergency_alert' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('view_alert', 'View'),
-          AndroidNotificationAction('call_security', 'Security'),
-        ],
+        AndroidNotificationAction('view_alert', 'View'),
+        AndroidNotificationAction('call_security', 'Security'),
+      ],
       'security_alert' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('view_alert', 'View'),
-          AndroidNotificationAction('call_security', 'Security'),
-        ],
+        AndroidNotificationAction('view_alert', 'View'),
+        AndroidNotificationAction('call_security', 'Security'),
+      ],
       'ticket' || 'maintenance' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('open_ticket', 'Open'),
-          AndroidNotificationAction('reply', 'Reply'),
-        ],
+        AndroidNotificationAction('open_ticket', 'Open'),
+        AndroidNotificationAction('reply', 'Reply'),
+      ],
       'visitor' => const <AndroidNotificationAction>[
-          AndroidNotificationAction('approve_visitor', 'Approve'),
-          AndroidNotificationAction('reject_visitor', 'Reject'),
-          AndroidNotificationAction('call_visitor', 'Call'),
-        ],
+        AndroidNotificationAction('approve_visitor', 'Approve'),
+        AndroidNotificationAction('reject_visitor', 'Reject'),
+        AndroidNotificationAction('call_visitor', 'Call'),
+      ],
       _ => const <AndroidNotificationAction>[
-          AndroidNotificationAction('open', 'Open'),
-        ],
+        AndroidNotificationAction('open', 'Open'),
+      ],
     };
   }
 
@@ -376,83 +402,91 @@ class PremiumNotificationContent {
         : (societyName.isNotEmpty ? societyName : 'UrbanEasyFlats');
     return switch (type) {
       'enquiry' => _Copy(
-          tenantName.isEmpty
-              ? 'New enquiry for $place'
-              : '$tenantName is interested in $place',
-          'New lead - view details and call back from the app.',
-        ),
+        tenantName.isEmpty
+            ? 'New enquiry for $place'
+            : '$tenantName is interested in $place',
+        'New lead - view details and call back from the app.',
+      ),
       'booking' => _Copy(
-          tenantName.isEmpty ? 'New booking request' : '$tenantName booked it',
-          'Pending - review $place and respond quickly.',
-        ),
+        tenantName.isEmpty ? 'New booking request' : '$tenantName booked it',
+        'Pending - review $place and respond quickly.',
+      ),
       'booking_accepted' => _Copy(
-          'Almost there',
-          'Accepted - $place is waiting for admin approval.',
-        ),
+        'Almost there',
+        'Accepted - $place is waiting for admin approval.',
+      ),
       'booking_approved' => _Copy(
-          'Booking confirmed',
-          'Confirmed - open bookings to view the tenant and property details.',
-        ),
+        'Booking confirmed',
+        'Confirmed - open bookings to view the tenant and property details.',
+      ),
       'booking_rejected' => _Copy(
-          'Booking could not move ahead',
-          backendBody.isEmpty
-              ? 'Rejected - open your booking to see the reason.'
-              : backendBody,
-        ),
+        'Booking could not move ahead',
+        backendBody.isEmpty
+            ? 'Rejected - open your booking to see the reason.'
+            : backendBody,
+      ),
       'rent_due' => _Copy(
-          backendTitle.isNotEmpty
-              ? backendTitle
-              : (amount.isEmpty ? 'Rent bill is ready' : 'Rs $amount rent is due'),
-          backendBody.isNotEmpty
-              ? backendBody
-              : (status.isEmpty ? 'Due soon - pay securely from the app.' : status),
-        ),
+        backendTitle.isNotEmpty
+            ? backendTitle
+            : (amount.isEmpty
+                  ? 'Rent bill is ready'
+                  : 'Rs $amount rent is due'),
+        backendBody.isNotEmpty
+            ? backendBody
+            : (status.isEmpty
+                  ? 'Due soon - pay securely from the app.'
+                  : status),
+      ),
       'payment_success' => _Copy(
-          backendTitle.isNotEmpty
-              ? backendTitle
-              : (amount.isEmpty ? 'Payment successful' : 'Rs $amount paid successfully'),
-          backendBody.isNotEmpty
-              ? backendBody
-              : 'Receipt is ready in your payment history.',
-        ),
+        backendTitle.isNotEmpty
+            ? backendTitle
+            : (amount.isEmpty
+                  ? 'Payment successful'
+                  : 'Rs $amount paid successfully'),
+        backendBody.isNotEmpty
+            ? backendBody
+            : 'Receipt is ready in your payment history.',
+      ),
       'payment_failed' => _Copy(
-          backendTitle.isNotEmpty ? backendTitle : 'Payment could not be completed',
-          backendBody.isNotEmpty
-              ? backendBody
-              : 'Please retry or open the bill for details.',
-        ),
+        backendTitle.isNotEmpty
+            ? backendTitle
+            : 'Payment could not be completed',
+        backendBody.isNotEmpty
+            ? backendBody
+            : 'Please retry or open the bill for details.',
+      ),
       'agreement' => _Copy(
-          'Agreement update for $place',
-          'Open the contract to review the latest details.',
-        ),
+        'Agreement update for $place',
+        'Open the contract to review the latest details.',
+      ),
       'society_notice' => _Copy(
-          societyName.isEmpty
-              ? 'New society notice'
-              : 'New notice from $societyName',
-          backendBody.isEmpty ? 'Open the notice for details.' : backendBody,
-        ),
+        societyName.isEmpty
+            ? 'New society notice'
+            : 'New notice from $societyName',
+        backendBody.isEmpty ? 'Open the notice for details.' : backendBody,
+      ),
       'emergency_alert' => _Copy(
-          'Emergency alert',
-          backendBody.isEmpty ? 'Open immediately for details.' : backendBody,
-        ),
+        'Emergency alert',
+        backendBody.isEmpty ? 'Open immediately for details.' : backendBody,
+      ),
       'ticket' => _Copy(
-          'Your request has an update',
-          backendBody.isEmpty
-              ? 'Open the ticket for the latest status.'
-              : backendBody,
-        ),
+        'Your request has an update',
+        backendBody.isEmpty
+            ? 'Open the ticket for the latest status.'
+            : backendBody,
+      ),
       'maintenance' => _Copy(
-          backendTitle.isNotEmpty ? backendTitle : 'Maintenance request updated',
-          backendBody.isNotEmpty ? backendBody : 'Open the request for details.',
-        ),
+        backendTitle.isNotEmpty ? backendTitle : 'Maintenance request updated',
+        backendBody.isNotEmpty ? backendBody : 'Open the request for details.',
+      ),
       'visitor' => _Copy(
-          'Visitor approval needed',
-          'Approve or reject this visitor request.',
-        ),
+        'Visitor approval needed',
+        'Approve or reject this visitor request.',
+      ),
       _ => _Copy(
-          backendTitle.isEmpty ? 'UrbanEasyFlats update' : backendTitle,
-          backendBody,
-        ),
+        backendTitle.isEmpty ? 'UrbanEasyFlats update' : backendTitle,
+        backendBody,
+      ),
     };
   }
 }

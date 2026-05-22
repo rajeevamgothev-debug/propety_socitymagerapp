@@ -20,7 +20,7 @@ class AuthService {
         AuthStorage.apiKey != null &&
         AuthStorage.apiKey!.isNotEmpty) {
       try {
-        await _syncStoredPushToken();
+        await _syncStoredPushToken(force: true);
       } catch (_) {}
       return true;
     }
@@ -32,7 +32,7 @@ class AuthService {
       final String? apiKey = await getApiKey(deviceId);
       if (apiKey != null) {
         try {
-          await _syncStoredPushToken();
+          await _syncStoredPushToken(force: true);
         } catch (_) {}
       }
       return apiKey != null;
@@ -43,8 +43,9 @@ class AuthService {
 
   /// Step 1: Generate a DeviceID from the server.
   static Future<String?> generateDeviceId() async {
-    final Uri url =
-        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.generateDeviceId}');
+    final Uri url = Uri.parse(
+      '${ApiConfig.baseUrl}${ApiConfig.generateDeviceId}',
+    );
     final http.Response response = await http.post(
       url,
       headers: <String, String>{'Content-Type': 'application/json'},
@@ -65,8 +66,7 @@ class AuthService {
 
   /// Step 2: Get ApiKey via splash screen.
   static Future<String?> getApiKey(String deviceId) async {
-    final Uri url =
-        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.splashScreen}');
+    final Uri url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.splashScreen}');
     final http.Response response = await http.post(
       url,
       headers: <String, String>{'Content-Type': 'application/json'},
@@ -82,8 +82,7 @@ class AuthService {
         jsonDecode(response.body) as Map<String, dynamic>;
     final Map<String, dynamic> extras =
         (json['extras'] as Map<String, dynamic>?) ?? <String, dynamic>{};
-    final Map<String, dynamic>? data =
-        extras['Data'] as Map<String, dynamic>?;
+    final Map<String, dynamic>? data = extras['Data'] as Map<String, dynamic>?;
     final String? apiKey = data?['ApiKey'] as String?;
 
     if (apiKey != null) {
@@ -111,9 +110,7 @@ class AuthService {
     );
 
     if (!response.success) {
-      throw Exception(
-        response.status ?? 'Failed to update FCM token.',
-      );
+      throw Exception(response.status ?? 'Failed to update FCM token.');
     }
   }
 
@@ -137,24 +134,22 @@ class AuthService {
     required int vendorType,
   }) async {
     await AuthStorage.clearAll();
-    final ApiResponse response = await ApiClient.instance.post(
-      ApiConfig.validateOtp,
-      <String, dynamic>{
-        'Vendor_Type': vendorType,
-        'CountryCode': '+91',
-        'PhoneNumber': phone,
-        'OTP': int.tryParse(otp) ?? otp,
-      },
-    );
+    final ApiResponse response = await ApiClient.instance
+        .post(ApiConfig.validateOtp, <String, dynamic>{
+          'Vendor_Type': vendorType,
+          'CountryCode': '+91',
+          'PhoneNumber': phone,
+          'OTP': int.tryParse(otp) ?? otp,
+        });
 
     if (response.success && response.data != null) {
-      final Map<String, dynamic> data =
-          response.data as Map<String, dynamic>;
+      final Map<String, dynamic> data = response.data as Map<String, dynamic>;
       final String? sessionId = data['SessionID'] as String?;
       final String? vendorId = data['VendorID'] as String?;
       final int? vendorType = data['Vendor_Type'] as int?;
       final bool blocked = data['Whether_Account_Blocked_By_Admin'] == true;
-      final String blockReason = (data['Account_Block_Reason'] as String?) ?? '';
+      final String blockReason =
+          (data['Account_Block_Reason'] as String?) ?? '';
 
       if (sessionId != null && vendorId != null) {
         await AuthStorage.saveLoginCredentials(
@@ -164,21 +159,24 @@ class AuthService {
         );
         await AuthStorage.setWhetherAccountBlockedByAdmin(blocked);
         await AuthStorage.setAccountBlockReason(blockReason);
-        await _syncStoredPushToken();
+        await _syncStoredPushToken(force: true);
       }
     }
 
     return response;
   }
 
-  static Future<void> registerPushToken(String pushToken) async {
+  static Future<void> registerPushToken(
+    String pushToken, {
+    bool forceSync = false,
+  }) async {
     final String normalizedToken = pushToken.trim();
     if (normalizedToken.isEmpty) {
       return;
     }
 
     await AuthStorage.setPushToken(normalizedToken);
-    await _syncStoredPushToken();
+    await _syncStoredPushToken(force: forceSync);
   }
 
   /// Logout: clear stored credentials.
@@ -198,12 +196,9 @@ class AuthService {
     }
 
     try {
-      await ApiClient.instance.post(
-        ApiConfig.clearFcmToken,
-        <String, dynamic>{
-          'FCM_Token': AuthStorage.pushToken ?? '',
-        },
-      );
+      await ApiClient.instance.post(ApiConfig.clearFcmToken, <String, dynamic>{
+        'FCM_Token': AuthStorage.pushToken ?? '',
+      });
     } catch (_) {}
   }
 
@@ -222,19 +217,19 @@ class AuthService {
     }
 
     try {
-      await _syncStoredPushToken();
+      await _syncStoredPushToken(force: true);
     } catch (_) {}
     return true;
   }
 
-  static Future<void> _syncStoredPushToken() async {
+  static Future<void> _syncStoredPushToken({bool force = false}) async {
     final String? pushToken = AuthStorage.pushToken?.trim();
     if (pushToken == null || pushToken.isEmpty) {
       return;
     }
 
     final String syncKey = '${AuthStorage.vendorId ?? ''}:$pushToken';
-    if (AuthStorage.lastSyncedPushToken == syncKey) {
+    if (!force && AuthStorage.lastSyncedPushToken == syncKey) {
       return;
     }
 

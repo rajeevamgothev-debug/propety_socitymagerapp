@@ -37,7 +37,7 @@ class _CustomButtonState extends State<CustomButton> {
     final bool isDisabled = widget.onPressed == null || widget.isLoading;
 
     return AnimatedScale(
-      scale: _pressed && !isDisabled ? 0.98 : 1,
+      scale: _pressed && !isDisabled ? 0.99 : 1,
       duration: const Duration(milliseconds: 120),
       child: AnimatedOpacity(
         opacity: isDisabled ? 0.5 : 1,
@@ -45,11 +45,21 @@ class _CustomButtonState extends State<CustomButton> {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: tokens.backgroundColor,
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             border: Border.all(
               color: tokens.borderColor,
               width: tokens.borderWidth,
             ),
+            boxShadow:
+                widget.variant == CustomButtonVariant.primary && !isDisabled
+                ? const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0x241F4E79),
+                      blurRadius: 14,
+                      offset: Offset(0, 8),
+                    ),
+                  ]
+                : null,
           ),
           child: Material(
             color: Colors.transparent,
@@ -63,7 +73,7 @@ class _CustomButtonState extends State<CustomButton> {
                   _pressed = value;
                 });
               },
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               splashColor: tokens.foregroundColor.withAlpha(20),
               highlightColor: tokens.foregroundColor.withAlpha(10),
               child: ConstrainedBox(
@@ -134,8 +144,8 @@ class _CustomButtonState extends State<CustomButton> {
       CustomButtonVariant.outline => const _ButtonStyleTokens(
         backgroundColor: AppTheme.surface,
         foregroundColor: AppTheme.textSecondary,
-        borderColor: AppTheme.borderStrong,
-        borderWidth: 1.5,
+        borderColor: AppTheme.border,
+        borderWidth: 1.2,
       ),
       CustomButtonVariant.ghost => const _ButtonStyleTokens(
         backgroundColor: Colors.transparent,
@@ -155,15 +165,15 @@ class _CustomButtonState extends State<CustomButton> {
     return switch (value) {
       CustomButtonSize.sm => const EdgeInsets.symmetric(
         horizontal: 12,
-        vertical: 8,
+        vertical: 9,
       ),
       CustomButtonSize.md => const EdgeInsets.symmetric(
         horizontal: 16,
-        vertical: 10,
+        vertical: 11,
       ),
       CustomButtonSize.lg => const EdgeInsets.symmetric(
         horizontal: 20,
-        vertical: 12,
+        vertical: 13,
       ),
     };
   }

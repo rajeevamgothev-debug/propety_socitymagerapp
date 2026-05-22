@@ -29,25 +29,36 @@ class CustomBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppTheme.border)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 58,
-          child: Row(
-            children: List<Widget>.generate(items.length, (int index) {
-              return Expanded(
-                child: _NavItem(
-                  item: items[index],
-                  selected: selectedIndex == index,
-                  onTap: () => onSelected(index),
-                ),
-              );
-            }),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          border: Border.all(color: AppTheme.border),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x1717202A),
+              blurRadius: 22,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 60,
+            child: Row(
+              children: List<Widget>.generate(items.length, (int index) {
+                return Expanded(
+                  child: _NavItem(
+                    item: items[index],
+                    selected: selectedIndex == index,
+                    onTap: () => onSelected(index),
+                  ),
+                );
+              }),
+            ),
           ),
         ),
       ),
@@ -68,40 +79,39 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color =
-        selected ? AppTheme.primary : AppTheme.textMuted;
+    final Color color = selected ? AppTheme.primary : AppTheme.textMuted;
 
     return InkWell(
       onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          if (selected)
-            Container(
-              width: 28,
-              height: 3,
-              margin: const EdgeInsets.only(bottom: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.primary,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            )
-          else
-            const SizedBox(height: 9),
-          Icon(item.icon, size: 22, color: color),
-          const SizedBox(height: 4),
-          Text(
-            item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight:
-                  selected ? FontWeight.w700 : FontWeight.w500,
-              color: color,
-            ),
+      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.primarySoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           ),
-        ],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(item.icon, size: 21, color: color),
+              const SizedBox(height: 4),
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color: color,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -13,114 +13,242 @@ class LandingPage extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: const Color(0xFFFBFAF7),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: <Widget>[
-              const Spacer(flex: 2),
-
-              // ── App logo / title ──
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.apartment_rounded,
-                  size: 36,
-                  color: Colors.white,
-                ),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 30),
+          children: <Widget>[
+            _LandingHero(theme: theme),
+            const SizedBox(height: 28),
+            Container(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.border),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x0D17202A),
+                    blurRadius: 22,
+                    offset: Offset(0, 12),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                'UrbanEasyFlats',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Choose your workspace',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Continue with the account type connected to your mobile number.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _WorkspaceOptionTile(
+                    source: AuthSource.propertyManagement,
+                    onTap: () => onOpenAuth(AuthSource.propertyManagement),
+                    accentColor: AppTheme.primary,
+                    meta: 'Listings, tenants, rent and contracts',
+                  ),
+                  const SizedBox(height: 12),
+                  _WorkspaceOptionTile(
+                    source: AuthSource.society,
+                    onTap: () => onOpenAuth(AuthSource.society),
+                    accentColor: AppTheme.secondary,
+                    meta: 'Residents, maintenance and society operations',
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Manage your properties and societies',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-
-              const Spacer(flex: 2),
-
-              // ── Profile selection ──
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Continue as',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: const <Widget>[
+                Expanded(
+                  child: _LandingTrustItem(
+                    icon: Icons.verified_user_outlined,
+                    label: 'Verified login',
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-
-              // Property Management tile
-              _WorkspaceOptionTile(
-                source: AuthSource.propertyManagement,
-                onTap: () => onOpenAuth(AuthSource.propertyManagement),
-              ),
-              const SizedBox(height: 12),
-
-              // Society Management tile
-              _WorkspaceOptionTile(
-                source: AuthSource.society,
-                onTap: () => onOpenAuth(AuthSource.society),
-              ),
-
-              const Spacer(flex: 3),
-            ],
-          ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: _LandingTrustItem(
+                    icon: Icons.lock_outline_rounded,
+                    label: 'Secure OTP',
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// ── Workspace option tile ─────────────────────────────────────────────────────
+class _LandingHero extends StatelessWidget {
+  const _LandingHero({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Container(
+              width: 72,
+              height: 72,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppTheme.border),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x0D17202A),
+                    blurRadius: 22,
+                    offset: Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(17),
+                child: Image.asset(
+                  'assets/manager_logo.jpg',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Text(
+                'Manager App',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        Text(
+          'Run properties and societies from one calm workspace.',
+          style: theme.textTheme.headlineMedium?.copyWith(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w900,
+            height: 1.12,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Select your management role to access the right dashboard, records, billing, and resident workflows.',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: AppTheme.textSecondary,
+            height: 1.45,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LandingTrustItem extends StatelessWidget {
+  const _LandingTrustItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(icon, size: 18, color: AppTheme.textSecondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _WorkspaceOptionTile extends StatelessWidget {
   const _WorkspaceOptionTile({
     required this.source,
     required this.onTap,
+    required this.accentColor,
+    required this.meta,
   });
 
   final AuthSource source;
   final VoidCallback onTap;
+  final Color accentColor;
+  final String meta;
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         child: Ink(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceMuted,
-            borderRadius: BorderRadius.circular(20),
+            color: AppTheme.surfaceElevated,
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(color: AppTheme.border),
           ),
           child: Row(
             children: <Widget>[
               Container(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
+                  color: accentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                child: Icon(source.icon, color: AppTheme.primaryHover),
+                child: Icon(source.icon, color: accentColor, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -129,25 +257,39 @@ class _WorkspaceOptionTile extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       source.label,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      source.description,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
+                      meta,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                        height: 1.3,
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 16,
-                color: AppTheme.textMuted,
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 17,
+                  color: AppTheme.textPrimary,
+                ),
               ),
             ],
           ),

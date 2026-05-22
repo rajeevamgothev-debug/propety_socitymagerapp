@@ -73,9 +73,7 @@ class _LocationSearchSuggestion {
     );
   }
 
-  factory _LocationSearchSuggestion.fromGooglePlace(
-    Map<String, dynamic> json,
-  ) {
+  factory _LocationSearchSuggestion.fromGooglePlace(Map<String, dynamic> json) {
     final Map<String, dynamic> geometry =
         json['geometry'] is Map<String, dynamic>
         ? json['geometry'] as Map<String, dynamic>
@@ -230,6 +228,12 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
       return googleSuggestions;
     }
 
+    final List<_LocationSearchSuggestion> googleGeocodeSuggestions =
+        await _fetchGoogleGeocodeSuggestions(query);
+    if (googleGeocodeSuggestions.isNotEmpty) {
+      return googleGeocodeSuggestions;
+    }
+
     final List<_LocationSearchSuggestion> nominatimSuggestions =
         await _fetchNominatimSuggestions(query);
     if (nominatimSuggestions.isNotEmpty) {
@@ -250,9 +254,55 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
     final Uri uri = Uri.https(
       'maps.googleapis.com',
       '/maps/api/place/textsearch/json',
+      <String, String>{'query': '$query India', 'region': 'in', 'key': apiKey},
+    );
+
+    try {
+      final http.Response response = await http
+          .get(uri)
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return <_LocationSearchSuggestion>[];
+      }
+
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        return <_LocationSearchSuggestion>[];
+      }
+      final String status = '${decoded['status'] ?? ''}';
+      if (status != 'OK' && status != 'ZERO_RESULTS') {
+        return <_LocationSearchSuggestion>[];
+      }
+      final List<dynamic> results = decoded['results'] is List<dynamic>
+          ? decoded['results'] as List<dynamic>
+          : const <dynamic>[];
+      return _dedupeSuggestions(
+        results
+            .whereType<Map<String, dynamic>>()
+            .map(_LocationSearchSuggestion.fromGooglePlace)
+            .where(_hasValidPosition)
+            .toList(),
+      );
+    } catch (_) {
+      return <_LocationSearchSuggestion>[];
+    }
+  }
+
+  Future<List<_LocationSearchSuggestion>> _fetchGoogleGeocodeSuggestions(
+    String query,
+  ) async {
+    final String apiKey = await _googlePlacesApiKey();
+    if (apiKey.trim().isEmpty) {
+      return <_LocationSearchSuggestion>[];
+    }
+
+    final Uri uri = Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/geocode/json',
       <String, String>{
-        'query': '$query India',
+        'address': '$query, India',
         'region': 'in',
+        'components': 'country:IN',
         'key': apiKey,
       },
     );
@@ -327,11 +377,13 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final dynamic decoded = jsonDecode(response.body);
       if (decoded is List<dynamic>) {
-        return decoded
-            .whereType<Map<String, dynamic>>()
-            .map(_LocationSearchSuggestion.fromNominatim)
-            .where(_hasValidPosition)
-            .toList();
+        return _dedupeSuggestions(
+          decoded
+              .whereType<Map<String, dynamic>>()
+              .map(_LocationSearchSuggestion.fromNominatim)
+              .where(_hasValidPosition)
+              .toList(),
+        );
       }
     }
 
@@ -628,7 +680,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                             shrinkWrap: true,
                             padding: EdgeInsets.zero,
                             itemCount: _suggestions.length,
-                            separatorBuilder: (_, __) => const Divider(
+                            separatorBuilder: (_, _) => const Divider(
                               height: 1,
                               color: AppTheme.borderSoft,
                             ),

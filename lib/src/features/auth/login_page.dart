@@ -5,7 +5,6 @@ import '../../core/api/auth_service.dart';
 import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_button.dart';
-import '../../core/widgets/custom_card.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -82,87 +81,89 @@ class _LoginPageState extends State<LoginPage> {
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        leading: IconButton(
-          onPressed: widget.onBack,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        title: const Text('Sign In'),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppTheme.border),
-        ),
-      ),
+      backgroundColor: const Color(0xFFFBFAF7),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
           children: <Widget>[
-            // Branding
-            Center(
-              child: Column(
-                children: <Widget>[
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        colors: <Color>[
-                          AppTheme.primary,
-                          AppTheme.primaryHover,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.apartment_outlined,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    widget.authSource.label,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.authSource.description,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _BackPill(onPressed: widget.onBack),
+            ),
+            const SizedBox(height: 26),
+            _LoginBrandHeader(authSource: widget.authSource),
+            const SizedBox(height: 30),
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.border),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x0D17202A),
+                    blurRadius: 22,
+                    offset: Offset(0, 12),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 40),
-
-            // Login card
-            CustomCard(
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                'Log in or sign up',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.textPrimary,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'We will send a one-time password to verify your mobile number.',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: AppTheme.textSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceMuted,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppTheme.border),
+                          ),
+                          child: Icon(
+                            widget.authSource.icon,
+                            color: AppTheme.primary,
+                            size: 22,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
                     Text(
-                      'Continue with OTP',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
+                      'Mobile number',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Enter the mobile number you use for ${widget.authSource.label.toLowerCase()}.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
@@ -170,10 +171,32 @@ class _LoginPageState extends State<LoginPage> {
                       inputFormatters: <TextInputFormatter>[
                         FilteringTextInputFormatter.digitsOnly,
                       ],
-                      decoration: const InputDecoration(
-                        labelText: 'Phone Number',
-                        hintText: 'Enter 10-digit mobile number',
-                        prefixIcon: Icon(Icons.phone_outlined),
+                      decoration: InputDecoration(
+                        hintText: '10-digit mobile number',
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.only(left: 14, right: 10),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Text(
+                                '+91',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: AppTheme.textPrimary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Container(
+                                width: 1,
+                                height: 24,
+                                color: AppTheme.border,
+                              ),
+                            ],
+                          ),
+                        ),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 70,
+                        ),
                         counterText: '',
                       ),
                       validator: (String? value) {
@@ -186,42 +209,253 @@ class _LoginPageState extends State<LoginPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
                       child: CustomButton(
-                        label: 'Request OTP',
-                        icon: const Icon(Icons.send_rounded),
+                        label: 'Continue',
+                        icon: const Icon(Icons.arrow_forward_rounded),
                         isLoading: _isLoading,
                         onPressed: _isLoading ? null : _requestOtp,
                       ),
                     ),
                     if (_otpSent) ...<Widget>[
                       const SizedBox(height: 14),
-                      Text(
-                        'OTP sent successfully!',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF16A34A),
-                          fontWeight: FontWeight.w500,
-                        ),
+                      _InlineStatusMessage(
+                        icon: Icons.check_circle_rounded,
+                        color: AppTheme.toneColor(UiTone.success),
+                        message: 'OTP sent successfully.',
                       ),
                     ],
                     if (_errorMessage != null) ...<Widget>[
                       const SizedBox(height: 14),
-                      Text(
-                        _errorMessage!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFFEF4444),
-                          fontWeight: FontWeight.w500,
-                        ),
+                      _InlineStatusMessage(
+                        icon: Icons.error_rounded,
+                        color: AppTheme.toneColor(UiTone.danger),
+                        message: _errorMessage!,
                       ),
                     ],
+                    const SizedBox(height: 18),
+                    Text(
+                      'By continuing, you agree to receive verification messages from Urban Easyflats.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textMuted,
+                        height: 1.4,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
+            const SizedBox(height: 18),
+            const _LoginTrustRow(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _BackPill extends StatelessWidget {
+  const _BackPill({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(999),
+        side: const BorderSide(color: AppTheme.border),
+      ),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(999),
+        child: const Padding(
+          padding: EdgeInsets.all(10),
+          child: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 18,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginBrandHeader extends StatelessWidget {
+  const _LoginBrandHeader({required this.authSource});
+
+  final AuthSource authSource;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Container(
+          width: 78,
+          height: 78,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppTheme.border),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x0D17202A),
+                blurRadius: 22,
+                offset: Offset(0, 12),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(17),
+            child: Image.asset('assets/manager_logo.jpg', fit: BoxFit.cover),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Welcome to Urban Easyflats',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w800,
+            height: 1.08,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          authSource.description,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: AppTheme.textSecondary,
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(authSource.icon, size: 17, color: AppTheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                authSource.label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InlineStatusMessage extends StatelessWidget {
+  const _InlineStatusMessage({
+    required this.icon,
+    required this.color,
+    required this.message,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Icon(icon, color: color, size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LoginTrustRow extends StatelessWidget {
+  const _LoginTrustRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: <Widget>[
+        Expanded(
+          child: _TrustItem(
+            icon: Icons.lock_outline_rounded,
+            label: 'Secure OTP',
+          ),
+        ),
+        SizedBox(width: 10),
+        Expanded(
+          child: _TrustItem(
+            icon: Icons.domain_verification_outlined,
+            label: 'Verified access',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrustItem extends StatelessWidget {
+  const _TrustItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(icon, size: 18, color: AppTheme.textSecondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

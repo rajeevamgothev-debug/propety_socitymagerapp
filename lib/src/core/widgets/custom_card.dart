@@ -23,32 +23,29 @@ class CustomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Widget content = Padding(padding: _paddingFor(padding), child: child);
+    final BorderRadius radius = BorderRadius.circular(AppTheme.radiusMedium);
 
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color ?? AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(color: borderColor ?? AppTheme.borderSoft),
+        borderRadius: radius,
+        border: Border.all(color: borderColor ?? AppTheme.border),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Color(0x0F111827),
-            blurRadius: 24,
-            offset: Offset(0, 10),
+            color: Color(0x0D17202A),
+            blurRadius: 22,
+            offset: Offset(0, 12),
           ),
           BoxShadow(
-            color: Color(0x0A111827),
-            blurRadius: 8,
-            offset: Offset(0, 2),
+            color: Color(0x08FFFFFF),
+            blurRadius: 1,
+            offset: Offset(0, 1),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          child: content,
-        ),
+        child: InkWell(onTap: onTap, borderRadius: radius, child: content),
       ),
     );
   }
@@ -57,8 +54,8 @@ class CustomCard extends StatelessWidget {
     return switch (value) {
       CustomCardPadding.none => EdgeInsets.zero,
       CustomCardPadding.sm => const EdgeInsets.all(16),
-      CustomCardPadding.md => const EdgeInsets.all(24),
-      CustomCardPadding.lg => const EdgeInsets.all(32),
+      CustomCardPadding.md => const EdgeInsets.all(22),
+      CustomCardPadding.lg => const EdgeInsets.all(28),
     };
   }
 }

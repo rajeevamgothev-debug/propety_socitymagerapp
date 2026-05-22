@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/api/announcement_service.dart';
 import '../../core/api/auth_storage.dart';
@@ -52,6 +53,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   final MockUrbanRepository _repository = const MockUrbanRepository();
   int _selectedIndex = 0;
+  final List<int> _tabHistory = <int>[];
   VendorData? _vendor;
   SocietyData? _societyInfo;
   String _societyId = '';
@@ -65,6 +67,7 @@ class _AppShellState extends State<AppShell> {
   List<NotificationRecord> _notifications = <NotificationRecord>[];
   int _propertyEnquiryCount = 0;
   bool _isLoading = true;
+  DateTime? _lastBackPress;
 
   @override
   void initState() {
@@ -77,6 +80,7 @@ class _AppShellState extends State<AppShell> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.role != widget.role) {
       _selectedIndex = 0;
+      _tabHistory.clear();
       _loadData();
     }
   }
@@ -254,62 +258,137 @@ class _AppShellState extends State<AppShell> {
     _buildingCount = buildingResult.buildings.length;
   }
 
+  void _handleBackPress(bool didPop) {
+    if (didPop) return;
+
+    if (_navigateBackInShell()) {
+      return;
+    }
+
+    final DateTime now = DateTime.now();
+    if (_lastBackPress != null &&
+        now.difference(_lastBackPress!).inMilliseconds < 2000) {
+      SystemNavigator.pop();
+      return;
+    }
+
+    _lastBackPress = now;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+  }
+
+  bool _navigateBackInShell() {
+    if (_tabHistory.isNotEmpty) {
+      setState(() {
+        _selectedIndex = _tabHistory.removeLast();
+      });
+      _lastBackPress = null;
+      return true;
+    }
+
+    if (_selectedIndex != 0) {
+      setState(() {
+        _selectedIndex = 0;
+      });
+      _lastBackPress = null;
+      return true;
+    }
+
+    return false;
+  }
+
+  void _selectTab(int index) {
+    if (index == _selectedIndex) return;
+    _tabHistory.remove(index);
+    _tabHistory.add(_selectedIndex);
+    setState(() {
+      _selectedIndex = index;
+    });
+    _lastBackPress = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<_TabDefinition> tabs = _buildTabs();
     final _TabDefinition activeTab = tabs[_selectedIndex];
 
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: Text(activeTab.title),
-        actions: <Widget>[
-          if (widget.role != AppRole.propertyManager) ...<Widget>[
-            IconButton(
-              tooltip: 'Communication',
-              onPressed: () => _openCommunication(context),
-              icon: const Icon(Icons.campaign_outlined),
-            ),
-            const SizedBox(width: 4),
-          ],
-          _NotificationBell(
-            unreadCount: _unreadNotificationCount(),
-            onTap: () => _openModule(
-              context,
-              const ModuleStatusItem(
-                title: 'Notifications',
-                subtitle: 'Activity alerts and system messages.',
-                icon: Icons.notifications_outlined,
-                phaseLabel: 'Ready now',
-                actionKey: 'notifications',
-                readyNow: true,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, _) => _handleBackPress(didPop),
+      child: Scaffold(
+        appBar: AppBar(
+          leading: _selectedIndex == 0 && _tabHistory.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Back',
+                  onPressed: _navigateBackInShell,
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                ),
+          titleSpacing: 16,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(activeTab.title),
+              const SizedBox(height: 1),
+              Text(
+                widget.role.label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppTheme.textMuted,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 4),
-        ],
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppTheme.border),
-        ),
-      ),
-      body: activeTab.child,
-      bottomNavigationBar: CustomBottomNavBar(
-        selectedIndex: _selectedIndex,
-        onSelected: (int index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        items: tabs
-            .map(
-              (_TabDefinition tab) => CustomBottomNavItem(
-                label: tab.label,
-                icon: tab.icon,
-                floating: false,
+          actions: <Widget>[
+            if (widget.role != AppRole.propertyManager) ...<Widget>[
+              _ShellIconButton(
+                tooltip: 'Communication',
+                onPressed: () => _openCommunication(context),
+                icon: Icons.campaign_outlined,
               ),
-            )
-            .toList(),
+              const SizedBox(width: 8),
+            ],
+            _NotificationBell(
+              unreadCount: _unreadNotificationCount(),
+              onTap: () => _openModule(
+                context,
+                const ModuleStatusItem(
+                  title: 'Notifications',
+                  subtitle: 'Activity alerts and system messages.',
+                  icon: Icons.notifications_outlined,
+                  phaseLabel: 'Ready now',
+                  actionKey: 'notifications',
+                  readyNow: true,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Divider(height: 1, thickness: 1, color: AppTheme.border),
+          ),
+        ),
+        body: activeTab.child,
+        bottomNavigationBar: CustomBottomNavBar(
+          selectedIndex: _selectedIndex,
+          onSelected: _selectTab,
+          items: tabs
+              .map(
+                (_TabDefinition tab) => CustomBottomNavItem(
+                  label: tab.label,
+                  icon: tab.icon,
+                  floating: false,
+                ),
+              )
+              .toList(),
+        ),
       ),
     );
   }
@@ -592,9 +671,7 @@ class _AppShellState extends State<AppShell> {
     final int? index = _tabIndexForAction(actionKey, tabs);
 
     if (index != null && index >= 0) {
-      setState(() {
-        _selectedIndex = index;
-      });
+      _selectTab(index);
       return;
     }
 
@@ -632,9 +709,7 @@ class _AppShellState extends State<AppShell> {
     final List<_TabDefinition> tabs = _buildTabs();
     final int? tabIndex = _tabIndexForAction(module.actionKey, tabs);
     if (tabIndex != null && tabIndex >= 0) {
-      setState(() {
-        _selectedIndex = tabIndex;
-      });
+      _selectTab(tabIndex);
       return;
     }
 
@@ -713,10 +788,10 @@ class _AppShellState extends State<AppShell> {
           ),
         )
         .then((_) {
-      if (module.actionKey == 'notifications') {
-        _refreshNotifications();
-      }
-    });
+          if (module.actionKey == 'notifications') {
+            _refreshNotifications();
+          }
+        });
   }
 
   String _prettyTitle(String actionKey) {
@@ -1720,6 +1795,38 @@ class _TabDefinition {
   final Widget child;
 }
 
+class _ShellIconButton extends StatelessWidget {
+  const _ShellIconButton({
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  final String tooltip;
+  final VoidCallback onPressed;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Icon(icon, size: 20, color: AppTheme.textSecondary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _NotificationBell extends StatelessWidget {
   const _NotificationBell({required this.unreadCount, required this.onTap});
 
@@ -1728,37 +1835,57 @@ class _NotificationBell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: 'Notifications',
-      onPressed: onTap,
-      icon: Stack(
-        clipBehavior: Clip.none,
-        children: <Widget>[
-          const Icon(Icons.notifications_outlined),
-          if (unreadCount > 0)
-            Positioned(
-              top: -4,
-              right: -4,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFDC2626),
-                  shape: BoxShape.circle,
+    return Tooltip(
+      message: 'Notifications',
+      child: Material(
+        color: AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                const Icon(
+                  Icons.notifications_outlined,
+                  size: 20,
+                  color: AppTheme.textSecondary,
                 ),
-                child: Text(
-                  unreadCount > 99 ? '99+' : '$unreadCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
+                if (unreadCount > 0)
+                  Positioned(
+                    top: 6,
+                    right: 5,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.toneColor(UiTone.danger),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppTheme.surface, width: 1.5),
+                      ),
+                      child: Text(
+                        unreadCount > 99 ? '99+' : '$unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }

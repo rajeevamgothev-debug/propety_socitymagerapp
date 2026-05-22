@@ -38,13 +38,14 @@ class ToneBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.toneContainer(tone),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppTheme.toneColor(tone).withAlpha(28)),
       ),
       child: Text(
         label,
         style: TextStyle(
           color: AppTheme.toneColor(tone),
           fontSize: fontSize,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w700,
           height: 1.333,
         ),
       ),

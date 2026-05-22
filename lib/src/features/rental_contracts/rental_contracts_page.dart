@@ -51,6 +51,34 @@ const Map<int, String> _contractPgSharingLabels = <int, String>{
 
 final RegExp _tenantPhonePattern = RegExp(r'^\d{10}$');
 
+const int _welcomeWhatsAppTemplateId = 1;
+const int _downloadAppWhatsAppTemplateId = 2;
+
+const List<WhatsAppTemplateData>
+_defaultRentalContractWhatsAppTemplates = <WhatsAppTemplateData>[
+  WhatsAppTemplateData(
+    templateId: _welcomeWhatsAppTemplateId,
+    templateName: 'Welcome Message',
+    templateCode: 'rental_contract_welcome',
+    templateDescription:
+        'Welcome the tenant, confirm the property, and share the stay start details.',
+    templateVariables: <String>[
+      'Tenant_Name',
+      'Property_Name',
+      'Contract_Start_Date',
+      'Owner_Name',
+    ],
+  ),
+  WhatsAppTemplateData(
+    templateId: _downloadAppWhatsAppTemplateId,
+    templateName: 'Download App Reminder',
+    templateCode: 'download_app_reminder',
+    templateDescription:
+        'Remind the tenant to download the UrbanEasyFlats Resident App for rent, support, and contract updates.',
+    templateVariables: <String>['Tenant_Name', 'App_Link'],
+  ),
+];
+
 String _normalizedContractFlatNo(String? value) {
   return (value ?? '').trim().replaceAll(RegExp(r'\s+'), '').toLowerCase();
 }
@@ -144,7 +172,7 @@ bool _matchesContractStatusFilter(
     ContractStatus.closed => _isContractClosed(contract),
     ContractStatus.readyToVacate =>
       (contract.status == ContractStatus.readyToVacate ||
-          contract.tenantStatus == 1) &&
+              contract.tenantStatus == 1) &&
           !_isContractClosed(contract),
   };
 }
@@ -689,9 +717,9 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                   _litePropertyForId(propertyId);
               final bool maintenanceIncluded =
                   (selectedLiteProperty?['Whether_Maintainance_Included']
-                          as bool?) ??
+                      as bool?) ??
                   (selectedLiteProperty?['Whether_Maintenance_Included']
-                          as bool?) ??
+                      as bool?) ??
                   false;
               final double maintenanceCharge = _asDouble(
                 selectedLiteProperty?['Maintainance_Charge'] ??
@@ -895,8 +923,9 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                         });
                         // Auto-populate owner details from property
                         if (value != null && value.isNotEmpty) {
-                          final Map<String, dynamic>? lite =
-                              _litePropertyForId(value);
+                          final Map<String, dynamic>? lite = _litePropertyForId(
+                            value,
+                          );
                           if (lite != null) {
                             setModalState(() {
                               unitController.text =
@@ -2117,6 +2146,7 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     } catch (error) {
       errorMessage = error.toString().replaceFirst('Exception: ', '');
     }
+    templates = _rentalContractWhatsAppTemplates(templates);
 
     if (!mounted) {
       return;
@@ -2201,62 +2231,80 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                       ),
                     ],
                     const SizedBox(height: 16),
-                    if (templates.isEmpty)
-                      const CustomCard(
-                        child: Text('No WhatsApp templates are available yet.'),
-                      )
-                    else
-                      ...templates.map((WhatsAppTemplateData template) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: CustomCard(
-                            padding: CustomCardPadding.sm,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  template.templateName,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  template.templateDescription.isEmpty
-                                      ? template.templateCode
-                                      : template.templateDescription,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(color: AppTheme.textSecondary),
-                                ),
-                                if (template
-                                    .templateVariables
-                                    .isNotEmpty) ...<Widget>[
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: template.templateVariables
-                                        .map(
-                                          (String variable) => ToneBadge(
-                                            label: variable,
-                                            tone: UiTone.neutral,
+                    ...templates.map((WhatsAppTemplateData template) {
+                      final bool isWelcome =
+                          template.templateId == _welcomeWhatsAppTemplateId;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: CustomCard(
+                          padding: CustomCardPadding.sm,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  Icon(
+                                    isWelcome
+                                        ? Icons.waving_hand_outlined
+                                        : Icons.download_for_offline_outlined,
+                                    color: AppTheme.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      template.templateName,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
                                           ),
-                                        )
-                                        .toList(),
+                                    ),
                                   ),
                                 ],
-                                const SizedBox(height: 12),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: CustomButton(
-                                    label: 'Send Template',
-                                    onPressed: () => sendTemplate(template),
-                                  ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                template.templateDescription.isEmpty
+                                    ? template.templateCode
+                                    : template.templateDescription,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: AppTheme.textSecondary),
+                              ),
+                              if (template
+                                  .templateVariables
+                                  .isNotEmpty) ...<Widget>[
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: template.templateVariables
+                                      .map(
+                                        (String variable) => ToneBadge(
+                                          label: variable,
+                                          tone: UiTone.neutral,
+                                        ),
+                                      )
+                                      .toList(),
                                 ),
                               ],
-                            ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: CustomButton(
+                                  label: isWelcome
+                                      ? 'Send Welcome Message'
+                                      : 'Send Download App Reminder',
+                                  icon: const Icon(Icons.send_outlined),
+                                  onPressed: () => sendTemplate(template),
+                                ),
+                              ),
+                            ],
                           ),
-                        );
-                      }),
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -2265,6 +2313,23 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
         );
       },
     );
+  }
+
+  List<WhatsAppTemplateData> _rentalContractWhatsAppTemplates(
+    List<WhatsAppTemplateData> backendTemplates,
+  ) {
+    final Map<int, WhatsAppTemplateData> templatesById =
+        <int, WhatsAppTemplateData>{
+          for (final WhatsAppTemplateData template in backendTemplates)
+            template.templateId: template,
+        };
+
+    return _defaultRentalContractWhatsAppTemplates
+        .map(
+          (WhatsAppTemplateData fallback) =>
+              templatesById[fallback.templateId] ?? fallback,
+        )
+        .toList();
   }
 
   void _showDetails(RentalContractRecord contract) {
@@ -2307,9 +2372,7 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     final int activeCount = visibleContracts
         .where(_isContractActiveForDisplay)
         .length;
-    final int expiredCount = visibleContracts
-        .where(_isContractExpired)
-        .length;
+    final int expiredCount = visibleContracts.where(_isContractExpired).length;
     final int closedCount = visibleContracts.where(_isContractClosed).length;
 
     return Scaffold(
@@ -2809,8 +2872,7 @@ class _ContractDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final int daysUntilExpiry = _contractDaysLeft(contract);
     final bool showExpiry =
-        _isContractActiveForDisplay(contract) &&
-        daysUntilExpiry > 0;
+        _isContractActiveForDisplay(contract) && daysUntilExpiry > 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -3316,9 +3378,9 @@ class _ContractSwitchTile extends StatelessWidget {
         onChanged: onChanged,
         title: Text(
           label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12),
       ),

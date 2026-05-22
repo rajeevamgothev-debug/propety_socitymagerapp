@@ -14,6 +14,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
+        return ios;
       case TargetPlatform.macOS:
       case TargetPlatform.windows:
       case TargetPlatform.linux:
@@ -28,5 +29,14 @@ class DefaultFirebaseOptions {
     messagingSenderId: '403657963841',
     projectId: 'urbaneasyflats-e9af3',
     storageBucket: 'urbaneasyflats-e9af3.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCHmBYyFux3QimQDV6EXH0E6Sr27EcTu4Y',
+    appId: '1:403657963841:ios:a405e75a7a098a645d49c0',
+    messagingSenderId: '403657963841',
+    projectId: 'urbaneasyflats-e9af3',
+    storageBucket: 'urbaneasyflats-e9af3.firebasestorage.app',
+    iosBundleId: 'com.urbaneasy.managernews',
   );
 }

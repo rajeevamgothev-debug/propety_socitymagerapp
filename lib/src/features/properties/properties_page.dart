@@ -861,7 +861,9 @@ class _PropertiesPageState extends State<PropertiesPage> {
         activeContractsFromService ??
         firstPositive(<int?>[
           propertyInfo.usedResidentContractsCount,
-          propertyInfo.currentSubscriptionCalculation?.activeRentalContractsCount,
+          propertyInfo
+              .currentSubscriptionCalculation
+              ?.activeRentalContractsCount,
           calculation?.activeRentalContractsCount,
         ]);
     final int renewalFreeContracts = firstPositive(<int?>[
@@ -4371,6 +4373,8 @@ class _PropertyDetailsPageState extends State<_PropertyDetailsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          _PropertyImageStrip(property: property),
+          const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -5815,8 +5819,8 @@ class _PropertyFilterPanel extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
 
     return CustomCard(
-      color: const Color(0xFFF9FBFF),
-      borderColor: const Color(0xFFD8E5FF),
+      color: AppTheme.surface,
+      borderColor: AppTheme.border,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -5830,21 +5834,14 @@ class _PropertyFilterPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              const ToneBadge(
-                label: 'Live filters',
-                tone: UiTone.brand,
-                size: ToneBadgeSize.small,
+              TextButton.icon(
+                onPressed: onClear,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Reset'),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Refine by type, geography, and search term before opening the full property record.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           TextField(
             controller: searchController,
             decoration: InputDecoration(
@@ -5948,9 +5945,10 @@ class _PropertyFilterPanel extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Expanded(
+              SizedBox(
+                width: 112,
                 child: CustomButton(
-                  label: 'Reset',
+                  label: 'Clear',
                   variant: CustomButtonVariant.outline,
                   onPressed: onClear,
                 ),
@@ -6090,9 +6088,9 @@ class _PropertyRecordCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.borderSoft),
+              color: AppTheme.surfaceMuted,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              border: Border.all(color: AppTheme.border),
             ),
             child: Row(
               children: <Widget>[
@@ -6290,6 +6288,104 @@ class _PropertyRecordCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PropertyImageStrip extends StatelessWidget {
+  const _PropertyImageStrip({required this.property});
+
+  final Object property;
+
+  String get _imageUrl {
+    final Object item = property;
+    if (item is PropertyRecord) {
+      return (item.imageUrl ?? '').trim();
+    }
+    if (item is PropertyData) {
+      return (item.imageUrl ?? '').trim();
+    }
+    return '';
+  }
+
+  String get _typeLabel {
+    final Object item = property;
+    if (item is PropertyRecord) {
+      return item.type;
+    }
+    if (item is PropertyData) {
+      return _propertyTypeLabels[item.propertyType] ?? 'Property';
+    }
+    return 'Property';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String imageUrl = _imageUrl;
+    final String typeLabel = _typeLabel;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      child: AspectRatio(
+        aspectRatio: 16 / 7,
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            if (imageUrl.isNotEmpty)
+              Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) =>
+                    _PropertyImageFallback(typeLabel: typeLabel),
+              )
+            else
+              _PropertyImageFallback(typeLabel: typeLabel),
+            Positioned(
+              left: 10,
+              bottom: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(235),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: Text(
+                  typeLabel,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PropertyImageFallback extends StatelessWidget {
+  const _PropertyImageFallback({required this.typeLabel});
+
+  final String typeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppTheme.primarySoft,
+      child: Center(
+        child: Icon(
+          typeLabel.toLowerCase().contains('pg')
+              ? Icons.bed_outlined
+              : Icons.apartment_rounded,
+          color: AppTheme.primary,
+          size: 34,
+        ),
       ),
     );
   }

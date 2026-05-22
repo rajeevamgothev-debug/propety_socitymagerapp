@@ -5,7 +5,6 @@ import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_card.dart';
-import '../../core/widgets/page_header.dart';
 import '../../core/widgets/tone_badge.dart';
 
 class DashboardPage extends StatelessWidget {
@@ -86,87 +85,48 @@ class DashboardPage extends StatelessWidget {
     }
 
     Widget content = ListView(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 124),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 124),
       children: <Widget>[
-        PageHeader(title: 'Dashboard', description: role.homeHeadline),
-        const SizedBox(height: 16),
-        CustomCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              ToneBadge(label: role.label, tone: UiTone.brand),
-              const SizedBox(height: 14),
-              Text(
-                (vendor?.fullName ?? '').isNotEmpty
-                    ? 'Welcome back, ${vendor!.fullName}'
-                    : 'Welcome back',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your mobile dashboard is connected to the same backend summaries and module flows used by the website.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              if (role == AppRole.propertyManager) ...<Widget>[
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: <Widget>[
-                    CustomButton(
-                      label: 'Properties',
-                      icon: const Icon(Icons.apartment_outlined),
-                      onPressed: () => onShortcutSelected('properties'),
-                    ),
-                    CustomButton(
-                      label: 'Renew Plan',
-                      variant: CustomButtonVariant.outline,
-                      icon: const Icon(Icons.workspace_premium_outlined),
-                      onPressed: () => onShortcutSelected('properties'),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
+        _DashboardHero(
+          role: role,
+          vendor: vendor,
+          onPrimaryAction: role == AppRole.propertyManager
+              ? () => onShortcutSelected('properties')
+              : null,
+          onSecondaryAction: role == AppRole.propertyManager
+              ? () => onShortcutSelected('rental_contracts')
+              : null,
         ),
         if (isLoading) ...<Widget>[
-          const SizedBox(height: 24),
-          const Center(child: CircularProgressIndicator()),
-          const SizedBox(height: 24),
+          const SizedBox(height: 18),
+          const _DashboardSkeleton(),
         ],
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
+        _SectionHeader(title: 'Performance'),
         _metricGrid(metrics),
         if (roleSections.isNotEmpty) ...<Widget>[
           const SizedBox(height: 24),
           ...roleSections,
         ],
-        const SizedBox(height: 24),
-        Text(
-          'Quick actions',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
+        _SectionHeader(title: 'Quick actions'),
         ...shortcuts.map((AppShortcut shortcut) {
           return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(bottom: 10),
             child: CustomCard(
               onTap: () => onShortcutSelected(shortcut.actionKey),
               padding: CustomCardPadding.sm,
               child: Row(
                 children: <Widget>[
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
-                      color: AppTheme.primarySoft,
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppTheme.surfaceMuted,
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.radiusMedium,
+                      ),
+                      border: Border.all(color: AppTheme.border),
                     ),
                     child: Icon(shortcut.icon, color: AppTheme.primary),
                   ),
@@ -202,17 +162,11 @@ class DashboardPage extends StatelessWidget {
             ),
           );
         }),
-        const SizedBox(height: 12),
-        Text(
-          'Recent signals',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
+        _SectionHeader(title: 'Recent signals'),
         ...ticketPreview.map((TicketRecord ticket) {
           return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(bottom: 10),
             child: CustomCard(
               padding: CustomCardPadding.sm,
               child: Column(
@@ -266,14 +220,8 @@ class DashboardPage extends StatelessWidget {
             ),
           );
         }),
-        const SizedBox(height: 12),
-        Text(
-          'Announcements',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
+        _SectionHeader(title: 'Announcements'),
         ...announcementPreview.map((AnnouncementRecord announcement) {
           final UiTone tone = announcement.unread
               ? UiTone.brand
@@ -2066,9 +2014,9 @@ class DashboardPage extends StatelessWidget {
       itemCount: items.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.18,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 1.28,
       ),
       itemBuilder: (BuildContext context, int index) {
         final DashboardMetric metric = items[index];
@@ -2239,6 +2187,134 @@ class _ResidentEmptyRow extends StatelessWidget {
   }
 }
 
+class _DashboardHero extends StatelessWidget {
+  const _DashboardHero({
+    required this.role,
+    required this.vendor,
+    this.onPrimaryAction,
+    this.onSecondaryAction,
+  });
+
+  final AppRole role;
+  final VendorData? vendor;
+  final VoidCallback? onPrimaryAction;
+  final VoidCallback? onSecondaryAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final String name = (vendor?.fullName ?? '').trim();
+    final String title = name.isEmpty ? 'Command center' : 'Welcome, $name';
+
+    return CustomCard(
+      padding: CustomCardPadding.lg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    ToneBadge(
+                      label: role.label,
+                      tone: UiTone.brand,
+                      size: ToneBadgeSize.small,
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      title,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      role.homeHeadline,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppTheme.primarySoft,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  border: Border.all(color: AppTheme.primaryTone),
+                ),
+                child: const Icon(
+                  Icons.dashboard_customize_outlined,
+                  color: AppTheme.primary,
+                ),
+              ),
+            ],
+          ),
+          if (onPrimaryAction != null || onSecondaryAction != null) ...<Widget>[
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                if (onPrimaryAction != null)
+                  CustomButton(
+                    label: 'Manage properties',
+                    icon: const Icon(Icons.home_work_outlined),
+                    onPressed: onPrimaryAction,
+                  ),
+                if (onSecondaryAction != null)
+                  CustomButton(
+                    label: 'Contracts',
+                    variant: CustomButtonVariant.outline,
+                    icon: const Icon(Icons.description_outlined),
+                    onPressed: onSecondaryAction,
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardSkeleton extends StatelessWidget {
+  const _DashboardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomCard(
+      padding: CustomCardPadding.sm,
+      color: AppTheme.surfaceElevated,
+      child: Row(
+        children: <Widget>[
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Refreshing dashboard data',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MetricCard extends StatelessWidget {
   const _MetricCard({required this.metric});
 
@@ -2247,27 +2323,52 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final Color accent = AppTheme.toneColor(metric.tone);
 
     return CustomCard(
       padding: CustomCardPadding.sm,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          ToneBadge(
-            label: metric.title,
-            tone: metric.tone,
-            size: ToneBadgeSize.small,
+          Row(
+            children: <Widget>[
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  metric.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ),
           const Spacer(),
           Text(
             metric.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           Text(
             metric.subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
               color: AppTheme.textSecondary,
             ),

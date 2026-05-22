@@ -136,7 +136,9 @@ class _ResidentsPageState extends State<ResidentsPage> {
     }
   }
 
-  Future<List<TicketRecord>> _loadResidentSupportTickets(String societyId) async {
+  Future<List<TicketRecord>> _loadResidentSupportTickets(
+    String societyId,
+  ) async {
     try {
       final result = await SupportService.filterSocietyTickets(
         societyId: societyId,
@@ -1034,142 +1036,178 @@ class _ResidentsPageState extends State<ResidentsPage> {
               ),
               const SizedBox(height: 16),
             ],
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: 'Search resident',
-                suffixIcon: IconButton(
-                  onPressed: () {
-                    _searchDebounce?.cancel();
-                    setState(() {
-                      _skip = 0;
-                    });
-                    _loadAll();
-                  },
-                  icon: const Icon(Icons.search_rounded),
-                ),
-              ),
-              onChanged: (String _) {
-                _searchDebounce?.cancel();
-                _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-                  setState(() {
-                    _skip = 0;
-                  });
-                  _loadAll();
-                });
-              },
-              onSubmitted: (_) {
-                _searchDebounce?.cancel();
-                setState(() {
-                  _skip = 0;
-                });
-                _loadAll();
-              },
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _blockFilter.isEmpty ? null : _blockFilter,
-              decoration: const InputDecoration(labelText: 'Filter by block'),
-              items: <DropdownMenuItem<String>>[
-                const DropdownMenuItem<String>(
-                  value: '',
-                  child: Text('All Blocks'),
-                ),
-                ..._blocks.map((BlockData block) {
-                  return DropdownMenuItem<String>(
-                    value: block.blockId,
-                    child: Text(block.name),
-                  );
-                }),
-              ],
-              onChanged: (String? value) {
-                setState(() {
-                  _blockFilter = value ?? '';
-                  _skip = 0;
-                  if (_blockFilter.isNotEmpty &&
-                      _buildingFilter.isNotEmpty &&
-                      !_buildings.any(
-                        (BuildingData item) =>
-                            item.buildingId == _buildingFilter &&
-                            item.blockId == _blockFilter,
-                      )) {
-                    _buildingFilter = '';
-                  }
-                });
-                _loadAll();
-              },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _buildingFilter.isEmpty ? null : _buildingFilter,
-              decoration: const InputDecoration(
-                labelText: 'Filter by building',
-              ),
-              items: <DropdownMenuItem<String>>[
-                const DropdownMenuItem<String>(
-                  value: '',
-                  child: Text('All Buildings'),
-                ),
-                ..._buildings
-                    .where(
-                      (BuildingData item) =>
-                          _blockFilter.isEmpty || item.blockId == _blockFilter,
-                    )
-                    .map((BuildingData building) {
-                      return DropdownMenuItem<String>(
-                        value: building.buildingId,
-                        child: Text(building.name),
+            CustomCard(
+              padding: CustomCardPadding.sm,
+              child: Column(
+                children: <Widget>[
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Search resident',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: IconButton(
+                        onPressed: () {
+                          _searchDebounce?.cancel();
+                          setState(() {
+                            _skip = 0;
+                          });
+                          _loadAll();
+                        },
+                        icon: const Icon(Icons.arrow_forward_rounded),
+                      ),
+                    ),
+                    onChanged: (String _) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(
+                        const Duration(milliseconds: 300),
+                        () {
+                          setState(() {
+                            _skip = 0;
+                          });
+                          _loadAll();
+                        },
                       );
-                    }),
-              ],
-              onChanged: (String? value) {
-                setState(() {
-                  _buildingFilter = value ?? '';
-                  _skip = 0;
-                });
-                _loadAll();
-              },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int?>(
-              value: _residentTypeFilter,
-              decoration: const InputDecoration(labelText: 'Resident type'),
-              items: const <DropdownMenuItem<int?>>[
-                DropdownMenuItem<int?>(value: null, child: Text('All Types')),
-                DropdownMenuItem<int?>(value: 1, child: Text('Owner')),
-                DropdownMenuItem<int?>(value: 2, child: Text('Tenant')),
-                DropdownMenuItem<int?>(value: 3, child: Text('PG Resident')),
-              ],
-              onChanged: (int? value) {
-                setState(() {
-                  _residentTypeFilter = value;
-                  _skip = 0;
-                });
-                _loadAll();
-              },
-            ),
-            const SizedBox(height: 16),
-            CustomTabBar(
-              style: CustomTabBarStyle.pill,
-              currentIndex: _statusFilter == null
-                  ? 0
-                  : (_statusFilter! ? 1 : 2),
-              onChanged: (int index) {
-                setState(() {
-                  _statusFilter = switch (index) {
-                    1 => true,
-                    2 => false,
-                    _ => null,
-                  };
-                  _skip = 0;
-                });
-                _loadAll();
-              },
-              tabs: const <CustomTabItem>[
-                CustomTabItem(label: 'All'),
-                CustomTabItem(label: 'Active'),
-                CustomTabItem(label: 'Inactive'),
-              ],
+                    },
+                    onSubmitted: (_) {
+                      _searchDebounce?.cancel();
+                      setState(() {
+                        _skip = 0;
+                      });
+                      _loadAll();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _blockFilter.isEmpty ? null : _blockFilter,
+                    decoration: const InputDecoration(labelText: 'Block'),
+                    items: <DropdownMenuItem<String>>[
+                      const DropdownMenuItem<String>(
+                        value: '',
+                        child: Text('All Blocks'),
+                      ),
+                      ..._blocks.map((BlockData block) {
+                        return DropdownMenuItem<String>(
+                          value: block.blockId,
+                          child: Text(block.name),
+                        );
+                      }),
+                    ],
+                    onChanged: (String? value) {
+                      setState(() {
+                        _blockFilter = value ?? '';
+                        _skip = 0;
+                        if (_blockFilter.isNotEmpty &&
+                            _buildingFilter.isNotEmpty &&
+                            !_buildings.any(
+                              (BuildingData item) =>
+                                  item.buildingId == _buildingFilter &&
+                                  item.blockId == _blockFilter,
+                            )) {
+                          _buildingFilter = '';
+                        }
+                      });
+                      _loadAll();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _buildingFilter.isEmpty
+                              ? null
+                              : _buildingFilter,
+                          decoration: const InputDecoration(
+                            labelText: 'Building',
+                          ),
+                          items: <DropdownMenuItem<String>>[
+                            const DropdownMenuItem<String>(
+                              value: '',
+                              child: Text('All Buildings'),
+                            ),
+                            ..._buildings
+                                .where(
+                                  (BuildingData item) =>
+                                      _blockFilter.isEmpty ||
+                                      item.blockId == _blockFilter,
+                                )
+                                .map((BuildingData building) {
+                                  return DropdownMenuItem<String>(
+                                    value: building.buildingId,
+                                    child: Text(building.name),
+                                  );
+                                }),
+                          ],
+                          onChanged: (String? value) {
+                            setState(() {
+                              _buildingFilter = value ?? '';
+                              _skip = 0;
+                            });
+                            _loadAll();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<int?>(
+                          value: _residentTypeFilter,
+                          decoration: const InputDecoration(
+                            labelText: 'Resident type',
+                          ),
+                          items: const <DropdownMenuItem<int?>>[
+                            DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text('All Types'),
+                            ),
+                            DropdownMenuItem<int?>(
+                              value: 1,
+                              child: Text('Owner'),
+                            ),
+                            DropdownMenuItem<int?>(
+                              value: 2,
+                              child: Text('Tenant'),
+                            ),
+                            DropdownMenuItem<int?>(
+                              value: 3,
+                              child: Text('PG Resident'),
+                            ),
+                          ],
+                          onChanged: (int? value) {
+                            setState(() {
+                              _residentTypeFilter = value;
+                              _skip = 0;
+                            });
+                            _loadAll();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  CustomTabBar(
+                    style: CustomTabBarStyle.pill,
+                    currentIndex: _statusFilter == null
+                        ? 0
+                        : (_statusFilter! ? 1 : 2),
+                    onChanged: (int index) {
+                      setState(() {
+                        _statusFilter = switch (index) {
+                          1 => true,
+                          2 => false,
+                          _ => null,
+                        };
+                        _skip = 0;
+                      });
+                      _loadAll();
+                    },
+                    tabs: const <CustomTabItem>[
+                      CustomTabItem(label: 'All'),
+                      CustomTabItem(label: 'Active'),
+                      CustomTabItem(label: 'Inactive'),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             if (_blockFilter.isNotEmpty &&

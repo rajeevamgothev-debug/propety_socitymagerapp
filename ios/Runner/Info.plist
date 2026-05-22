@@ -24,8 +24,6 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>whatsapp</string>
@@ -34,20 +32,24 @@
 		<string>sms</string>
 		<string>itms-apps</string>
 	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Your location is used to show nearby properties and relevant local results.</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access lets you take and upload property photos in your listing (for example, bedroom, kitchen, and exterior images) and update your profile picture.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Your location is used to show nearby properties and relevant local results.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Your location is used to show nearby properties and relevant local results.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Camera access lets you take and upload property photos in your listing (for example, bedroom, kitchen, and exterior images) and update your profile picture.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Photo library access is required to select and upload property and profile images.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Photo library add access is required to save captured property images.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Your location is used to show nearby properties and relevant local results.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone access is required when recording video/audio attachments during property documentation.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Photo library add access is required to save captured property images.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo library access is required to select and upload property and profile images.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -69,11 +71,15 @@
 			</array>
 		</dict>
 	</dict>
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+		<string>location</string>
+	</array>
+	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
@@ -84,11 +90,6 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>remote-notification</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

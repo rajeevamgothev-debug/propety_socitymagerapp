@@ -61,6 +61,14 @@ class _SupportPageState extends State<SupportPage> {
 
   bool get _usesTenantWebsiteFlow => widget.role == AppRole.tenant;
 
+  int get _activeFilterCount {
+    int count = 0;
+    if (_categoryFilter != null) count += 1;
+    if (_priorityFilter != null) count += 1;
+    if (_selectedFilter != null) count += 1;
+    return count;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -183,6 +191,156 @@ class _SupportPageState extends State<SupportPage> {
     widget.onRefresh?.call();
   }
 
+  Future<void> _openFilterSheet() async {
+    int? category = _categoryFilter;
+    int? priority = _priorityFilter;
+    TicketStatus? status = _selectedFilter;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            void apply() {
+              setState(() {
+                _skip = 0;
+                _categoryFilter = category;
+                _priorityFilter = priority;
+                _selectedFilter = status;
+              });
+              Navigator.of(context).pop();
+              _loadTickets();
+            }
+
+            void clear() {
+              setModalState(() {
+                category = null;
+                priority = null;
+                status = null;
+              });
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  18,
+                  8,
+                  18,
+                  MediaQuery.of(context).viewInsets.bottom + 18,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            'Filter support queue',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: clear,
+                          child: const Text('Clear'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<int?>(
+                      value: category,
+                      decoration: const InputDecoration(labelText: 'Category'),
+                      items: const <DropdownMenuItem<int?>>[
+                        DropdownMenuItem<int?>(value: null, child: Text('All')),
+                        DropdownMenuItem<int?>(
+                          value: 1,
+                          child: Text('Maintenance'),
+                        ),
+                        DropdownMenuItem<int?>(
+                          value: 2,
+                          child: Text('Billing'),
+                        ),
+                        DropdownMenuItem<int?>(
+                          value: 3,
+                          child: Text('Security'),
+                        ),
+                        DropdownMenuItem<int?>(
+                          value: 4,
+                          child: Text('Amenities'),
+                        ),
+                        DropdownMenuItem<int?>(value: 5, child: Text('Others')),
+                      ],
+                      onChanged: (int? value) =>
+                          setModalState(() => category = value),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int?>(
+                      value: priority,
+                      decoration: const InputDecoration(labelText: 'Priority'),
+                      items: const <DropdownMenuItem<int?>>[
+                        DropdownMenuItem<int?>(value: null, child: Text('All')),
+                        DropdownMenuItem<int?>(value: 1, child: Text('Low')),
+                        DropdownMenuItem<int?>(value: 2, child: Text('Medium')),
+                        DropdownMenuItem<int?>(value: 3, child: Text('High')),
+                        DropdownMenuItem<int?>(
+                          value: 4,
+                          child: Text('Critical'),
+                        ),
+                      ],
+                      onChanged: (int? value) =>
+                          setModalState(() => priority = value),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<TicketStatus?>(
+                      value: status,
+                      decoration: const InputDecoration(labelText: 'Status'),
+                      items: <DropdownMenuItem<TicketStatus?>>[
+                        const DropdownMenuItem<TicketStatus?>(
+                          value: null,
+                          child: Text('All'),
+                        ),
+                        ...TicketStatus.values.map(
+                          (TicketStatus value) =>
+                              DropdownMenuItem<TicketStatus?>(
+                                value: value,
+                                child: Text(_ticketStatusLabel(value)),
+                              ),
+                        ),
+                      ],
+                      onChanged: (TicketStatus? value) =>
+                          setModalState(() => status = value),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: CustomButton(
+                            label: 'Cancel',
+                            variant: CustomButtonVariant.outline,
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: CustomButton(
+                            label: 'Apply',
+                            icon: const Icon(Icons.tune_rounded),
+                            onPressed: apply,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -234,131 +392,98 @@ class _SupportPageState extends State<SupportPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  labelText: 'Search tickets',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: IconButton(
-                    onPressed: () {
-                      _searchDebounce?.cancel();
-                      if (!mounted) {
-                        return;
-                      }
-                      setState(() {
-                        _skip = 0;
-                      });
-                      _loadTickets();
-                    },
-                    icon: const Icon(Icons.arrow_forward_rounded),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        labelText: 'Search tickets',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            _searchDebounce?.cancel();
+                            if (!mounted) {
+                              return;
+                            }
+                            setState(() {
+                              _skip = 0;
+                            });
+                            _loadTickets();
+                          },
+                          icon: const Icon(Icons.arrow_forward_rounded),
+                        ),
+                      ),
+                      onChanged: (String _) {
+                        _searchDebounce?.cancel();
+                        _searchDebounce = Timer(
+                          const Duration(milliseconds: 300),
+                          () {
+                            if (!mounted) {
+                              return;
+                            }
+                            setState(() {
+                              _skip = 0;
+                            });
+                            _loadTickets();
+                          },
+                        );
+                      },
+                      onSubmitted: (_) {
+                        _searchDebounce?.cancel();
+                        if (!mounted) {
+                          return;
+                        }
+                        setState(() {
+                          _skip = 0;
+                        });
+                        _loadTickets();
+                      },
+                    ),
                   ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: _openFilterSheet,
+                      icon: const Icon(Icons.tune_rounded, size: 18),
+                      label: Text(
+                        _activeFilterCount == 0
+                            ? 'Filter'
+                            : 'Filter $_activeFilterCount',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_activeFilterCount > 0) ...<Widget>[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    if (_categoryFilter != null)
+                      ToneBadge(
+                        label: _categoryFilterLabel(_categoryFilter),
+                        tone: UiTone.neutral,
+                        size: ToneBadgeSize.small,
+                      ),
+                    if (_priorityFilter != null)
+                      ToneBadge(
+                        label: _priorityFilterLabel(_priorityFilter),
+                        tone: UiTone.warning,
+                        size: ToneBadgeSize.small,
+                      ),
+                    if (_selectedFilter != null)
+                      ToneBadge(
+                        label: _ticketStatusLabel(_selectedFilter!),
+                        tone: _selectedFilter!.tone,
+                        size: ToneBadgeSize.small,
+                      ),
+                  ],
                 ),
-                onChanged: (String _) {
-                  _searchDebounce?.cancel();
-                  _searchDebounce = Timer(
-                    const Duration(milliseconds: 300),
-                    () {
-                      if (!mounted) {
-                        return;
-                      }
-                      setState(() {
-                        _skip = 0;
-                      });
-                      _loadTickets();
-                    },
-                  );
-                },
-                onSubmitted: (_) {
-                  _searchDebounce?.cancel();
-                  if (!mounted) {
-                    return;
-                  }
-                  setState(() {
-                    _skip = 0;
-                  });
-                  _loadTickets();
-                },
-              ),
+              ],
               const SizedBox(height: 14),
-              LayoutBuilder(
-                builder: (BuildContext context, BoxConstraints constraints) {
-                  final bool stackFilters = constraints.maxWidth < 520;
-                  final List<Widget> filters = <Widget>[
-                    DropdownButtonFormField<int?>(
-                      value: _categoryFilter,
-                      decoration: const InputDecoration(labelText: 'Category'),
-                      items: const <DropdownMenuItem<int?>>[
-                        DropdownMenuItem<int?>(value: null, child: Text('All')),
-                        DropdownMenuItem<int?>(
-                          value: 1,
-                          child: Text('Maintenance'),
-                        ),
-                        DropdownMenuItem<int?>(
-                          value: 2,
-                          child: Text('Billing'),
-                        ),
-                        DropdownMenuItem<int?>(
-                          value: 3,
-                          child: Text('Security'),
-                        ),
-                        DropdownMenuItem<int?>(
-                          value: 4,
-                          child: Text('Amenities'),
-                        ),
-                        DropdownMenuItem<int?>(
-                          value: 5,
-                          child: Text('Others'),
-                        ),
-                      ],
-                      onChanged: (int? value) {
-                        setState(() {
-                          _skip = 0;
-                          _categoryFilter = value;
-                        });
-                        _loadTickets();
-                      },
-                    ),
-                    DropdownButtonFormField<int?>(
-                      value: _priorityFilter,
-                      decoration: const InputDecoration(labelText: 'Priority'),
-                      items: const <DropdownMenuItem<int?>>[
-                        DropdownMenuItem<int?>(value: null, child: Text('All')),
-                        DropdownMenuItem<int?>(value: 1, child: Text('Low')),
-                        DropdownMenuItem<int?>(value: 2, child: Text('Medium')),
-                        DropdownMenuItem<int?>(value: 3, child: Text('High')),
-                        DropdownMenuItem<int?>(
-                          value: 4,
-                          child: Text('Critical'),
-                        ),
-                      ],
-                      onChanged: (int? value) {
-                        setState(() {
-                          _skip = 0;
-                          _priorityFilter = value;
-                        });
-                        _loadTickets();
-                      },
-                    ),
-                  ];
-                  if (stackFilters) {
-                    return Column(
-                      children: <Widget>[
-                        filters[0],
-                        const SizedBox(height: 12),
-                        filters[1],
-                      ],
-                    );
-                  }
-                  return Row(
-                    children: <Widget>[
-                      Expanded(child: filters[0]),
-                      const SizedBox(width: 12),
-                      Expanded(child: filters[1]),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
               CustomTabBar(
                 style: CustomTabBarStyle.pill,
                 currentIndex: _selectedFilter == null
@@ -531,6 +656,27 @@ class _SupportPageState extends State<SupportPage> {
     return Material(type: MaterialType.transparency, child: content);
   }
 
+  static String _categoryFilterLabel(int? value) {
+    return switch (value) {
+      1 => 'Maintenance',
+      2 => 'Billing',
+      3 => 'Security',
+      4 => 'Amenities',
+      5 => 'Others',
+      _ => 'Category',
+    };
+  }
+
+  static String _priorityFilterLabel(int? value) {
+    return switch (value) {
+      1 => 'Low priority',
+      2 => 'Medium priority',
+      3 => 'High priority',
+      4 => 'Critical priority',
+      _ => 'Priority',
+    };
+  }
+
   String _ticketStatusLabel(TicketStatus status) {
     return status.label;
   }
@@ -557,139 +703,6 @@ class _SupportPageState extends State<SupportPage> {
       }
     }
     return null;
-  }
-
-  Widget _buildSocietyResidentSummary(TicketRecord ticket, ThemeData theme) {
-    final String residentName =
-        _firstNonEmpty(<String?>[ticket.residentName, ticket.targetName]) ??
-        'Resident Details';
-    final bool hasLocation =
-        _firstNonEmpty(<String?>[
-          ticket.societyName,
-          ticket.blockName,
-          ticket.buildingName,
-          ticket.flatNo,
-        ]) !=
-        null;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        _SupportTicketAvatar(imageUrl: ticket.residentImageUrl),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                residentName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (hasLocation) ...<Widget>[
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primarySoft,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      if ((ticket.societyName ?? '').isNotEmpty)
-                        _supportContextLine(
-                          theme,
-                          Icons.apartment_outlined,
-                          ticket.societyName!,
-                          isStrong: true,
-                        ),
-                      if ((ticket.blockName ?? '').isNotEmpty)
-                        _supportContextLine(
-                          theme,
-                          Icons.account_tree_outlined,
-                          'Block: ${ticket.blockName!}',
-                        ),
-                      if ((ticket.buildingName ?? '').isNotEmpty)
-                        _supportContextLine(
-                          theme,
-                          Icons.location_city_outlined,
-                          'Building: ${ticket.buildingName!}',
-                        ),
-                      if ((ticket.flatNo ?? '').isNotEmpty)
-                        _supportContextLine(
-                          theme,
-                          Icons.home_outlined,
-                          'Flat: ${ticket.flatNo!}',
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-              if ((ticket.residentPhone ?? '').isNotEmpty) ...<Widget>[
-                const SizedBox(height: 10),
-                _supportContactLine(theme, Icons.phone, ticket.residentPhone!),
-              ],
-              if ((ticket.residentEmail ?? '').isNotEmpty) ...<Widget>[
-                const SizedBox(height: 6),
-                _supportContactLine(
-                  theme,
-                  Icons.mail_outline,
-                  ticket.residentEmail!,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _supportContextLine(
-    ThemeData theme,
-    IconData icon,
-    String value, {
-    bool isStrong = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(icon, size: 18, color: AppTheme.textMuted),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: isStrong ? AppTheme.primary : AppTheme.textSecondary,
-                fontWeight: isStrong ? FontWeight.w700 : FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _supportContactLine(ThemeData theme, IconData icon, String value) {
-    final bool isEmail = value.contains('@');
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Icon(icon, size: 19, color: AppTheme.textSecondary),
-        const SizedBox(width: 8),
-        Expanded(
-          child: isEmail
-              ? ContactTextButton.email(value: value, label: value)
-              : ContactTextButton.phone(value: value, label: value),
-        ),
-      ],
-    );
   }
 
   Future<void> _handleStatusAction(TicketRecord ticket, int status) async {
@@ -762,256 +775,271 @@ class _SupportPageState extends State<SupportPage> {
           type: MaterialType.transparency,
           child: StatefulBuilder(
             builder: (BuildContext context, StateSetter setModalState) {
-            Future<void> submit() async {
-              if (isSubmitting || sheetClosed || !mounted) {
-                return;
-              }
-              final String targetId = ticketType == 1
-                  ? (_vendor?.societyId ?? '')
-                  : (_vendor?.propertyId ?? '');
-              if (titleController.text.trim().isEmpty ||
-                  descriptionController.text.trim().isEmpty ||
-                  targetId.isEmpty) {
-                _showMessage(
-                  'Title, description, and an active society or property context are required.',
-                );
-                return;
-              }
-
-              if (!mounted || sheetClosed) {
-                return;
-              }
-              setModalState(() {
-                isSubmitting = true;
-              });
-
-              try {
-                String? imageId;
-                if (imageFile != null) {
-                  imageId = await UploadService.uploadImage(imageFile!);
-                  if (imageId == null || imageId.isEmpty) {
-                    throw Exception('Unable to upload the selected image.');
-                  }
-                }
-
-                await SupportService.createSupportTicket(
-                  ticketType: ticketType,
-                  ticketTypeId: targetId,
-                  title: titleController.text.trim(),
-                  description: descriptionController.text.trim(),
-                  category: category,
-                  priority: priority,
-                  imageId: imageId,
-                );
-                if (!mounted || sheetClosed) {
+              Future<void> submit() async {
+                if (isSubmitting || sheetClosed || !mounted) {
                   return;
                 }
-                sheetClosed = true;
-                if (sheetNavigator.mounted) {
-                  sheetNavigator.pop();
-                }
-                _showMessage('Support ticket created successfully.');
-                await _loadTickets();
-                if (!mounted) {
+                final String targetId = ticketType == 1
+                    ? (_vendor?.societyId ?? '')
+                    : (_vendor?.propertyId ?? '');
+                if (titleController.text.trim().isEmpty ||
+                    descriptionController.text.trim().isEmpty ||
+                    targetId.isEmpty) {
+                  _showMessage(
+                    'Title, description, and an active society or property context are required.',
+                  );
                   return;
                 }
-                widget.onRefresh?.call();
-              } catch (error) {
-                _showMessage(error.toString().replaceFirst('Exception: ', ''));
+
                 if (!mounted || sheetClosed) {
                   return;
                 }
                 setModalState(() {
-                  isSubmitting = false;
+                  isSubmitting = true;
                 });
-              }
-            }
 
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  12,
-                  16,
-                  MediaQuery.of(context).viewInsets.bottom + 24,
-                ),
-                child: ListView(
-                  shrinkWrap: true,
-                  children: <Widget>[
-                    Text(
-                      'Create Support Ticket',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                try {
+                  String? imageId;
+                  if (imageFile != null) {
+                    imageId = await UploadService.uploadImage(imageFile!);
+                    if (imageId == null || imageId.isEmpty) {
+                      throw Exception('Unable to upload the selected image.');
+                    }
+                  }
+
+                  await SupportService.createSupportTicket(
+                    ticketType: ticketType,
+                    ticketTypeId: targetId,
+                    title: titleController.text.trim(),
+                    description: descriptionController.text.trim(),
+                    category: category,
+                    priority: priority,
+                    imageId: imageId,
+                  );
+                  if (!mounted || sheetClosed) {
+                    return;
+                  }
+                  sheetClosed = true;
+                  if (sheetNavigator.mounted) {
+                    sheetNavigator.pop();
+                  }
+                  _showMessage('Support ticket created successfully.');
+                  await _loadTickets();
+                  if (!mounted) {
+                    return;
+                  }
+                  widget.onRefresh?.call();
+                } catch (error) {
+                  _showMessage(
+                    error.toString().replaceFirst('Exception: ', ''),
+                  );
+                  if (!mounted || sheetClosed) {
+                    return;
+                  }
+                  setModalState(() {
+                    isSubmitting = false;
+                  });
+                }
+              }
+
+              return SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    12,
+                    16,
+                    MediaQuery.of(context).viewInsets.bottom + 24,
+                  ),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: <Widget>[
+                      Text(
+                        'Create Support Ticket',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    if ((_vendor?.societyId?.isNotEmpty ?? false) &&
-                        (_vendor?.propertyId?.isNotEmpty ?? false))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: DropdownButtonFormField<int>(
-                          value: ticketType,
-                          decoration: const InputDecoration(
-                            labelText: 'Ticket type',
-                          ),
-                          items: const <DropdownMenuItem<int>>[
-                            DropdownMenuItem<int>(
-                              value: 1,
-                              child: Text('Society'),
+                      const SizedBox(height: 16),
+                      if ((_vendor?.societyId?.isNotEmpty ?? false) &&
+                          (_vendor?.propertyId?.isNotEmpty ?? false))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: DropdownButtonFormField<int>(
+                            value: ticketType,
+                            decoration: const InputDecoration(
+                              labelText: 'Ticket type',
                             ),
-                            DropdownMenuItem<int>(
-                              value: 2,
-                              child: Text('Property'),
-                            ),
-                          ],
-                          onChanged: (int? value) {
-                            setModalState(() {
-                              ticketType = value ?? 1;
-                            });
-                          },
-                        ),
-                      ),
-                    TextField(
-                      controller: titleController,
-                      decoration: const InputDecoration(labelText: 'Title'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: descriptionController,
-                      minLines: 3,
-                      maxLines: 5,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<int>(
-                      value: category,
-                      decoration: const InputDecoration(labelText: 'Category'),
-                      items: const <DropdownMenuItem<int>>[
-                        DropdownMenuItem<int>(
-                          value: 1,
-                          child: Text('Maintenance'),
-                        ),
-                        DropdownMenuItem<int>(value: 2, child: Text('Billing')),
-                        DropdownMenuItem<int>(
-                          value: 3,
-                          child: Text('Security'),
-                        ),
-                        DropdownMenuItem<int>(
-                          value: 4,
-                          child: Text('Amenities'),
-                        ),
-                        DropdownMenuItem<int>(value: 5, child: Text('Others')),
-                      ],
-                      onChanged: (int? value) {
-                        setModalState(() {
-                          category = value ?? 1;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<int>(
-                      value: priority,
-                      decoration: const InputDecoration(labelText: 'Priority'),
-                      items: const <DropdownMenuItem<int>>[
-                        DropdownMenuItem<int>(value: 1, child: Text('Low')),
-                        DropdownMenuItem<int>(value: 2, child: Text('Medium')),
-                        DropdownMenuItem<int>(value: 3, child: Text('High')),
-                        DropdownMenuItem<int>(
-                          value: 4,
-                          child: Text('Critical'),
-                        ),
-                      ],
-                      onChanged: (int? value) {
-                        setModalState(() {
-                          priority = value ?? 2;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    CustomCard(
-                      padding: CustomCardPadding.sm,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Attachment (optional)',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 8),
-                          if (imageFile == null)
-                            Text(
-                              'Upload a JPG or PNG issue image. AVIF is not supported.',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: AppTheme.textSecondary),
-                            )
-                          else ...<Widget>[
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.file(
-                                imageFile!,
-                                width: double.infinity,
-                                height: 160,
-                                fit: BoxFit.cover,
+                            items: const <DropdownMenuItem<int>>[
+                              DropdownMenuItem<int>(
+                                value: 1,
+                                child: Text('Society'),
                               ),
+                              DropdownMenuItem<int>(
+                                value: 2,
+                                child: Text('Property'),
+                              ),
+                            ],
+                            onChanged: (int? value) {
+                              setModalState(() {
+                                ticketType = value ?? 1;
+                              });
+                            },
+                          ),
+                        ),
+                      TextField(
+                        controller: titleController,
+                        decoration: const InputDecoration(labelText: 'Title'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: descriptionController,
+                        minLines: 3,
+                        maxLines: 5,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        value: category,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                        ),
+                        items: const <DropdownMenuItem<int>>[
+                          DropdownMenuItem<int>(
+                            value: 1,
+                            child: Text('Maintenance'),
+                          ),
+                          DropdownMenuItem<int>(
+                            value: 2,
+                            child: Text('Billing'),
+                          ),
+                          DropdownMenuItem<int>(
+                            value: 3,
+                            child: Text('Security'),
+                          ),
+                          DropdownMenuItem<int>(
+                            value: 4,
+                            child: Text('Amenities'),
+                          ),
+                          DropdownMenuItem<int>(
+                            value: 5,
+                            child: Text('Others'),
+                          ),
+                        ],
+                        onChanged: (int? value) {
+                          setModalState(() {
+                            category = value ?? 1;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        value: priority,
+                        decoration: const InputDecoration(
+                          labelText: 'Priority',
+                        ),
+                        items: const <DropdownMenuItem<int>>[
+                          DropdownMenuItem<int>(value: 1, child: Text('Low')),
+                          DropdownMenuItem<int>(
+                            value: 2,
+                            child: Text('Medium'),
+                          ),
+                          DropdownMenuItem<int>(value: 3, child: Text('High')),
+                          DropdownMenuItem<int>(
+                            value: 4,
+                            child: Text('Critical'),
+                          ),
+                        ],
+                        onChanged: (int? value) {
+                          setModalState(() {
+                            priority = value ?? 2;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CustomCard(
+                        padding: CustomCardPadding.sm,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Attachment (optional)',
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              imageFile!.path
-                                  .split(Platform.pathSeparator)
-                                  .last,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: AppTheme.textSecondary),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                          Column(
-                            children: <Widget>[
-                              SizedBox(
-                                width: double.infinity,
-                                child: CustomButton(
-                                  label: imageFile == null
-                                      ? 'Choose Image'
-                                      : 'Replace Image',
-                                  variant: CustomButtonVariant.outline,
-                                  onPressed: () => pickImage(setModalState),
+                            if (imageFile == null)
+                              Text(
+                                'Upload a JPG or PNG issue image. AVIF is not supported.',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: AppTheme.textSecondary),
+                              )
+                            else ...<Widget>[
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  imageFile!,
+                                  width: double.infinity,
+                                  height: 160,
+                                  fit: BoxFit.cover,
                                 ),
                               ),
-                              if (imageFile != null) ...<Widget>[
-                                const SizedBox(height: 10),
+                              const SizedBox(height: 8),
+                              Text(
+                                imageFile!.path
+                                    .split(Platform.pathSeparator)
+                                    .last,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: AppTheme.textSecondary),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            Column(
+                              children: <Widget>[
                                 SizedBox(
                                   width: double.infinity,
                                   child: CustomButton(
-                                    label: 'Remove',
-                                    variant: CustomButtonVariant.danger,
-                                    onPressed: () {
-                                      setModalState(() {
-                                        imageFile = null;
-                                      });
-                                    },
+                                    label: imageFile == null
+                                        ? 'Choose Image'
+                                        : 'Replace Image',
+                                    variant: CustomButtonVariant.outline,
+                                    onPressed: () => pickImage(setModalState),
                                   ),
                                 ),
+                                if (imageFile != null) ...<Widget>[
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: CustomButton(
+                                      label: 'Remove',
+                                      variant: CustomButtonVariant.danger,
+                                      onPressed: () {
+                                        setModalState(() {
+                                          imageFile = null;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: CustomButton(
-                        label: 'Save Ticket',
-                        isLoading: isSubmitting,
-                        onPressed: isSubmitting ? null : submit,
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: CustomButton(
+                          label: 'Save Ticket',
+                          isLoading: isSubmitting,
+                          onPressed: isSubmitting ? null : submit,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
+              );
             },
           ),
         );
@@ -1131,363 +1159,367 @@ class _SupportPageState extends State<SupportPage> {
           type: MaterialType.transparency,
           child: StatefulBuilder(
             builder: (BuildContext context, StateSetter setModalState) {
-            if (!initialized) {
-              initialized = true;
-              Future<void>.microtask(() => loadTargets(setModalState));
-            }
-
-            Future<void> submit() async {
-              if (isSubmitting || sheetClosed || !mounted) {
-                return;
-              }
-              final String ticketTypeIdForApi = ticketType == 'society'
-                  ? (_vendor?.societyId ?? '')
-                  : selectedTypeId;
-
-              if (titleController.text.trim().isEmpty ||
-                  descriptionController.text.trim().isEmpty ||
-                  selectedTypeId.isEmpty ||
-                  ticketTypeIdForApi.isEmpty) {
-                _showMessage(
-                  'Title, description, and the related resident or contract are required.',
-                );
-                return;
+              if (!initialized) {
+                initialized = true;
+                Future<void>.microtask(() => loadTargets(setModalState));
               }
 
-              safeSetModalState(setModalState, () {
-                isSubmitting = true;
-              });
-
-              try {
-                String? imageId;
-                if (imageFile != null) {
-                  imageId = await UploadService.uploadImage(imageFile!);
-                  if (imageId == null || imageId.isEmpty) {
-                    throw Exception('Unable to upload the selected image.');
-                  }
-                }
-
-                await SupportService.createSupportTicket(
-                  ticketType: ticketType == 'society' ? 1 : 2,
-                  ticketTypeId: ticketTypeIdForApi,
-                  title: titleController.text.trim(),
-                  description: descriptionController.text.trim(),
-                  category: category,
-                  priority: priority,
-                  imageId: imageId,
-                );
-
-                if (!mounted || sheetClosed) {
+              Future<void> submit() async {
+                if (isSubmitting || sheetClosed || !mounted) {
                   return;
                 }
-                sheetClosed = true;
-                if (sheetNavigator.mounted) {
-                  sheetNavigator.pop();
-                }
-                _showMessage('Support ticket created successfully.');
-                await _loadTickets();
-                if (!mounted) {
+                final String ticketTypeIdForApi = ticketType == 'society'
+                    ? (_vendor?.societyId ?? '')
+                    : selectedTypeId;
+
+                if (titleController.text.trim().isEmpty ||
+                    descriptionController.text.trim().isEmpty ||
+                    selectedTypeId.isEmpty ||
+                    ticketTypeIdForApi.isEmpty) {
+                  _showMessage(
+                    'Title, description, and the related resident or contract are required.',
+                  );
                   return;
                 }
-                widget.onRefresh?.call();
-              } catch (error) {
-                _showMessage(error.toString().replaceFirst('Exception: ', ''));
-                if (!mounted || sheetClosed) {
-                  return;
-                }
+
                 safeSetModalState(setModalState, () {
-                  isSubmitting = false;
+                  isSubmitting = true;
                 });
+
+                try {
+                  String? imageId;
+                  if (imageFile != null) {
+                    imageId = await UploadService.uploadImage(imageFile!);
+                    if (imageId == null || imageId.isEmpty) {
+                      throw Exception('Unable to upload the selected image.');
+                    }
+                  }
+
+                  await SupportService.createSupportTicket(
+                    ticketType: ticketType == 'society' ? 1 : 2,
+                    ticketTypeId: ticketTypeIdForApi,
+                    title: titleController.text.trim(),
+                    description: descriptionController.text.trim(),
+                    category: category,
+                    priority: priority,
+                    imageId: imageId,
+                  );
+
+                  if (!mounted || sheetClosed) {
+                    return;
+                  }
+                  sheetClosed = true;
+                  if (sheetNavigator.mounted) {
+                    sheetNavigator.pop();
+                  }
+                  _showMessage('Support ticket created successfully.');
+                  await _loadTickets();
+                  if (!mounted) {
+                    return;
+                  }
+                  widget.onRefresh?.call();
+                } catch (error) {
+                  _showMessage(
+                    error.toString().replaceFirst('Exception: ', ''),
+                  );
+                  if (!mounted || sheetClosed) {
+                    return;
+                  }
+                  safeSetModalState(setModalState, () {
+                    isSubmitting = false;
+                  });
+                }
               }
-            }
 
-            final bool hasSocietyContext =
-                _vendor?.societyId?.isNotEmpty ?? false;
-            final bool hasPropertyContext =
-                (_vendor?.propertyId?.isNotEmpty ?? false) ||
-                contractOptions.isNotEmpty;
+              final bool hasSocietyContext =
+                  _vendor?.societyId?.isNotEmpty ?? false;
+              final bool hasPropertyContext =
+                  (_vendor?.propertyId?.isNotEmpty ?? false) ||
+                  contractOptions.isNotEmpty;
 
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  12,
-                  16,
-                  MediaQuery.of(context).viewInsets.bottom + 24,
-                ),
-                child: ListView(
-                  shrinkWrap: true,
-                  children: <Widget>[
-                    Text(
-                      'Create Support Ticket',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+              return SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    12,
+                    16,
+                    MediaQuery.of(context).viewInsets.bottom + 24,
+                  ),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: <Widget>[
+                      Text(
+                        'Create Support Ticket',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Match the website tenant flow by selecting whether the issue is for your society residence or a rented property contract.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondary,
+                      const SizedBox(height: 8),
+                      Text(
+                        'Match the website tenant flow by selecting whether the issue is for your society residence or a rented property contract.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: titleController,
-                      decoration: const InputDecoration(labelText: 'Title'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: descriptionController,
-                      minLines: 3,
-                      maxLines: 5,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: titleController,
+                        decoration: const InputDecoration(labelText: 'Title'),
                       ),
-                    ),
-                    if (hasSocietyContext && hasPropertyContext) ...<Widget>[
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: ticketType,
+                      TextField(
+                        controller: descriptionController,
+                        minLines: 3,
+                        maxLines: 5,
                         decoration: const InputDecoration(
-                          labelText: 'Ticket for',
+                          labelText: 'Description',
                         ),
-                        items: const <DropdownMenuItem<String>>[
-                          DropdownMenuItem<String>(
-                            value: 'society',
-                            child: Text('Society Resident'),
-                          ),
-                          DropdownMenuItem<String>(
-                            value: 'property',
-                            child: Text('Rented Property'),
-                          ),
-                        ],
-                        onChanged: (String? value) {
-                          setModalState(() {
-                            ticketType = value ?? 'society';
-                            residentOptions = <ResidentRecord>[];
-                            contractOptions = <RentalContractRecord>[];
-                          });
-                          loadTargets(setModalState);
-                        },
                       ),
-                    ],
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: selectedTypeId.isEmpty ? null : selectedTypeId,
-                      decoration: InputDecoration(
-                        labelText: ticketType == 'society'
-                            ? 'Select Resident Profile'
-                            : 'Select Property Contract',
-                      ),
-                      items: <DropdownMenuItem<String>>[
-                        DropdownMenuItem<String>(
-                          value: '',
-                          child: Text(
-                            isLoadingTargets
-                                ? 'Loading...'
-                                : ticketType == 'society'
-                                ? 'Choose your resident profile'
-                                : 'Choose a contract',
+                      if (hasSocietyContext && hasPropertyContext) ...<Widget>[
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: ticketType,
+                          decoration: const InputDecoration(
+                            labelText: 'Ticket for',
                           ),
-                        ),
-                        ...(ticketType == 'society'
-                            ? residentOptions.map(
-                                (ResidentRecord resident) =>
-                                    DropdownMenuItem<String>(
-                                      value: resident.id,
-                                      child: Text(
-                                        '${resident.name} (${resident.flatNo})',
-                                      ),
-                                    ),
-                              )
-                            : contractOptions.map(
-                                (
-                                  RentalContractRecord contract,
-                                ) => DropdownMenuItem<String>(
-                                  value: (contract.propertyId ?? '').isNotEmpty
-                                      ? contract.propertyId!
-                                      : contract.id,
-                                  child: Text(
-                                    '${contract.propertyTitle} | ${contract.ownerName}',
-                                  ),
-                                ),
-                              )),
-                      ],
-                      onChanged: isLoadingTargets
-                          ? null
-                          : (String? value) {
-                              setModalState(() {
-                                selectedTypeId = value ?? '';
-                              });
-                            },
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: DropdownButtonFormField<int>(
-                            value: category,
-                            decoration: const InputDecoration(
-                              labelText: 'Category',
+                          items: const <DropdownMenuItem<String>>[
+                            DropdownMenuItem<String>(
+                              value: 'society',
+                              child: Text('Society Resident'),
                             ),
-                            items: const <DropdownMenuItem<int>>[
-                              DropdownMenuItem<int>(
-                                value: 1,
-                                child: Text('Maintenance'),
-                              ),
-                              DropdownMenuItem<int>(
-                                value: 2,
-                                child: Text('Billing'),
-                              ),
-                              DropdownMenuItem<int>(
-                                value: 3,
-                                child: Text('Security'),
-                              ),
-                              DropdownMenuItem<int>(
-                                value: 4,
-                                child: Text('Amenities'),
-                              ),
-                              DropdownMenuItem<int>(
-                                value: 5,
-                                child: Text('Others'),
-                              ),
-                            ],
-                            onChanged: (int? value) {
-                              setModalState(() {
-                                category = value ?? 1;
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: DropdownButtonFormField<int>(
-                            value: priority,
-                            decoration: const InputDecoration(
-                              labelText: 'Priority',
-                            ),
-                            items: const <DropdownMenuItem<int>>[
-                              DropdownMenuItem<int>(
-                                value: 1,
-                                child: Text('Low'),
-                              ),
-                              DropdownMenuItem<int>(
-                                value: 2,
-                                child: Text('Medium'),
-                              ),
-                              DropdownMenuItem<int>(
-                                value: 3,
-                                child: Text('High'),
-                              ),
-                              DropdownMenuItem<int>(
-                                value: 4,
-                                child: Text('Critical'),
-                              ),
-                            ],
-                            onChanged: (int? value) {
-                              setModalState(() {
-                                priority = value ?? 2;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    CustomCard(
-                      padding: CustomCardPadding.sm,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Attachment (optional)',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 8),
-                          if (imageFile == null)
-                            Text(
-                              'Upload a JPG or PNG issue image. AVIF is not supported.',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: AppTheme.textSecondary),
-                            )
-                          else ...<Widget>[
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.file(
-                                imageFile!,
-                                width: double.infinity,
-                                height: 160,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              imageFile!.path
-                                  .split(Platform.pathSeparator)
-                                  .last,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: AppTheme.textSecondary),
+                            DropdownMenuItem<String>(
+                              value: 'property',
+                              child: Text('Rented Property'),
                             ),
                           ],
-                          const SizedBox(height: 12),
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: CustomButton(
-                                  label: imageFile == null
-                                      ? 'Choose Image'
-                                      : 'Replace Image',
-                                  variant: CustomButtonVariant.outline,
-                                  onPressed: () => pickImage(setModalState),
-                                ),
-                              ),
-                              if (imageFile != null) ...<Widget>[
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: CustomButton(
-                                    label: 'Remove',
-                                    variant: CustomButtonVariant.danger,
-                                    onPressed: () {
-                                      setModalState(() {
-                                        imageFile = null;
-                                      });
-                                    },
+                          onChanged: (String? value) {
+                            setModalState(() {
+                              ticketType = value ?? 'society';
+                              residentOptions = <ResidentRecord>[];
+                              contractOptions = <RentalContractRecord>[];
+                            });
+                            loadTargets(setModalState);
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: selectedTypeId.isEmpty ? null : selectedTypeId,
+                        decoration: InputDecoration(
+                          labelText: ticketType == 'society'
+                              ? 'Select Resident Profile'
+                              : 'Select Property Contract',
+                        ),
+                        items: <DropdownMenuItem<String>>[
+                          DropdownMenuItem<String>(
+                            value: '',
+                            child: Text(
+                              isLoadingTargets
+                                  ? 'Loading...'
+                                  : ticketType == 'society'
+                                  ? 'Choose your resident profile'
+                                  : 'Choose a contract',
+                            ),
+                          ),
+                          ...(ticketType == 'society'
+                              ? residentOptions.map(
+                                  (
+                                    ResidentRecord resident,
+                                  ) => DropdownMenuItem<String>(
+                                    value: resident.id,
+                                    child: Text(
+                                      '${resident.name} (${resident.flatNo})',
+                                    ),
                                   ),
+                                )
+                              : contractOptions.map(
+                                  (
+                                    RentalContractRecord contract,
+                                  ) => DropdownMenuItem<String>(
+                                    value:
+                                        (contract.propertyId ?? '').isNotEmpty
+                                        ? contract.propertyId!
+                                        : contract.id,
+                                    child: Text(
+                                      '${contract.propertyTitle} | ${contract.ownerName}',
+                                    ),
+                                  ),
+                                )),
+                        ],
+                        onChanged: isLoadingTargets
+                            ? null
+                            : (String? value) {
+                                setModalState(() {
+                                  selectedTypeId = value ?? '';
+                                });
+                              },
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: DropdownButtonFormField<int>(
+                              value: category,
+                              decoration: const InputDecoration(
+                                labelText: 'Category',
+                              ),
+                              items: const <DropdownMenuItem<int>>[
+                                DropdownMenuItem<int>(
+                                  value: 1,
+                                  child: Text('Maintenance'),
+                                ),
+                                DropdownMenuItem<int>(
+                                  value: 2,
+                                  child: Text('Billing'),
+                                ),
+                                DropdownMenuItem<int>(
+                                  value: 3,
+                                  child: Text('Security'),
+                                ),
+                                DropdownMenuItem<int>(
+                                  value: 4,
+                                  child: Text('Amenities'),
+                                ),
+                                DropdownMenuItem<int>(
+                                  value: 5,
+                                  child: Text('Others'),
                                 ),
                               ],
-                            ],
+                              onChanged: (int? value) {
+                                setModalState(() {
+                                  category = value ?? 1;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonFormField<int>(
+                              value: priority,
+                              decoration: const InputDecoration(
+                                labelText: 'Priority',
+                              ),
+                              items: const <DropdownMenuItem<int>>[
+                                DropdownMenuItem<int>(
+                                  value: 1,
+                                  child: Text('Low'),
+                                ),
+                                DropdownMenuItem<int>(
+                                  value: 2,
+                                  child: Text('Medium'),
+                                ),
+                                DropdownMenuItem<int>(
+                                  value: 3,
+                                  child: Text('High'),
+                                ),
+                                DropdownMenuItem<int>(
+                                  value: 4,
+                                  child: Text('Critical'),
+                                ),
+                              ],
+                              onChanged: (int? value) {
+                                setModalState(() {
+                                  priority = value ?? 2;
+                                });
+                              },
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: CustomButton(
-                            label: 'Cancel',
-                            variant: CustomButtonVariant.outline,
-                            onPressed: isSubmitting
-                                ? null
-                                : () => Navigator.of(context).pop(),
-                          ),
+                      const SizedBox(height: 12),
+                      CustomCard(
+                        padding: CustomCardPadding.sm,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Attachment (optional)',
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 8),
+                            if (imageFile == null)
+                              Text(
+                                'Upload a JPG or PNG issue image. AVIF is not supported.',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: AppTheme.textSecondary),
+                              )
+                            else ...<Widget>[
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  imageFile!,
+                                  width: double.infinity,
+                                  height: 160,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                imageFile!.path
+                                    .split(Platform.pathSeparator)
+                                    .last,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: AppTheme.textSecondary),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: CustomButton(
+                                    label: imageFile == null
+                                        ? 'Choose Image'
+                                        : 'Replace Image',
+                                    variant: CustomButtonVariant.outline,
+                                    onPressed: () => pickImage(setModalState),
+                                  ),
+                                ),
+                                if (imageFile != null) ...<Widget>[
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: CustomButton(
+                                      label: 'Remove',
+                                      variant: CustomButtonVariant.danger,
+                                      onPressed: () {
+                                        setModalState(() {
+                                          imageFile = null;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: CustomButton(
-                            label: 'Create Ticket',
-                            isLoading: isSubmitting,
-                            onPressed: isSubmitting ? null : submit,
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: CustomButton(
+                              label: 'Cancel',
+                              variant: CustomButtonVariant.outline,
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () => Navigator.of(context).pop(),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: CustomButton(
+                              label: 'Create Ticket',
+                              isLoading: isSubmitting,
+                              onPressed: isSubmitting ? null : submit,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
+              );
             },
           ),
         );
@@ -1689,8 +1721,9 @@ class _SupportPageState extends State<SupportPage> {
       if (!mounted) {
         return;
       }
-      final ScaffoldMessengerState? messenger =
-          ScaffoldMessenger.maybeOf(context);
+      final ScaffoldMessengerState? messenger = ScaffoldMessenger.maybeOf(
+        context,
+      );
       messenger
         ?..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(message)));
@@ -2058,8 +2091,8 @@ class _SupportTicketCard extends StatelessWidget {
     final Color accent = ticket.priority.tone == UiTone.danger
         ? theme.colorScheme.error
         : ticket.priority.tone == UiTone.warning
-            ? theme.colorScheme.secondary
-            : theme.colorScheme.primary;
+        ? theme.colorScheme.secondary
+        : theme.colorScheme.primary;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -2074,9 +2107,7 @@ class _SupportTicketCard extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.08),
-                  border: Border(
-                    left: BorderSide(color: accent, width: 4),
-                  ),
+                  border: Border(left: BorderSide(color: accent, width: 4)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2186,11 +2217,13 @@ class _SupportTicketCard extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  (ticket.residentName?.trim().isNotEmpty == true
-                                          ? ticket.residentName!.trim()
-                                          : (ticket.targetName?.trim().isNotEmpty == true
-                                              ? ticket.targetName!.trim()
-                                              : 'Resident Details')),
+                                  (ticket.residentName?.trim().isNotEmpty ==
+                                          true
+                                      ? ticket.residentName!.trim()
+                                      : (ticket.targetName?.trim().isNotEmpty ==
+                                                true
+                                            ? ticket.targetName!.trim()
+                                            : 'Resident Details')),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.titleSmall?.copyWith(
@@ -2206,14 +2239,16 @@ class _SupportTicketCard extends StatelessWidget {
                                   Text('Building ${ticket.buildingName!}'),
                                 if ((ticket.flatNo ?? '').isNotEmpty)
                                   Text('Flat ${ticket.flatNo!}'),
-                                if ((ticket.residentPhone ?? '').isNotEmpty) ...<Widget>[
+                                if ((ticket.residentPhone ?? '')
+                                    .isNotEmpty) ...<Widget>[
                                   const SizedBox(height: 8),
                                   ContactTextButton.phone(
                                     value: ticket.residentPhone!,
                                     label: ticket.residentPhone!,
                                   ),
                                 ],
-                                if ((ticket.residentEmail ?? '').isNotEmpty) ...<Widget>[
+                                if ((ticket.residentEmail ?? '')
+                                    .isNotEmpty) ...<Widget>[
                                   const SizedBox(height: 6),
                                   Text(ticket.residentEmail!),
                                 ],

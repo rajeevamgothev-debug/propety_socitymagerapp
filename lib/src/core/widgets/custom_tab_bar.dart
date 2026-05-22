@@ -51,6 +51,7 @@ class CustomTabBar extends StatelessWidget {
 
     if (style == CustomTabBarStyle.underline) {
       return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: AppTheme.border)),
         ),
@@ -58,7 +59,15 @@ class CustomTabBar extends StatelessWidget {
       );
     }
 
-    return row;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: row,
+    );
   }
 }
 
@@ -86,16 +95,25 @@ class _CustomTabButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: isUnderline ? 4 : 14,
+            horizontal: isUnderline ? 4 : 15,
             vertical: isUnderline ? 12 : 10,
           ),
           decoration: BoxDecoration(
             color: isUnderline
                 ? Colors.transparent
                 : selected
-                ? AppTheme.primarySoft
+                ? AppTheme.surface
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            boxShadow: !isUnderline && selected
+                ? const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0x0D17202A),
+                      blurRadius: 12,
+                      offset: Offset(0, 6),
+                    ),
+                  ]
+                : null,
             border: isUnderline
                 ? Border(
                     bottom: BorderSide(
@@ -120,12 +138,10 @@ class _CustomTabButton extends StatelessWidget {
                 item.label,
                 style: TextStyle(
                   color: selected
-                      ? (isUnderline
-                            ? AppTheme.primary
-                            : const Color(0xFF1D4ED8))
+                      ? (isUnderline ? AppTheme.primary : AppTheme.primary)
                       : AppTheme.textMuted,
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   height: 1.429,
                 ),
               ),

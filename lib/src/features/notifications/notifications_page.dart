@@ -260,37 +260,63 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   'Activity alerts, payment updates, and system messages.',
             ),
             const SizedBox(height: 16),
-            // Search
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: 'Search notifications',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search_rounded),
-                  onPressed: () => _loadNotifications(reset: true),
-                ),
+            CustomCard(
+              padding: CustomCardPadding.sm,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          'Inbox controls',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                      ),
+                      ToneBadge(
+                        label: _unreadCount > 0
+                            ? '$_unreadCount unread'
+                            : 'All caught up',
+                        tone: _unreadCount > 0 ? UiTone.brand : UiTone.success,
+                        size: ToneBadgeSize.small,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Search notifications',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.arrow_forward_rounded),
+                        onPressed: () => _loadNotifications(reset: true),
+                      ),
+                    ),
+                    onChanged: _onSearchChanged,
+                  ),
+                  const SizedBox(height: 14),
+                  CustomTabBar(
+                    style: CustomTabBarStyle.pill,
+                    currentIndex: _filterTab,
+                    onChanged: (int index) {
+                      setState(() => _filterTab = index);
+                      _loadNotifications(reset: true);
+                    },
+                    tabs: <CustomTabItem>[
+                      const CustomTabItem(label: 'All'),
+                      CustomTabItem(
+                        label: _unreadCount > 0
+                            ? 'Unread ($_unreadCount)'
+                            : 'Unread',
+                      ),
+                      const CustomTabItem(label: 'Read'),
+                    ],
+                  ),
+                ],
               ),
-              onChanged: _onSearchChanged,
-            ),
-            const SizedBox(height: 12),
-            // Filter tabs
-            CustomTabBar(
-              style: CustomTabBarStyle.pill,
-              currentIndex: _filterTab,
-              onChanged: (int index) {
-                setState(() => _filterTab = index);
-                _loadNotifications(reset: true);
-              },
-              tabs: <CustomTabItem>[
-                const CustomTabItem(label: 'All'),
-                CustomTabItem(
-                  label: _unreadCount > 0 ? 'Unread ($_unreadCount)' : 'Unread',
-                ),
-                const CustomTabItem(label: 'Read'),
-              ],
             ),
             const SizedBox(height: 16),
-            // List
             if (_isLoading && _notifications.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 64),
@@ -335,9 +361,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   child: _NotificationCard(
                     notification: n,
                     contract: _contractsById[n.referenceId],
-                    onMarkRead: n.isRead
-                        ? null
-                        : () => _markAsRead(n),
+                    onMarkRead: n.isRead ? null : () => _markAsRead(n),
                   ),
                 ),
               ),
@@ -405,11 +429,11 @@ class _NotificationCard extends StatelessWidget {
     final String propertyImageUrl = _propertyImageUrl(notification);
     final NotificationDisplayModel display =
         NotificationDisplayModel.fromNotification(
-      notification,
-      contract: contract,
-      typeLabel: typeLabel,
-      message: message,
-    );
+          notification,
+          contract: contract,
+          typeLabel: typeLabel,
+          message: message,
+        );
 
     return CustomCard(
       padding: CustomCardPadding.sm,
@@ -461,10 +485,8 @@ class _NotificationCard extends StatelessWidget {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (BuildContext context) => _NotificationDetailsSheet(
-        display: display,
-        onPhoneTap: _launchPhone,
-      ),
+      builder: (BuildContext context) =>
+          _NotificationDetailsSheet(display: display, onPhoneTap: _launchPhone),
     );
   }
 
@@ -500,8 +522,10 @@ class _NotificationCard extends StatelessWidget {
 
   static IconData _typeIcon(String type) {
     return switch (type.toLowerCase()) {
-      'payment' || 'billing' || '1' || '5' =>
-        Icons.account_balance_wallet_rounded,
+      'payment' ||
+      'billing' ||
+      '1' ||
+      '5' => Icons.account_balance_wallet_rounded,
       'contract' || '2' => Icons.description_rounded,
       'announcement' || 'notice' || '3' => Icons.campaign_rounded,
       'support' || 'ticket' || '4' => Icons.confirmation_number_rounded,
@@ -723,8 +747,9 @@ class _NotificationTopSection extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: theme.colorScheme.onSurface,
-                        fontWeight:
-                            display.isRead ? FontWeight.w600 : FontWeight.w800,
+                        fontWeight: display.isRead
+                            ? FontWeight.w600
+                            : FontWeight.w800,
                       ),
                     ),
                   ),
@@ -900,8 +925,9 @@ class _NotificationInfoRow extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: isPhone ? callColor : theme.colorScheme.onSurface,
                 fontWeight: isPhone ? FontWeight.w800 : FontWeight.w400,
-                decoration:
-                    isPhone ? TextDecoration.underline : TextDecoration.none,
+                decoration: isPhone
+                    ? TextDecoration.underline
+                    : TextDecoration.none,
               ),
             ),
           ),
@@ -1116,7 +1142,9 @@ class NotificationDisplayModel {
             apartmentType: apartmentType,
             propertyName: propertyName,
           )
-        : (message.trim().isEmpty ? 'No message details were provided.' : message.trim());
+        : (message.trim().isEmpty
+              ? 'No message details were provided.'
+              : message.trim());
 
     final List<_NotificationDetail> details = <_NotificationDetail>[
       if (propertyName.isNotEmpty)

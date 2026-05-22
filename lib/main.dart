@@ -7,46 +7,51 @@ import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'src/app.dart';
+import 'src/core/services/push_notification_service.dart';
 
 void main() {
-  runZonedGuarded<Future<void>>(() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded<Future<void>>(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
 
-    FlutterError.onError = (FlutterErrorDetails details) {
-      FlutterError.presentError(details);
-      PlatformDispatcher.instance.onError?.call(
-        details.exception,
-        details.stack ?? StackTrace.current,
-      );
-    };
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
+        PlatformDispatcher.instance.onError?.call(
+          details.exception,
+          details.stack ?? StackTrace.current,
+        );
+      };
 
-    PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-      debugPrint('Uncaught Flutter error: $error');
-      debugPrintStack(stackTrace: stack);
-      return true;
-    };
+      PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+        debugPrint('Uncaught Flutter error: $error');
+        debugPrintStack(stackTrace: stack);
+        return true;
+      };
 
-    ErrorWidget.builder = (FlutterErrorDetails details) {
-      if (kReleaseMode) {
-        return const _SafeCrashFallback();
+      ErrorWidget.builder = (FlutterErrorDetails details) {
+        if (kReleaseMode) {
+          return const _SafeCrashFallback();
+        }
+        return ErrorWidget(details.exception);
+      };
+
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+        PushNotificationService.configureBackgroundHandler();
+      } catch (error, stack) {
+        debugPrint('Firebase initialization failed: $error');
+        debugPrintStack(stackTrace: stack);
       }
-      return ErrorWidget(details.exception);
-    };
 
-    try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-    } catch (error, stack) {
-      debugPrint('Firebase initialization failed: $error');
+      runApp(const UrbanEasyFlatsApp());
+    },
+    (Object error, StackTrace stack) {
+      debugPrint('Uncaught zone error: $error');
       debugPrintStack(stackTrace: stack);
-    }
-
-    runApp(const UrbanEasyFlatsApp());
-  }, (Object error, StackTrace stack) {
-    debugPrint('Uncaught zone error: $error');
-    debugPrintStack(stackTrace: stack);
-  });
+    },
+  );
 }
 
 class _SafeCrashFallback extends StatelessWidget {
