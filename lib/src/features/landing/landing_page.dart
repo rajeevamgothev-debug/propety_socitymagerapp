@@ -70,24 +70,6 @@ class LandingPage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 18),
-            Row(
-              children: const <Widget>[
-                Expanded(
-                  child: _LandingTrustItem(
-                    icon: Icons.verified_user_outlined,
-                    label: 'Verified login',
-                  ),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: _LandingTrustItem(
-                    icon: Icons.lock_outline_rounded,
-                    label: 'Secure OTP',
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -151,7 +133,7 @@ class _LandingHero extends StatelessWidget {
         ),
         const SizedBox(height: 28),
         Text(
-          'Run properties and societies from one calm workspace.',
+          'Your operations desk, refined for everyday work.',
           style: theme.textTheme.headlineMedium?.copyWith(
             color: AppTheme.textPrimary,
             fontWeight: FontWeight.w900,
@@ -161,51 +143,13 @@ class _LandingHero extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'Select your management role to access the right dashboard, records, billing, and resident workflows.',
+          'Choose the workspace that matches your account. Each path opens the tools, records, billing, and support workflows built for that role.',
           style: theme.textTheme.bodyLarge?.copyWith(
             color: AppTheme.textSecondary,
             height: 1.45,
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LandingTrustItem extends StatelessWidget {
-  const _LandingTrustItem({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, size: 18, color: AppTheme.textSecondary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

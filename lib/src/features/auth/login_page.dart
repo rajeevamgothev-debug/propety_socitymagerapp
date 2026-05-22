@@ -120,7 +120,7 @@ class _LoginPageState extends State<LoginPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Text(
-                                'Log in or sign up',
+                                'Continue with mobile',
                                 style: theme.textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.w800,
                                   color: AppTheme.textPrimary,
@@ -129,7 +129,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'We will send a one-time password to verify your mobile number.',
+                                'Enter the number linked to your management account.',
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: AppTheme.textSecondary,
                                   height: 1.35,
@@ -235,20 +235,10 @@ class _LoginPageState extends State<LoginPage> {
                         message: _errorMessage!,
                       ),
                     ],
-                    const SizedBox(height: 18),
-                    Text(
-                      'By continuing, you agree to receive verification messages from Urban Easyflats.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppTheme.textMuted,
-                        height: 1.4,
-                      ),
-                    ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 18),
-            const _LoginTrustRow(),
           ],
         ),
       ),
@@ -320,7 +310,7 @@ class _LoginBrandHeader extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          'Welcome to Urban Easyflats',
+          'Welcome back',
           style: theme.textTheme.headlineSmall?.copyWith(
             color: AppTheme.textPrimary,
             fontWeight: FontWeight.w800,
@@ -394,69 +384,6 @@ class _InlineStatusMessage extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LoginTrustRow extends StatelessWidget {
-  const _LoginTrustRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: <Widget>[
-        Expanded(
-          child: _TrustItem(
-            icon: Icons.lock_outline_rounded,
-            label: 'Secure OTP',
-          ),
-        ),
-        SizedBox(width: 10),
-        Expanded(
-          child: _TrustItem(
-            icon: Icons.domain_verification_outlined,
-            label: 'Verified access',
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TrustItem extends StatelessWidget {
-  const _TrustItem({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, size: 18, color: AppTheme.textSecondary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

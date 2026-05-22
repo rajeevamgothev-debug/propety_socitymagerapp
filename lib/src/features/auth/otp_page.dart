@@ -7,7 +7,6 @@ import '../../core/api/auth_service.dart';
 import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_button.dart';
-import '../../core/widgets/custom_card.dart';
 
 class OtpPage extends StatefulWidget {
   const OtpPage({
@@ -99,8 +98,7 @@ class _OtpPageState extends State<OtpPage> {
       } else {
         setState(() {
           _isLoading = false;
-          _errorMessage =
-              response.message ?? response.status ?? 'Invalid OTP';
+          _errorMessage = response.message ?? response.status ?? 'Invalid OTP';
         });
       }
     } catch (_) {
@@ -131,91 +129,94 @@ class _OtpPageState extends State<OtpPage> {
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        leading: IconButton(
-          onPressed: widget.onBack,
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        ),
-        title: const Text('Verify OTP'),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppTheme.border),
-        ),
-      ),
+      backgroundColor: const Color(0xFFFBFAF7),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
           children: <Widget>[
-            Center(
-              child: Column(
-                children: <Widget>[
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        colors: <Color>[
-                          AppTheme.primary,
-                          AppTheme.primaryHover,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.lock_outlined,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    widget.authSource.label,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Use the code sent to continue into ${widget.authSource.label.toLowerCase()}.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _OtpBackPill(onPressed: widget.onBack),
+            ),
+            const SizedBox(height: 26),
+            Container(
+              width: 78,
+              height: 78,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppTheme.border),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x0D17202A),
+                    blurRadius: 22,
+                    offset: Offset(0, 12),
                   ),
                 ],
               ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(17),
+                child: Image.asset(
+                  'assets/manager_logo.jpg',
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
-            const SizedBox(height: 32),
-            CustomCard(
+            const SizedBox(height: 24),
+            Text(
+              'Enter the code',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w800,
+                height: 1.08,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'We sent it to +91 ${widget.phoneNumber}. This keeps your ${widget.authSource.label.toLowerCase()} workspace protected.',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: AppTheme.textSecondary,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 30),
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.border),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x0D17202A),
+                    blurRadius: 22,
+                    offset: Offset(0, 12),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Enter verification code',
+                      'Verification',
                       style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'We sent a 4-digit code to',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
                       '+91 ${widget.phoneNumber}',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
                     TextFormField(
                       controller: _otpController,
                       keyboardType: TextInputType.number,
@@ -224,10 +225,13 @@ class _OtpPageState extends State<OtpPage> {
                       inputFormatters: <TextInputFormatter>[
                         FilteringTextInputFormatter.digitsOnly,
                       ],
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 8,
+                      ),
                       decoration: const InputDecoration(
-                        labelText: 'OTP Code',
-                        hintText: 'Enter 4-digit OTP',
-                        prefixIcon: Icon(Icons.lock_outlined),
+                        hintText: '0000',
                         counterText: '',
                       ),
                       validator: (String? value) {
@@ -244,8 +248,8 @@ class _OtpPageState extends State<OtpPage> {
                     SizedBox(
                       width: double.infinity,
                       child: CustomButton(
-                        label: 'Verify OTP',
-                        icon: const Icon(Icons.check_circle_outline_rounded),
+                        label: 'Verify and continue',
+                        icon: const Icon(Icons.arrow_forward_rounded),
                         isLoading: _isLoading,
                         onPressed: _isLoading ? null : _verifyOtp,
                       ),
@@ -255,30 +259,60 @@ class _OtpPageState extends State<OtpPage> {
                       Text(
                         _errorMessage!,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFFEF4444),
-                          fontWeight: FontWeight.w500,
+                          color: AppTheme.toneColor(UiTone.danger),
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 16),
-                    Center(
-                      child: _resendCountdown > 0
-                          ? Text(
-                              'Resend OTP in ${_resendCountdown}s',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppTheme.textMuted,
-                              ),
-                            )
-                          : TextButton(
-                              onPressed: _resendOtp,
-                              child: const Text('Resend OTP'),
-                            ),
-                    ),
                   ],
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            Center(
+              child: _resendCountdown > 0
+                  ? Text(
+                      'Request a new code in ${_resendCountdown}s',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  : TextButton(
+                      onPressed: _resendOtp,
+                      child: const Text('Send a new code'),
+                    ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OtpBackPill extends StatelessWidget {
+  const _OtpBackPill({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(999),
+        side: const BorderSide(color: AppTheme.border),
+      ),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(999),
+        child: const Padding(
+          padding: EdgeInsets.all(10),
+          child: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 18,
+            color: AppTheme.textPrimary,
+          ),
         ),
       ),
     );
