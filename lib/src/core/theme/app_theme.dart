@@ -3,30 +3,30 @@ import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 
 class AppTheme {
-  static const Color primary = Color(0xFF1F4E79);
-  static const Color primaryHover = Color(0xFF173C5F);
-  static const Color primarySoft = Color(0xFFEAF2F8);
-  static const Color primaryTone = Color(0xFFCFE2F2);
+  static const Color primary = Color(0xFF173B6C);
+  static const Color primaryHover = Color(0xFF0E274A);
+  static const Color primarySoft = Color(0xFFE8EEF6);
+  static const Color primaryTone = Color(0xFFC8D8EA);
 
-  static const Color secondary = Color(0xFFB9812F);
-  static const Color secondaryHover = Color(0xFF936522);
+  static const Color secondary = Color(0xFFE8B95B);
+  static const Color secondaryHover = Color(0xFFC89735);
 
-  static const Color background = Color(0xFFF6F7F9);
+  static const Color background = Color(0xFFF7F5F2);
   static const Color surface = Colors.white;
-  static const Color surfaceMuted = Color(0xFFF1F3F5);
-  static const Color surfaceElevated = Color(0xFFFCFCFD);
+  static const Color surfaceMuted = Color(0xFFF0ECE6);
+  static const Color surfaceElevated = Color(0xFFFFFCF7);
 
-  static const Color border = Color(0xFFE1E5EA);
-  static const Color borderStrong = Color(0xFFC9D1DA);
-  static const Color borderSoft = Color(0xFFEDEFF3);
+  static const Color border = Color(0xFFE5DED4);
+  static const Color borderStrong = Color(0xFFD5C7B5);
+  static const Color borderSoft = Color(0xFFF0EAE2);
 
-  static const Color textPrimary = Color(0xFF17202A);
-  static const Color textSecondary = Color(0xFF526071);
-  static const Color textMuted = Color(0xFF7B8794);
+  static const Color textPrimary = Color(0xFF121A26);
+  static const Color textSecondary = Color(0xFF596575);
+  static const Color textMuted = Color(0xFF8B928F);
 
-  static const double radiusSmall = 8;
-  static const double radiusMedium = 8;
-  static const double radiusLarge = 12;
+  static const double radiusSmall = 16;
+  static const double radiusMedium = 24;
+  static const double radiusLarge = 32;
 
   static const double space2 = 2;
   static const double space4 = 4;
@@ -171,7 +171,7 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
       filled: true,
-      fillColor: surface,
+      fillColor: const Color(0xFFFFFCF8),
       hintStyle: const TextStyle(
         color: textMuted,
         fontSize: 14,
@@ -184,25 +184,25 @@ class AppTheme {
       ),
       prefixIconColor: textMuted,
       suffixIconColor: textMuted,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(radiusMedium),
+        borderRadius: BorderRadius.circular(20),
         borderSide: const BorderSide(color: border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(radiusMedium),
+        borderRadius: BorderRadius.circular(20),
         borderSide: const BorderSide(color: border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(radiusMedium),
+        borderRadius: BorderRadius.circular(20),
         borderSide: const BorderSide(color: primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(radiusMedium),
+        borderRadius: BorderRadius.circular(20),
         borderSide: const BorderSide(color: Color(0xFFFCA5A5)),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(radiusMedium),
+        borderRadius: BorderRadius.circular(20),
         borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
       ),
     ),
@@ -294,9 +294,9 @@ class AppTheme {
 
   static Color toneColor(UiTone tone) {
     return switch (tone) {
-      UiTone.brand => const Color(0xFF1E40AF),
+      UiTone.brand => primary,
       UiTone.success => const Color(0xFF147A50),
-      UiTone.warning => const Color(0xFF9A6516),
+      UiTone.warning => const Color(0xFF9A6A12),
       UiTone.danger => const Color(0xFFB42318),
       UiTone.neutral => const Color(0xFF344054),
     };
@@ -304,9 +304,9 @@ class AppTheme {
 
   static Color toneContainer(UiTone tone) {
     return switch (tone) {
-      UiTone.brand => const Color(0xFFEAF2F8),
+      UiTone.brand => primarySoft,
       UiTone.success => const Color(0xFFE8F6EF),
-      UiTone.warning => const Color(0xFFFFF3D7),
+      UiTone.warning => const Color(0xFFFFF1CF),
       UiTone.danger => const Color(0xFFFDE8E6),
       UiTone.neutral => const Color(0xFFF2F4F7),
     };

@@ -58,16 +58,12 @@ class _OtpPageState extends State<OtpPage> {
       setState(() {
         _resendCountdown--;
       });
-      if (_resendCountdown <= 0) {
-        timer.cancel();
-      }
+      if (_resendCountdown <= 0) timer.cancel();
     });
   }
 
   Future<void> _verifyOtp() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
@@ -81,9 +77,7 @@ class _OtpPageState extends State<OtpPage> {
         vendorType: widget.authSource.vendorType,
       );
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       if (response.success) {
         final Map<String, dynamic>? data =
@@ -102,9 +96,7 @@ class _OtpPageState extends State<OtpPage> {
         });
       }
     } catch (_) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _errorMessage = 'Network error. Please check your connection.';
@@ -119,9 +111,7 @@ class _OtpPageState extends State<OtpPage> {
         widget.phoneNumber,
         vendorType: widget.authSource.vendorType,
       );
-    } catch (_) {
-      // Silently fail; user can retry again.
-    }
+    } catch (_) {}
   }
 
   @override
@@ -129,86 +119,76 @@ class _OtpPageState extends State<OtpPage> {
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFBFAF7),
+      backgroundColor: AppTheme.background,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 30),
           children: <Widget>[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _OtpBackPill(onPressed: widget.onBack),
-            ),
-            const SizedBox(height: 26),
-            Container(
-              width: 78,
-              height: 78,
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppTheme.border),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x0D17202A),
-                    blurRadius: 22,
-                    offset: Offset(0, 12),
+            Row(
+              children: <Widget>[
+                _OtpBackButton(onPressed: widget.onBack),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(17),
-                child: Image.asset(
-                  'assets/manager_logo.jpg',
-                  fit: BoxFit.cover,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Text(
+                    widget.authSource.label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Enter the code',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                color: AppTheme.textPrimary,
-                fontWeight: FontWeight.w800,
-                height: 1.08,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'We sent it to +91 ${widget.phoneNumber}. This keeps your ${widget.authSource.label.toLowerCase()} workspace protected.',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: AppTheme.textSecondary,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 44),
             Container(
+              padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
               decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(24),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
                 border: Border.all(color: AppTheme.border),
                 boxShadow: const <BoxShadow>[
                   BoxShadow(
-                    color: Color(0x0D17202A),
-                    blurRadius: 22,
-                    offset: Offset(0, 12),
+                    color: Color(0x10121A26),
+                    blurRadius: 24,
+                    offset: Offset(0, 14),
                   ),
                 ],
               ),
-              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      'Verification',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w800,
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primarySoft,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(
+                        Icons.lock_outline_rounded,
+                        color: AppTheme.primary,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 22),
+                    Text(
+                      'Enter verification code',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        height: 1.08,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Text(
                       '+91 ${widget.phoneNumber}',
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -216,23 +196,33 @@ class _OtpPageState extends State<OtpPage> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 24),
                     TextFormField(
                       controller: _otpController,
                       keyboardType: TextInputType.number,
                       maxLength: 4,
                       autofocus: true,
+                      enabled: !_isLoading,
                       inputFormatters: <TextInputFormatter>[
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall?.copyWith(
+                      style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 8,
+                        letterSpacing: 12,
+                        color: AppTheme.primary,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: '0000',
                         counterText: '',
+                        fillColor: const Color(0xFFFFFCF8),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(22),
+                          borderSide: const BorderSide(
+                            color: AppTheme.primary,
+                            width: 1.5,
+                          ),
+                        ),
                       ),
                       validator: (String? value) {
                         if (value == null || value.trim().isEmpty) {
@@ -244,12 +234,18 @@ class _OtpPageState extends State<OtpPage> {
                         return null;
                       },
                     ),
+                    const SizedBox(height: 16),
+                    _ResendRow(
+                      seconds: _resendCountdown,
+                      onResend: _resendOtp,
+                    ),
                     const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
                       child: CustomButton(
-                        label: 'Verify and continue',
+                        label: 'Verify',
                         icon: const Icon(Icons.arrow_forward_rounded),
+                        size: CustomButtonSize.lg,
                         isLoading: _isLoading,
                         onPressed: _isLoading ? null : _verifyOtp,
                       ),
@@ -260,28 +256,13 @@ class _OtpPageState extends State<OtpPage> {
                         _errorMessage!,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: AppTheme.toneColor(UiTone.danger),
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: _resendCountdown > 0
-                  ? Text(
-                      'Request a new code in ${_resendCountdown}s',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  : TextButton(
-                      onPressed: _resendOtp,
-                      child: const Text('Send a new code'),
-                    ),
             ),
           ],
         ),
@@ -290,24 +271,56 @@ class _OtpPageState extends State<OtpPage> {
   }
 }
 
-class _OtpBackPill extends StatelessWidget {
-  const _OtpBackPill({required this.onPressed});
+class _ResendRow extends StatelessWidget {
+  const _ResendRow({required this.seconds, required this.onResend});
+
+  final int seconds;
+  final VoidCallback onResend;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Text(
+            seconds > 0
+                ? 'Resend code in ${seconds}s'
+                : 'Didn\'t receive the code?',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppTheme.textMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: seconds > 0 ? null : onResend,
+          child: const Text('Resend'),
+        ),
+      ],
+    );
+  }
+}
+
+class _OtpBackButton extends StatelessWidget {
+  const _OtpBackButton({required this.onPressed});
 
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.surface,
+      color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: AppTheme.border),
       ),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(16),
         child: const Padding(
-          padding: EdgeInsets.all(10),
+          padding: EdgeInsets.all(11),
           child: Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 18,

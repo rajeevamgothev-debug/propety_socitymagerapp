@@ -416,6 +416,7 @@ class _AppShellState extends State<AppShell> {
           bills: _bills,
           vendor: _vendor,
           societyInfo: _societyInfo,
+          billCollectionSummary: _vendor?.billCollectionSummary,
           blockCount: _blockCount,
           buildingCount: _buildingCount,
           onShortcutSelected: (String actionKey) => _handleShortcut(actionKey),
@@ -454,6 +455,7 @@ class _AppShellState extends State<AppShell> {
           tickets: _tickets,
           isLoading: _isLoading,
           onRefresh: _loadData,
+          onBackHome: () => _selectTab(0),
           societyId: _societyId,
         ),
       ),
@@ -522,6 +524,7 @@ class _AppShellState extends State<AppShell> {
           bills: _bills,
           vendor: _vendor,
           societyInfo: _societyInfo,
+          billCollectionSummary: _vendor?.billCollectionSummary,
           blockCount: _blockCount,
           buildingCount: _buildingCount,
           onShortcutSelected: (String actionKey) => _handleShortcut(actionKey),
@@ -589,6 +592,7 @@ class _AppShellState extends State<AppShell> {
           bills: _bills,
           vendor: _vendor,
           societyInfo: null,
+          billCollectionSummary: _vendor?.billCollectionSummary,
           blockCount: 0,
           buildingCount: 0,
           propertyEnquiryCountOverride: _propertyEnquiryCount,
@@ -719,6 +723,10 @@ class _AppShellState extends State<AppShell> {
         tickets: _tickets,
         isLoading: _isLoading,
         onRefresh: _loadData,
+        onBackHome: () {
+          Navigator.of(context).maybePop();
+          _selectTab(0);
+        },
         societyId: _societyId,
       ),
       'communication' => CommunicationPage(

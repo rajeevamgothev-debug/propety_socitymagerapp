@@ -23,6 +23,12 @@ subprojects {
 gradle.projectsEvaluated {
     subprojects {
         tasks.withType<JavaCompile>().configureEach {
+            options.compilerArgs.addAll(
+                listOf(
+                    "-Xlint:-options",
+                )
+            )
+
             val variantName =
                 name
                     .removePrefix("compile")

@@ -45,7 +45,7 @@ class _CustomButtonState extends State<CustomButton> {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: tokens.backgroundColor,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(
               color: tokens.borderColor,
               width: tokens.borderWidth,
@@ -54,9 +54,9 @@ class _CustomButtonState extends State<CustomButton> {
                 widget.variant == CustomButtonVariant.primary && !isDisabled
                 ? const <BoxShadow>[
                     BoxShadow(
-                      color: Color(0x241F4E79),
-                      blurRadius: 14,
-                      offset: Offset(0, 8),
+                      color: Color(0x33173B6C),
+                      blurRadius: 24,
+                      offset: Offset(0, 14),
                     ),
                   ]
                 : null,
@@ -73,7 +73,7 @@ class _CustomButtonState extends State<CustomButton> {
                   _pressed = value;
                 });
               },
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              borderRadius: BorderRadius.circular(22),
               splashColor: tokens.foregroundColor.withAlpha(20),
               highlightColor: tokens.foregroundColor.withAlpha(10),
               child: ConstrainedBox(
@@ -142,7 +142,7 @@ class _CustomButtonState extends State<CustomButton> {
         borderColor: AppTheme.secondary,
       ),
       CustomButtonVariant.outline => const _ButtonStyleTokens(
-        backgroundColor: AppTheme.surface,
+        backgroundColor: Color(0xFFFFFCF8),
         foregroundColor: AppTheme.textSecondary,
         borderColor: AppTheme.border,
         borderWidth: 1.2,
@@ -168,12 +168,12 @@ class _CustomButtonState extends State<CustomButton> {
         vertical: 9,
       ),
       CustomButtonSize.md => const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 11,
+        horizontal: 18,
+        vertical: 13,
       ),
       CustomButtonSize.lg => const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 13,
+        horizontal: 22,
+        vertical: 15,
       ),
     };
   }
@@ -181,8 +181,8 @@ class _CustomButtonState extends State<CustomButton> {
   double _heightFor(CustomButtonSize value) {
     return switch (value) {
       CustomButtonSize.sm => 36,
-      CustomButtonSize.md => 40,
-      CustomButtonSize.lg => 48,
+      CustomButtonSize.md => 46,
+      CustomButtonSize.lg => 54,
     };
   }
 

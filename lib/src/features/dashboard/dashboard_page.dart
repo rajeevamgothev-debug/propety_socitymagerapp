@@ -36,6 +36,7 @@ class DashboardPage extends StatelessWidget {
     this.bills = const <BillRecord>[],
     this.vendor,
     this.societyInfo,
+    this.billCollectionSummary,
     this.blockCount = 0,
     this.buildingCount = 0,
     this.propertyEnquiryCountOverride,
@@ -52,6 +53,7 @@ class DashboardPage extends StatelessWidget {
   final ValueChanged<String> onShortcutSelected;
   final VendorData? vendor;
   final SocietyData? societyInfo;
+  final BillCollectionSummaryData? billCollectionSummary;
   final int blockCount;
   final int buildingCount;
   final int? propertyEnquiryCountOverride;
@@ -60,12 +62,10 @@ class DashboardPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     final List<TicketRecord> ticketPreview = tickets.take(2).toList();
     final List<AnnouncementRecord> announcementPreview = announcements
         .take(2)
         .toList();
-    final List<Widget> roleSections = _buildRoleSections(context);
 
     if (role == AppRole.tenant ||
         role == AppRole.owner ||
@@ -84,226 +84,17 @@ class DashboardPage extends StatelessWidget {
       return residentContent;
     }
 
-    Widget content = ListView(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 124),
-      children: <Widget>[
-        _DashboardHero(
-          role: role,
-          vendor: vendor,
-          onPrimaryAction: role == AppRole.propertyManager
-              ? () => onShortcutSelected('properties')
-              : null,
-          onSecondaryAction: role == AppRole.propertyManager
-              ? () => onShortcutSelected('rental_contracts')
-              : null,
-        ),
-        if (isLoading) ...<Widget>[
-          const SizedBox(height: 18),
-          const _DashboardSkeleton(),
-        ],
-        const SizedBox(height: 20),
-        _SectionHeader(title: 'Performance'),
-        _metricGrid(metrics),
-        if (roleSections.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 24),
-          ...roleSections,
-        ],
-        const SizedBox(height: 20),
-        _SectionHeader(title: 'Quick actions'),
-        ...shortcuts.map((AppShortcut shortcut) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: CustomCard(
-              onTap: () => onShortcutSelected(shortcut.actionKey),
-              padding: CustomCardPadding.sm,
-              child: Row(
-                children: <Widget>[
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceMuted,
-                      borderRadius: BorderRadius.circular(
-                        AppTheme.radiusMedium,
-                      ),
-                      border: Border.all(color: AppTheme.border),
-                    ),
-                    child: Icon(shortcut.icon, color: AppTheme.primary),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          shortcut.title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          shortcut.subtitle,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 16,
-                    color: AppTheme.textMuted,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
-        const SizedBox(height: 14),
-        _SectionHeader(title: 'Recent signals'),
-        ...ticketPreview.map((TicketRecord ticket) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: CustomCard(
-              padding: CustomCardPadding.sm,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          ticket.title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      ToneBadge(
-                        label: ticket.status.label,
-                        tone: ticket.status.tone,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    ticket.description,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: <Widget>[
-                      ToneBadge(
-                        label: ticket.priority.label,
-                        tone: ticket.priority.tone,
-                      ),
-                      ToneBadge(label: ticket.category, tone: UiTone.neutral),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Updated ${formatCompactDate(ticket.updatedAt)} at ${formatClock(ticket.updatedAt)}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
-        const SizedBox(height: 14),
-        _SectionHeader(title: 'Announcements'),
-        ...announcementPreview.map((AnnouncementRecord announcement) {
-          final UiTone tone = announcement.unread
-              ? UiTone.brand
-              : UiTone.neutral;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: CustomCard(
-              padding: CustomCardPadding.sm,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppTheme.toneSoft(tone),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      announcement.category.icon,
-                      color: AppTheme.toneColor(tone),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: Text(
-                                announcement.title,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            if (announcement.unread)
-                              Container(
-                                width: 10,
-                                height: 10,
-                                decoration: const BoxDecoration(
-                                  color: AppTheme.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          announcement.message,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: <Widget>[
-                            ToneBadge(
-                              label: announcement.category.label,
-                              tone: UiTone.brand,
-                              size: ToneBadgeSize.small,
-                            ),
-                            ToneBadge(
-                              label: announcement.priorityLabel,
-                              tone: UiTone.warning,
-                              size: ToneBadgeSize.small,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
-      ],
+    Widget content = _PremiumDashboardScroll(
+      role: role,
+      metrics: metrics,
+      shortcuts: shortcuts,
+      ticketPreview: ticketPreview,
+      announcementPreview: announcementPreview,
+      vendor: vendor,
+      societyInfo: societyInfo,
+      billCollectionSummary: billCollectionSummary,
+      isLoading: isLoading,
+      onShortcutSelected: onShortcutSelected,
     );
 
     if (onRefresh != null) {
@@ -1068,6 +859,7 @@ class DashboardPage extends StatelessWidget {
     };
   }
 
+  // ignore: unused_element
   List<Widget> _buildRoleSections(BuildContext context) {
     if (role.isSocietyScope) {
       return _buildSocietySections(context);
@@ -2039,6 +1831,872 @@ class DashboardPage extends StatelessWidget {
   }
 }
 
+class _PremiumDashboardScroll extends StatelessWidget {
+  const _PremiumDashboardScroll({
+    required this.role,
+    required this.metrics,
+    required this.shortcuts,
+    required this.ticketPreview,
+    required this.announcementPreview,
+    required this.vendor,
+    required this.societyInfo,
+    required this.billCollectionSummary,
+    required this.isLoading,
+    required this.onShortcutSelected,
+  });
+
+  final AppRole role;
+  final List<DashboardMetric> metrics;
+  final List<AppShortcut> shortcuts;
+  final List<TicketRecord> ticketPreview;
+  final List<AnnouncementRecord> announcementPreview;
+  final VendorData? vendor;
+  final SocietyData? societyInfo;
+  final BillCollectionSummaryData? billCollectionSummary;
+  final bool isLoading;
+  final ValueChanged<String> onShortcutSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<DashboardMetric> visibleMetrics = metrics.take(4).toList();
+    final List<AppShortcut> visibleShortcuts = shortcuts.take(6).toList();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 124),
+      children: <Widget>[
+        _PremiumHeroCard(
+          role: role,
+          vendor: vendor,
+          societyInfo: societyInfo,
+          metrics: visibleMetrics,
+          onShortcutSelected: onShortcutSelected,
+        ),
+        if (isLoading) ...<Widget>[
+          const SizedBox(height: 14),
+          const _DashboardSkeleton(),
+        ],
+        const SizedBox(height: 18),
+        _PremiumSectionHeader(
+          title: 'Overview',
+          actionLabel: role == AppRole.propertyManager ? 'Properties' : 'Society',
+          onAction: () => onShortcutSelected(
+            role == AppRole.propertyManager ? 'properties' : 'society_management',
+          ),
+        ),
+        _PremiumMetricGrid(metrics: visibleMetrics),
+        const SizedBox(height: 20),
+        _RevenueAnalyticsCard(
+          metrics: visibleMetrics,
+          summary: billCollectionSummary,
+        ),
+        const SizedBox(height: 20),
+        _PremiumSectionHeader(title: 'Quick actions'),
+        _QuickActionGrid(
+          shortcuts: visibleShortcuts,
+          onShortcutSelected: onShortcutSelected,
+        ),
+        const SizedBox(height: 20),
+        _PremiumSectionHeader(title: 'Recent activity'),
+        if (ticketPreview.isEmpty && announcementPreview.isEmpty)
+          const _EmptyActivityCard()
+        else ...<Widget>[
+          ...ticketPreview.map(
+            (TicketRecord ticket) => _ActivityTile.ticket(ticket: ticket),
+          ),
+          ...announcementPreview.map(
+            (AnnouncementRecord announcement) =>
+                _ActivityTile.announcement(announcement: announcement),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PremiumHeroCard extends StatelessWidget {
+  const _PremiumHeroCard({
+    required this.role,
+    required this.vendor,
+    required this.societyInfo,
+    required this.metrics,
+    required this.onShortcutSelected,
+  });
+
+  final AppRole role;
+  final VendorData? vendor;
+  final SocietyData? societyInfo;
+  final List<DashboardMetric> metrics;
+  final ValueChanged<String> onShortcutSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final String rawName = (vendor?.fullName ?? societyInfo?.name ?? '').trim();
+    final String title = rawName.isEmpty ? 'Premium command center' : rawName;
+    final DashboardMetric? primaryMetric =
+        metrics.isNotEmpty ? metrics.first : null;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x10121A26),
+            blurRadius: 24,
+            offset: Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: AppTheme.primarySoft,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(role.icon, color: AppTheme.primary),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceMuted,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  role.label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w900,
+              height: 1.08,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            role.homeHeadline,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppTheme.textSecondary,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: _HeroStatPill(
+                  label: primaryMetric?.title ?? 'Portfolio health',
+                  value: primaryMetric?.value ?? 'Live',
+                ),
+              ),
+              const SizedBox(width: 10),
+              _HeroIconAction(
+                icon: Icons.add_home_work_outlined,
+                onTap: () => onShortcutSelected(
+                  role == AppRole.propertyManager ? 'properties' : 'residents',
+                ),
+              ),
+              const SizedBox(width: 10),
+              _HeroIconAction(
+                icon: Icons.receipt_long_outlined,
+                onTap: () => onShortcutSelected('billing'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroStatPill extends StatelessWidget {
+  const _HeroStatPill({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 10,
+            height: 10,
+            decoration: const BoxDecoration(
+              color: AppTheme.secondary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroIconAction extends StatelessWidget {
+  const _HeroIconAction({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.primary,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumMetricGrid extends StatelessWidget {
+  const _PremiumMetricGrid({required this.metrics});
+
+  final List<DashboardMetric> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    if (metrics.isEmpty) return const SizedBox.shrink();
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: metrics.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.18,
+      ),
+      itemBuilder: (BuildContext context, int index) {
+        return _PremiumMetricCard(metric: metrics[index], index: index);
+      },
+    );
+  }
+}
+
+class _PremiumMetricCard extends StatelessWidget {
+  const _PremiumMetricCard({required this.metric, required this.index});
+
+  final DashboardMetric metric;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final Color accent = index.isEven ? AppTheme.primary : AppTheme.secondary;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x10121A26),
+            blurRadius: 24,
+            offset: Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: accent.withAlpha(22),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(Icons.auto_graph_rounded, color: accent, size: 20),
+          ),
+          const Spacer(),
+          Text(
+            metric.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              height: 1.05,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            metric.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            metric.subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppTheme.textMuted,
+              height: 1.25,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RevenueAnalyticsCard extends StatelessWidget {
+  const _RevenueAnalyticsCard({required this.metrics, required this.summary});
+
+  final List<DashboardMetric> metrics;
+  final BillCollectionSummaryData? summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final double monthCollected = summary?.currentMonthCollected ?? 0;
+    final double todayCollected = summary?.todaysCollection ?? 0;
+    final double pendingAmount = summary?.totalPendingAmount ?? 0;
+    final double overdueAmount = summary?.totalOverdueAmount ?? 0;
+    final double totalCollected = summary?.totalCollectedAmount ?? 0;
+    final double securityCollected = summary?.collectedSecurityAmount ?? 0;
+    final List<double> values = <double>[
+      totalCollected,
+      monthCollected,
+      todayCollected,
+      pendingAmount,
+      overdueAmount,
+      securityCollected,
+    ];
+    final double maxValue = values.fold<double>(
+      0,
+      (double max, double value) => value > max ? value : max,
+    );
+    final String headline = _formatCurrency(monthCollected);
+    final String supporting = todayCollected > 0
+        ? '${_formatCurrency(todayCollected)} today'
+        : '${_formatCurrency(totalCollected)} total collected';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF8),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x10121A26),
+            blurRadius: 24,
+            offset: Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Revenue analytics',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      supporting,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                headline,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: AppTheme.primary,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            height: 98,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                _ChartBar(
+                  heightFactor: _heightFactor(totalCollected, maxValue),
+                  active: totalCollected > 0,
+                ),
+                _ChartBar(
+                  heightFactor: _heightFactor(monthCollected, maxValue),
+                  active: monthCollected > 0,
+                ),
+                _ChartBar(
+                  heightFactor: _heightFactor(todayCollected, maxValue),
+                  active: todayCollected > 0,
+                ),
+                _ChartBar(
+                  heightFactor: _heightFactor(pendingAmount, maxValue),
+                ),
+                _ChartBar(
+                  heightFactor: _heightFactor(overdueAmount, maxValue),
+                ),
+                _ChartBar(
+                  heightFactor: _heightFactor(securityCollected, maxValue),
+                  active: securityCollected > 0,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _RevenueMiniStat(
+                  label: 'Pending',
+                  value: _formatCurrency(pendingAmount),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _RevenueMiniStat(
+                  label: 'Overdue',
+                  value: _formatCurrency(overdueAmount),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _heightFactor(double value, double maxValue) {
+    if (maxValue <= 0 || value <= 0) {
+      return .12;
+    }
+    final double normalized = value / maxValue;
+    return normalized.clamp(.18, 1).toDouble();
+  }
+
+  String _formatCurrency(double value) {
+    if (value >= 10000000) {
+      return 'Rs ${(value / 10000000).toStringAsFixed(2)} Cr';
+    }
+    if (value >= 100000) {
+      return 'Rs ${(value / 100000).toStringAsFixed(2)} L';
+    }
+    if (value >= 1000) {
+      return 'Rs ${(value / 1000).toStringAsFixed(1)} K';
+    }
+    return 'Rs ${value.toStringAsFixed(0)}';
+  }
+}
+
+class _RevenueMiniStat extends StatelessWidget {
+  const _RevenueMiniStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppTheme.textMuted,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChartBar extends StatelessWidget {
+  const _ChartBar({required this.heightFactor, this.active = false});
+
+  final double heightFactor;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: FractionallySizedBox(
+          heightFactor: heightFactor,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: active ? AppTheme.primary : AppTheme.primarySoft,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionGrid extends StatelessWidget {
+  const _QuickActionGrid({
+    required this.shortcuts,
+    required this.onShortcutSelected,
+  });
+
+  final List<AppShortcut> shortcuts;
+  final ValueChanged<String> onShortcutSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (shortcuts.isEmpty) return const SizedBox.shrink();
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: shortcuts.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: .9,
+      ),
+      itemBuilder: (BuildContext context, int index) {
+        final AppShortcut shortcut = shortcuts[index];
+        return _QuickActionTile(
+          shortcut: shortcut,
+          onTap: () => onShortcutSelected(shortcut.actionKey),
+        );
+      },
+    );
+  }
+}
+
+class _QuickActionTile extends StatelessWidget {
+  const _QuickActionTile({required this.shortcut, required this.onTap});
+
+  final AppShortcut shortcut;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(26),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(26),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.primarySoft,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(shortcut.icon, color: AppTheme.primary, size: 20),
+              ),
+              const Spacer(),
+              Text(
+                shortcut.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityTile extends StatelessWidget {
+  const _ActivityTile._({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.meta,
+    required this.tone,
+  });
+
+  factory _ActivityTile.ticket({required TicketRecord ticket}) {
+    return _ActivityTile._(
+      icon: Icons.support_agent_rounded,
+      title: ticket.title,
+      subtitle: ticket.description,
+      meta:
+          '${ticket.status.label} - ${formatCompactDate(ticket.updatedAt)} ${formatClock(ticket.updatedAt)}',
+      tone: ticket.status.tone,
+    );
+  }
+
+  factory _ActivityTile.announcement({
+    required AnnouncementRecord announcement,
+  }) {
+    return _ActivityTile._(
+      icon: announcement.category.icon,
+      title: announcement.title,
+      subtitle: announcement.message,
+      meta: announcement.priorityLabel,
+      tone: announcement.unread ? UiTone.brand : UiTone.neutral,
+    );
+  }
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String meta;
+  final UiTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final Color accent = AppTheme.toneColor(tone);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppTheme.toneSoft(tone),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: accent, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppTheme.textSecondary,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  meta,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyActivityCard extends StatelessWidget {
+  const _EmptyActivityCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppTheme.primarySoft,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.done_all_rounded, color: AppTheme.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'No urgent activity right now.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PremiumSectionHeader extends StatelessWidget {
+  const _PremiumSectionHeader({
+    required this.title,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          if (actionLabel != null && onAction != null)
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
+        ],
+      ),
+    );
+  }
+}
+
 class _ResidentSectionHeader extends StatelessWidget {
   const _ResidentSectionHeader({
     required this.title,
@@ -2187,11 +2845,14 @@ class _ResidentEmptyRow extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _DashboardHero extends StatelessWidget {
   const _DashboardHero({
     required this.role,
     required this.vendor,
+    // ignore: unused_element_parameter
     this.onPrimaryAction,
+    // ignore: unused_element_parameter
     this.onSecondaryAction,
   });
 

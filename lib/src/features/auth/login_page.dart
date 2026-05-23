@@ -67,7 +67,7 @@ class _LoginPageState extends State<LoginPage> {
               response.message ?? response.status ?? 'Failed to send OTP';
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -81,86 +81,63 @@ class _LoginPageState extends State<LoginPage> {
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFBFAF7),
+      backgroundColor: AppTheme.background,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 30),
           children: <Widget>[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _BackPill(onPressed: widget.onBack),
+            Row(
+              children: <Widget>[
+                _PlainIconButton(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  onPressed: widget.onBack,
+                ),
+                const Spacer(),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.asset(
+                    'assets/manager_logo.jpg',
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 26),
-            _LoginBrandHeader(authSource: widget.authSource),
-            const SizedBox(height: 30),
+            const SizedBox(height: 28),
+            _QuietPropertyHeader(authSource: widget.authSource),
+            const SizedBox(height: 28),
             Container(
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
               decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(24),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
                 border: Border.all(color: AppTheme.border),
                 boxShadow: const <BoxShadow>[
                   BoxShadow(
-                    color: Color(0x0D17202A),
-                    blurRadius: 22,
-                    offset: Offset(0, 12),
+                    color: Color(0x10121A26),
+                    blurRadius: 24,
+                    offset: Offset(0, 14),
                   ),
                 ],
               ),
-              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                'Continue with mobile',
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: AppTheme.textPrimary,
-                                  letterSpacing: 0,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Enter the number linked to your management account.',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: AppTheme.textSecondary,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: AppTheme.surfaceMuted,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppTheme.border),
-                          ),
-                          child: Icon(
-                            widget.authSource.icon,
-                            color: AppTheme.primary,
-                            size: 22,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'Welcome back',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        height: 1.08,
+                      ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 22),
                     Text(
                       'Mobile number',
                       style: theme.textTheme.labelLarge?.copyWith(
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -172,20 +149,20 @@ class _LoginPageState extends State<LoginPage> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        hintText: '10-digit mobile number',
+                        hintText: '98765 43210',
                         prefixIcon: Padding(
-                          padding: const EdgeInsets.only(left: 14, right: 10),
+                          padding: const EdgeInsets.only(left: 12, right: 8),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
                               Text(
                                 '+91',
                                 style: theme.textTheme.titleSmall?.copyWith(
-                                  color: AppTheme.textPrimary,
-                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 12),
                               Container(
                                 width: 1,
                                 height: 24,
@@ -195,7 +172,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         prefixIconConstraints: const BoxConstraints(
-                          minWidth: 70,
+                          minWidth: 72,
                         ),
                         counterText: '',
                       ),
@@ -215,8 +192,21 @@ class _LoginPageState extends State<LoginPage> {
                       child: CustomButton(
                         label: 'Continue',
                         icon: const Icon(Icons.arrow_forward_rounded),
+                        size: CustomButtonSize.lg,
                         isLoading: _isLoading,
                         onPressed: _isLoading ? null : _requestOtp,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Divider(height: 1, color: AppTheme.border),
+                    const SizedBox(height: 14),
+                    Text(
+                      'By continuing, you agree to our Privacy Policy and Terms & Conditions.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textMuted,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     if (_otpSent) ...<Widget>[
@@ -246,37 +236,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-class _BackPill extends StatelessWidget {
-  const _BackPill({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
-        side: const BorderSide(color: AppTheme.border),
-      ),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(999),
-        child: const Padding(
-          padding: EdgeInsets.all(10),
-          child: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            size: 18,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LoginBrandHeader extends StatelessWidget {
-  const _LoginBrandHeader({required this.authSource});
+class _QuietPropertyHeader extends StatelessWidget {
+  const _QuietPropertyHeader({required this.authSource});
 
   final AuthSource authSource;
 
@@ -284,72 +245,99 @@ class _LoginBrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Container(
-          width: 78,
-          height: 78,
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: AppTheme.border),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x0D17202A),
-                blurRadius: 22,
-                offset: Offset(0, 12),
-              ),
-            ],
+    return Container(
+      height: 178,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFE8DE),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: const Color(0xFFE4D9CB)),
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            right: -8,
+            bottom: -18,
+            child: Icon(
+              Icons.apartment_rounded,
+              size: 128,
+              color: AppTheme.primary.withAlpha(32),
+            ),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(17),
-            child: Image.asset('assets/manager_logo.jpg', fit: BoxFit.cover),
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Welcome back',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w800,
-            height: 1.08,
-            letterSpacing: 0,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          authSource.description,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: AppTheme.textSecondary,
-            height: 1.45,
-          ),
-        ),
-        const SizedBox(height: 18),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Icon(authSource.icon, size: 17, color: AppTheme.primary),
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(210),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Colors.white),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(authSource.icon, size: 16, color: AppTheme.primary),
+                    const SizedBox(width: 7),
+                    Text(
+                      authSource.label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
               Text(
-                authSource.label,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.w800,
+                'UrbanEasyFlats',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Property operations, simplified.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlainIconButton extends StatelessWidget {
+  const _PlainIconButton({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppTheme.border),
+      ),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(11),
+          child: Icon(icon, size: 18, color: AppTheme.textPrimary),
         ),
-      ],
+      ),
     );
   }
 }
@@ -367,8 +355,6 @@ class _InlineStatusMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -377,9 +363,9 @@ class _InlineStatusMessage extends StatelessWidget {
         Expanded(
           child: Text(
             message,
-            style: theme.textTheme.bodyMedium?.copyWith(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: color,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),

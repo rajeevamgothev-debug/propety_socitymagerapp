@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_button.dart';
-import '../../core/widgets/custom_card.dart';
-import '../../core/widgets/tone_badge.dart';
 
 class RoleSelectionPage extends StatefulWidget {
   const RoleSelectionPage({super.key, required this.onRoleSelected});
@@ -16,199 +14,273 @@ class RoleSelectionPage extends StatefulWidget {
 }
 
 class _RoleSelectionPageState extends State<RoleSelectionPage> {
-  AppRole? _selectedRole = AppRole.tenant;
+  AppRole _selectedRole = AppRole.propertyManager;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final AppRole role = _selectedRole ?? AppRole.tenant;
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 30),
           children: <Widget>[
-            CustomCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: const LinearGradient(
-                        colors: <Color>[AppTheme.primary, AppTheme.primaryHover],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.apartment_outlined,
-                      color: Colors.white,
-                    ),
+            Row(
+              children: <Widget>[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.asset(
+                    'assets/manager_logo.jpg',
+                    width: 42,
+                    height: 42,
+                    fit: BoxFit.cover,
                   ),
-                  const SizedBox(height: 18),
-                  const Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: const <Widget>[
-                      ToneBadge(label: 'Website-aligned UI', tone: UiTone.brand),
-                      ToneBadge(label: 'Mobile demo shell', tone: UiTone.neutral),
-                    ],
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'UrbanEasyFlats Mobile',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppTheme.border),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'A cleaner landing screen for reviewing the updated mobile UI. Select a role from the dropdown to preview the experience before entering the app.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                  child: Text(
+                    'Workspace',
+                    style: theme.textTheme.labelMedium?.copyWith(
                       color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
+            _BuildingPanel(selectedRole: _selectedRole),
+            const SizedBox(height: 26),
+            Text(
+              'Choose workspace',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                height: 1.08,
               ),
             ),
-            const SizedBox(height: 16),
-            CustomCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Choose a role',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'The role selector is compact now, and you can still switch roles later from the More screen.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<AppRole>(
-                    value: _selectedRole,
-                    isExpanded: true,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                    decoration: const InputDecoration(
-                      labelText: 'Role',
-                      hintText: 'Select a role',
-                    ),
-                    items: const <AppRole>[
-                      AppRole.tenant,
-                      AppRole.owner,
-                      AppRole.president,
-                    ].map((AppRole candidate) {
-                      return DropdownMenuItem<AppRole>(
-                        value: candidate,
-                        child: Row(
-                          children: <Widget>[
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: AppTheme.primarySoft,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                candidate.icon,
-                                size: 18,
-                                color: AppTheme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                candidate.label,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (AppRole? value) {
-                      setState(() {
-                        _selectedRole = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceMuted,
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primarySoft,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(role.icon, color: AppTheme.primary),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                role.label,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                role.description,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                role.homeHeadline,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: CustomButton(
-                      label: 'Continue as ${role.label}',
-                      icon: const Icon(Icons.arrow_forward_rounded),
-                      onPressed: () => widget.onRoleSelected(role),
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 8),
+            Text(
+              'Select the operating mode for this session.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _WorkspaceCard(
+              role: AppRole.propertyManager,
+              selected: _selectedRole == AppRole.propertyManager,
+              title: 'Property Management',
+              subtitle: 'Listings, enquiries, rental contracts, bills.',
+              icon: Icons.home_work_outlined,
+              onTap: () {
+                setState(() => _selectedRole = AppRole.propertyManager);
+              },
+            ),
+            const SizedBox(height: 12),
+            _WorkspaceCard(
+              role: AppRole.societyManager,
+              selected: _selectedRole == AppRole.societyManager,
+              title: 'Society Management',
+              subtitle: 'Residents, maintenance billing, notices, security.',
+              icon: Icons.apartment_outlined,
+              onTap: () {
+                setState(() => _selectedRole = AppRole.societyManager);
+              },
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                label: 'Continue',
+                icon: const Icon(Icons.arrow_forward_rounded),
+                size: CustomButtonSize.lg,
+                onPressed: () => widget.onRoleSelected(_selectedRole),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BuildingPanel extends StatelessWidget {
+  const _BuildingPanel({required this.selectedRole});
+
+  final AppRole selectedRole;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Container(
+      height: 174,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFE8DE),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: const Color(0xFFE4D9CB)),
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            right: -10,
+            bottom: -16,
+            child: Icon(
+              Icons.location_city_rounded,
+              size: 130,
+              color: AppTheme.primary.withAlpha(30),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: Icon(selectedRole.icon, color: AppTheme.primary),
+              ),
+              const Spacer(),
+              Text(
+                'UrbanEasyFlats',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                selectedRole.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppTheme.textSecondary,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkspaceCard extends StatelessWidget {
+  const _WorkspaceCard({
+    required this.role,
+    required this.selected,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final AppRole role;
+  final bool selected;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(26),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(26),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(
+              color: selected ? AppTheme.primary : AppTheme.border,
+              width: selected ? 1.4 : 1,
+            ),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x0D121A26),
+                blurRadius: 20,
+                offset: Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: selected ? AppTheme.primarySoft : AppTheme.surfaceMuted,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(icon, color: AppTheme.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: selected ? AppTheme.primary : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? AppTheme.primary : AppTheme.borderStrong,
+                  ),
+                ),
+                child: selected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        size: 17,
+                        color: Colors.white,
+                      )
+                    : null,
+              ),
+            ],
+          ),
         ),
       ),
     );

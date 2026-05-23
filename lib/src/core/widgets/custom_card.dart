@@ -23,7 +23,7 @@ class CustomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Widget content = Padding(padding: _paddingFor(padding), child: child);
-    final BorderRadius radius = BorderRadius.circular(AppTheme.radiusMedium);
+    final BorderRadius radius = BorderRadius.circular(28);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -32,9 +32,9 @@ class CustomCard extends StatelessWidget {
         border: Border.all(color: borderColor ?? AppTheme.border),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Color(0x0D17202A),
-            blurRadius: 22,
-            offset: Offset(0, 12),
+            color: Color(0x14121A26),
+            blurRadius: 28,
+            offset: Offset(0, 16),
           ),
           BoxShadow(
             color: Color(0x08FFFFFF),
@@ -53,9 +53,9 @@ class CustomCard extends StatelessWidget {
   EdgeInsets _paddingFor(CustomCardPadding value) {
     return switch (value) {
       CustomCardPadding.none => EdgeInsets.zero,
-      CustomCardPadding.sm => const EdgeInsets.all(16),
-      CustomCardPadding.md => const EdgeInsets.all(22),
-      CustomCardPadding.lg => const EdgeInsets.all(28),
+      CustomCardPadding.sm => const EdgeInsets.all(18),
+      CustomCardPadding.md => const EdgeInsets.all(24),
+      CustomCardPadding.lg => const EdgeInsets.all(30),
     };
   }
 }

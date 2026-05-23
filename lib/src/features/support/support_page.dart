@@ -16,7 +16,6 @@ import '../../core/utils/contact_launcher.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_card.dart';
 import '../../core/widgets/custom_tab_bar.dart';
-import '../../core/widgets/page_header.dart';
 import '../../core/widgets/tone_badge.dart';
 
 class SupportPage extends StatefulWidget {
@@ -26,6 +25,7 @@ class SupportPage extends StatefulWidget {
     required this.tickets,
     this.isLoading = false,
     this.onRefresh,
+    this.onBackHome,
     this.societyId = '',
   });
 
@@ -33,6 +33,7 @@ class SupportPage extends StatefulWidget {
   final List<TicketRecord> tickets;
   final bool isLoading;
   final VoidCallback? onRefresh;
+  final VoidCallback? onBackHome;
   final String societyId;
 
   @override
@@ -346,19 +347,29 @@ class _SupportPageState extends State<SupportPage> {
     final ThemeData theme = Theme.of(context);
     final bool isBusy = widget.isLoading || _isLoadingTickets;
     final List<TicketRecord> visibleTickets = _tickets;
+    final bool canCreateTicket = !_isManagementRole;
+    final VoidCallback? backAction = widget.onBackHome ??
+        (Navigator.canPop(context) ? () => Navigator.of(context).maybePop() : null);
 
     Widget content = ListView(
-      padding: AppTheme.pagePadding,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 124),
       children: <Widget>[
-        const PageHeader(
-          title: 'Support',
-          description:
-              'Live support queue with website-style search, filters, creation, and status actions.',
+        _SupportHeader(
+          role: widget.role,
+          openCount: _tickets
+              .where((TicketRecord t) => t.status == TicketStatus.open)
+              .length,
+          onBackHome: backAction,
+          onCreateTicket: canCreateTicket ? _openCreateTicketSheet : null,
         ),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 1.55,
           children: <Widget>[
             _MetricCard(
               label: 'Open',
@@ -367,7 +378,7 @@ class _SupportPageState extends State<SupportPage> {
               tone: UiTone.warning,
             ),
             _MetricCard(
-              label: 'In Progress',
+              label: 'In progress',
               value:
                   '${_tickets.where((TicketRecord t) => t.status == TicketStatus.inProgress).length}',
               tone: UiTone.brand,
@@ -379,14 +390,16 @@ class _SupportPageState extends State<SupportPage> {
               tone: UiTone.success,
             ),
             _MetricCard(
-              label: 'Critical',
+              label: 'Urgent',
               value:
                   '${_tickets.where((TicketRecord t) => t.priority == TicketPriority.urgent).length}',
               tone: UiTone.danger,
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
+        _SupportContactCard(role: widget.role),
+        const SizedBox(height: 14),
         CustomCard(
           padding: CustomCardPadding.sm,
           child: Column(
@@ -510,35 +523,6 @@ class _SupportPageState extends State<SupportPage> {
           ),
         ),
         const SizedBox(height: 20),
-        if (widget.role != AppRole.propertyManager &&
-            visibleTickets.isNotEmpty) ...<Widget>[
-          CustomCard(
-            padding: CustomCardPadding.sm,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  _isManagementRole
-                      ? 'Create and manage support tickets for the current backend queue.'
-                      : 'Raise a support issue against your linked society or property context.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: CustomButton(
-                    label: 'Create Ticket',
-                    icon: const Icon(Icons.add_rounded),
-                    onPressed: _openCreateTicketSheet,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
         if (isBusy)
           const _SupportLoadingSkeleton()
         else if (_errorMessage != null)
@@ -2024,6 +2008,189 @@ class _SkeletonPill extends StatelessWidget {
   }
 }
 
+class _SupportHeader extends StatelessWidget {
+  const _SupportHeader({
+    required this.role,
+    required this.openCount,
+    required this.onBackHome,
+    this.onCreateTicket,
+  });
+
+  final AppRole role;
+  final int openCount;
+  final VoidCallback? onBackHome;
+  final VoidCallback? onCreateTicket;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x0D121A26),
+            blurRadius: 20,
+            offset: Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              if (onBackHome != null) ...<Widget>[
+                Material(
+                  color: AppTheme.surfaceMuted,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    onTap: onBackHome,
+                    borderRadius: BorderRadius.circular(16),
+                    child: const SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 18,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Support',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        height: 1.08,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      role.label,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primarySoft,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$openCount open',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Get help, track issue status, and manage support requests from one queue.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppTheme.textSecondary,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (onCreateTicket != null) ...<Widget>[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                label: 'Create ticket',
+                icon: const Icon(Icons.add_rounded),
+                onPressed: onCreateTicket,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SupportContactCard extends StatelessWidget {
+  const _SupportContactCard({required this.role});
+
+  final AppRole role;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.primarySoft,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.support_agent_rounded,
+              color: AppTheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Priority support desk',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  role.isSocietyScope
+                      ? 'Resident and society operations support.'
+                      : 'Property and tenant operations support.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppTheme.textSecondary,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
     required this.label,
@@ -2037,23 +2204,50 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 152,
-      child: CustomCard(
-        padding: CustomCardPadding.sm,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            ToneBadge(label: label, tone: tone, size: ToneBadgeSize.small),
-            const SizedBox(height: 14),
-            Text(
-              value,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+    final Color accent = AppTheme.toneColor(tone);
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w900,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
