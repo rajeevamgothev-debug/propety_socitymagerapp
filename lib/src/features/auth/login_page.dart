@@ -5,6 +5,7 @@ import '../../core/api/auth_service.dart';
 import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_button.dart';
+import '../legal/legal_policy_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -76,6 +77,12 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void _openPolicy(BuildContext context, LegalPolicyType type) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => LegalPolicyPage(type: type)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -127,7 +134,7 @@ class _LoginPageState extends State<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Welcome back',
+                      'Login or sign up',
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w900,
                         height: 1.08,
@@ -149,7 +156,7 @@ class _LoginPageState extends State<LoginPage> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        hintText: '98765 43210',
+                        hintText: 'XXXXX XXXXX',
                         prefixIcon: Padding(
                           padding: const EdgeInsets.only(left: 12, right: 8),
                           child: Row(
@@ -200,14 +207,11 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 18),
                     const Divider(height: 1, color: AppTheme.border),
                     const SizedBox(height: 14),
-                    Text(
-                      'By continuing, you agree to our Privacy Policy and Terms & Conditions.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppTheme.textMuted,
-                        height: 1.45,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    _TermsText(
+                      onTermsTap: () =>
+                          _openPolicy(context, LegalPolicyType.terms),
+                      onPrivacyTap: () =>
+                          _openPolicy(context, LegalPolicyType.privacy),
                     ),
                     if (_otpSent) ...<Widget>[
                       const SizedBox(height: 14),
@@ -230,6 +234,85 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TermsText extends StatelessWidget {
+  const _TermsText({
+    required this.onTermsTap,
+    required this.onPrivacyTap,
+  });
+
+  final VoidCallback onTermsTap;
+  final VoidCallback onPrivacyTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: <Widget>[
+        const Text(
+          'By continuing, you agree to our ',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppTheme.textMuted,
+            fontSize: 12.5,
+            height: 1.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        _PolicyLink(text: 'Terms of Service', onTap: onTermsTap),
+        const Text(
+          ' and ',
+          style: TextStyle(
+            color: AppTheme.textMuted,
+            fontSize: 12.5,
+            height: 1.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        _PolicyLink(text: 'Privacy Policy', onTap: onPrivacyTap),
+        const Text(
+          '.',
+          style: TextStyle(
+            color: AppTheme.textMuted,
+            fontSize: 12.5,
+            height: 1.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PolicyLink extends StatelessWidget {
+  const _PolicyLink({required this.text, required this.onTap});
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 2),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: AppTheme.primary,
+            decoration: TextDecoration.underline,
+            decorationColor: AppTheme.primary,
+            fontSize: 12.5,
+            height: 1.5,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
     );

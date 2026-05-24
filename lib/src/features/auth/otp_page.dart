@@ -82,8 +82,12 @@ class _OtpPageState extends State<OtpPage> {
       if (response.success) {
         final Map<String, dynamic>? data =
             response.data as Map<String, dynamic>?;
-        final bool hasBasicInformation =
-            data?['Whether_Basic_Information_Available'] as bool? ?? true;
+        final bool hasBasicInformation = _readBackendBool(
+          data?['Whether_Basic_Information_Available'] ??
+              data?['whether_basic_information_available'] ??
+              data?['WhetherBasicInformationAvailable'],
+          fallback: false,
+        );
 
         setState(() {
           _isLoading = false;
@@ -102,6 +106,25 @@ class _OtpPageState extends State<OtpPage> {
         _errorMessage = 'Network error. Please check your connection.';
       });
     }
+  }
+
+  bool _readBackendBool(dynamic value, {required bool fallback}) {
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value != 0;
+    }
+    if (value is String) {
+      final String normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
+    }
+    return fallback;
   }
 
   Future<void> _resendOtp() async {

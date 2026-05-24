@@ -733,11 +733,15 @@ class PublicBannerData {
   factory PublicBannerData.fromJson(Map<String, dynamic> json) {
     final Map<String, dynamic>? webImage =
         json['Web_Image_Information'] as Map<String, dynamic>?;
+    final Map<String, dynamic>? mobileImage =
+        json['Mobile_Image_Information'] as Map<String, dynamic>?;
 
     return PublicBannerData(
       bannerId: json['BannerID'] as String? ?? json['_id'] as String? ?? '',
-      title: json['Title'] as String?,
-      imageUrl: webImage?['Image_Original_URL'] as String?,
+      title: json['Banner_Title'] as String? ?? json['Title'] as String?,
+      imageUrl:
+          mobileImage?['Image_Original_URL'] as String? ??
+          webImage?['Image_Original_URL'] as String?,
       navigationUrl:
           json['URL'] as String? ??
           json['Link'] as String? ??

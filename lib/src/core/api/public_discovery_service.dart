@@ -14,7 +14,7 @@ class PublicDiscoveryService {
 
   static const String _baseUrl = 'https://api.urbaneasyflats.com/user';
   static const String _filterAllProperties = '/Filter_All_Properties';
-  static const String _filterAllBanners = '/Filter_All_Banners';
+  static const String _filterAllMobileBanners = '/Filter_All_Mobile_Banners';
   static const String _filterAllCities = '/Filter_All_Cities';
   static const String _generateUserOtp = '/Generate_User_OTP';
   static const String _createPropertyEnquiry = '/Create_Property_Enquiry';
@@ -113,7 +113,7 @@ class PublicDiscoveryService {
     int limit = 10,
   }) async {
     final Map<String, dynamic> extras = await _post(
-      _filterAllBanners,
+      _filterAllMobileBanners,
       <String, dynamic>{
         'Skip': skip,
         'Limit': limit,

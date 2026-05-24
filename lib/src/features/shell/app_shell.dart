@@ -7,6 +7,7 @@ import '../../core/api/billing_service.dart';
 import '../../core/api/block_building_service.dart';
 import '../../core/api/notification_service.dart';
 import '../../core/api/property_service.dart';
+import '../../core/api/public_discovery_service.dart';
 import '../../core/api/society_service.dart';
 import '../../core/api/support_service.dart';
 import '../../core/api/vendor_service.dart';
@@ -15,6 +16,7 @@ import '../../core/models/api_models.dart';
 import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_bottom_nav_bar.dart';
+import '../../core/widgets/premium_popup_banner.dart';
 import '../billing/billing_page.dart';
 import '../block/block_issues_page.dart';
 import '../block/block_security_page.dart';
@@ -68,6 +70,7 @@ class _AppShellState extends State<AppShell> {
   int _propertyEnquiryCount = 0;
   bool _isLoading = true;
   DateTime? _lastBackPress;
+  bool _didShowStartupBanner = false;
 
   @override
   void initState() {
@@ -81,6 +84,7 @@ class _AppShellState extends State<AppShell> {
     if (oldWidget.role != widget.role) {
       _selectedIndex = 0;
       _tabHistory.clear();
+      _didShowStartupBanner = false;
       _loadData();
     }
   }
@@ -132,8 +136,43 @@ class _AppShellState extends State<AppShell> {
       setState(() {
         _isLoading = false;
       });
+      await _showStartupBannerIfNeeded();
     }
   }
+
+  Future<void> _showStartupBannerIfNeeded() async {
+    if (_didShowStartupBanner || !_supportsStartupBanner) {
+      return;
+    }
+    _didShowStartupBanner = true;
+
+    PublicBannerData? banner;
+    try {
+      final result = await PublicDiscoveryService.filterBanners(limit: 1);
+      if (result.banners.isNotEmpty) {
+        banner = result.banners.first;
+      }
+    } catch (_) {}
+
+    if (!mounted) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showPremiumPopupBanner(
+        context,
+        variant: widget.role == AppRole.societyManager
+            ? PremiumPopupBannerVariant.society
+            : PremiumPopupBannerVariant.property,
+        banner: banner,
+      );
+    });
+  }
+
+  bool get _supportsStartupBanner =>
+      widget.role == AppRole.propertyManager ||
+      widget.role == AppRole.societyManager;
 
   Future<void> _loadBills() async {
     final int? vendorType = _vendor?.vendorType ?? AuthStorage.vendorType;

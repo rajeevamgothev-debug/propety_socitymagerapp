@@ -14,10 +14,9 @@ import '../../core/widgets/page_header.dart';
 import '../../core/widgets/tone_badge.dart';
 import '../legal/contact_us_page.dart';
 import '../legal/faq_page.dart';
-import '../legal/privacy_policy_page.dart';
+import '../legal/legal_policy_page.dart';
 import '../legal/refund_policy_page.dart';
 import '../legal/shipping_page.dart';
-import '../legal/terms_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -561,12 +560,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   _LegalTile(
                     icon: Icons.privacy_tip_outlined,
                     label: 'Privacy Policy',
-                    onTap: () => _openPage(const PrivacyPolicyPage()),
+                    onTap: () => _openPage(
+                      const LegalPolicyPage(type: LegalPolicyType.privacy),
+                    ),
                   ),
                   _LegalTile(
                     icon: Icons.description_outlined,
                     label: 'Terms & Conditions',
-                    onTap: () => _openPage(const TermsPage()),
+                    onTap: () => _openPage(
+                      const LegalPolicyPage(type: LegalPolicyType.terms),
+                    ),
                   ),
                   _LegalTile(
                     icon: Icons.currency_exchange_rounded,
