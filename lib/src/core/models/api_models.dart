@@ -761,7 +761,7 @@ class PublicBannerData {
           json['Banner_URL'] as String? ??
           json['Navigation_URL'] as String? ??
           json['Redirect_URL'] as String?,
-      displayCount: _readInt(json['Display_Count']) ?? 1,
+      displayCount: _readOptionalInt(json['Display_Count']) ?? 1,
     );
   }
 
