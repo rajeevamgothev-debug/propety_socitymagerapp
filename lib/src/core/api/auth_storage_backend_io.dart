@@ -1,12 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import 'auth_storage_backend_base.dart';
 
 AuthStorageBackend createAuthStorageBackend() => _FileAuthStorageBackend();
 
 class _FileAuthStorageBackend implements AuthStorageBackend {
   static const String _fileName = 'urbaneasyflats_mobile_auth_storage.json';
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   final Map<String, Object?> _values = <String, Object?>{};
   File? _storageFile;
@@ -19,16 +22,19 @@ class _FileAuthStorageBackend implements AuthStorageBackend {
     }
 
     _isInitialized = true;
-    _storageFile = _resolveStorageFile();
-    if (_storageFile == null) {
-      return;
-    }
-
     try {
-      if (!await _storageFile!.exists()) {
+      final Map<String, String> secureValues = await _secureStorage.readAll();
+      if (secureValues.isNotEmpty) {
+        _values
+          ..clear()
+          ..addAll(secureValues);
         return;
       }
 
+      _storageFile = _resolveStorageFile();
+      if (_storageFile == null || !await _storageFile!.exists()) {
+        return;
+      }
       final String raw = await _storageFile!.readAsString();
       if (raw.trim().isEmpty) {
         return;
@@ -42,6 +48,7 @@ class _FileAuthStorageBackend implements AuthStorageBackend {
       _values
         ..clear()
         ..addAll(decoded.cast<String, Object?>());
+      await _persist();
     } catch (_) {
       _values.clear();
     }
@@ -61,6 +68,9 @@ class _FileAuthStorageBackend implements AuthStorageBackend {
     }
     if (value is num) {
       return value.toInt();
+    }
+    if (value is String) {
+      return int.tryParse(value);
     }
     return null;
   }
@@ -84,13 +94,14 @@ class _FileAuthStorageBackend implements AuthStorageBackend {
   }
 
   Future<void> _persist() async {
-    if (_storageFile == null) {
-      return;
-    }
-
     try {
-      await _storageFile!.parent.create(recursive: true);
-      await _storageFile!.writeAsString(jsonEncode(_values), flush: true);
+      await _secureStorage.deleteAll();
+      for (final MapEntry<String, Object?> entry in _values.entries) {
+        final Object? value = entry.value;
+        if (value != null) {
+          await _secureStorage.write(key: entry.key, value: value.toString());
+        }
+      }
     } catch (_) {
       // Keep the in-memory cache even if disk persistence is unavailable.
     }

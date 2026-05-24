@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/api/api_client.dart';
 import '../../core/api/auth_service.dart';
 import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
@@ -15,18 +16,22 @@ class OtpPage extends StatefulWidget {
     required this.authSource,
     required this.onBack,
     required this.onVerified,
+    this.otpAlreadySent = false,
   });
 
   final String phoneNumber;
   final AuthSource authSource;
   final VoidCallback onBack;
   final ValueChanged<bool> onVerified;
+  final bool otpAlreadySent;
 
   @override
   State<OtpPage> createState() => _OtpPageState();
 }
 
 class _OtpPageState extends State<OtpPage> {
+  static const int _otpCooldownSeconds = 60;
+
   final TextEditingController _otpController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
@@ -37,6 +42,9 @@ class _OtpPageState extends State<OtpPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.otpAlreadySent) {
+      _errorMessage = 'OTP already sent. Please use the existing OTP.';
+    }
     _startResendTimer();
   }
 
@@ -48,7 +56,7 @@ class _OtpPageState extends State<OtpPage> {
   }
 
   void _startResendTimer() {
-    _resendCountdown = 30;
+    _resendCountdown = _otpCooldownSeconds;
     _resendTimer?.cancel();
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (Timer timer) {
       if (!mounted) {
@@ -96,7 +104,7 @@ class _OtpPageState extends State<OtpPage> {
       } else {
         setState(() {
           _isLoading = false;
-          _errorMessage = response.message ?? response.status ?? 'Invalid OTP';
+          _errorMessage = _otpErrorMessage(response);
         });
       }
     } catch (_) {
@@ -128,13 +136,46 @@ class _OtpPageState extends State<OtpPage> {
   }
 
   Future<void> _resendOtp() async {
-    _startResendTimer();
+    if (_resendCountdown > 0) {
+      return;
+    }
     try {
-      await AuthService.generateOtp(
+      final response = await AuthService.generateOtp(
         widget.phoneNumber,
         vendorType: widget.authSource.vendorType,
       );
+      if (!mounted) {
+        return;
+      }
+      if (response.success) {
+        _startResendTimer();
+        setState(() {
+          _errorMessage = null;
+        });
+      } else {
+        setState(() {
+          _errorMessage =
+              response.message ??
+              response.status ??
+              'Unable to resend OTP. Please try again.';
+        });
+      }
     } catch (_) {}
+  }
+
+  String _otpErrorMessage(ApiResponse response) {
+    final String? message = response.message ?? response.status;
+    if (message == null || message.trim().isEmpty) {
+      return 'The OTP entered is incorrect. Please try again.';
+    }
+    final String normalized = message.toLowerCase();
+    if (normalized.contains('invalid') ||
+        normalized.contains('wrong') ||
+        normalized.contains('incorrect') ||
+        normalized.contains('otp')) {
+      return 'The OTP entered is incorrect. Please try again.';
+    }
+    return message;
   }
 
   @override
@@ -309,7 +350,7 @@ class _ResendRow extends StatelessWidget {
         Expanded(
           child: Text(
             seconds > 0
-                ? 'Resend code in ${seconds}s'
+                ? 'You can request a new OTP in ${seconds}s.'
                 : 'Didn\'t receive the code?',
             style: theme.textTheme.bodySmall?.copyWith(
               color: AppTheme.textMuted,

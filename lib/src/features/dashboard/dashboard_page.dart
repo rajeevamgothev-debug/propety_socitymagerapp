@@ -5,6 +5,7 @@ import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_card.dart';
+import '../../core/widgets/mobile_banner_carousel.dart';
 import '../../core/widgets/tone_badge.dart';
 
 class DashboardPage extends StatelessWidget {
@@ -105,6 +106,16 @@ class DashboardPage extends StatelessWidget {
     }
 
     return content;
+  }
+
+  String get _mobileBannerAudience {
+    if (role == AppRole.societyManager) {
+      return 'society_manager';
+    }
+    if (role == AppRole.propertyManager) {
+      return 'property_manager';
+    }
+    return 'tenant';
   }
 
   Widget _buildResidentDashboard(
@@ -225,6 +236,8 @@ class DashboardPage extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        MobileBannerCarousel(audience: _mobileBannerAudience),
         const SizedBox(height: 18),
 
         // ── Bill status banner ───────────────────────────────────
@@ -1871,6 +1884,8 @@ class _PremiumDashboardScroll extends StatelessWidget {
           metrics: visibleMetrics,
           onShortcutSelected: onShortcutSelected,
         ),
+        const SizedBox(height: 18),
+        MobileBannerCarousel(audience: _mobileBannerAudience),
         if (isLoading) ...<Widget>[
           const SizedBox(height: 14),
           const _DashboardSkeleton(),
@@ -1910,6 +1925,16 @@ class _PremiumDashboardScroll extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  String get _mobileBannerAudience {
+    if (role == AppRole.societyManager) {
+      return 'society_manager';
+    }
+    if (role == AppRole.propertyManager) {
+      return 'property_manager';
+    }
+    return 'tenant';
   }
 }
 

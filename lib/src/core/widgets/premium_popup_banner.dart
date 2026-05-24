@@ -111,7 +111,7 @@ class PremiumPopupBanner extends StatelessWidget {
                               foregroundColor: Colors.white,
                             ),
                             tooltip: 'Close',
-                            onPressed: () => _openLink(context),
+                            onPressed: () => Navigator.of(context).pop(),
                             icon: const Icon(Icons.close_rounded),
                           ),
                         ),
@@ -139,48 +139,53 @@ class PremiumPopupBanner extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        Text(
-                          copy.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            height: 1.02,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          copy.subtitle,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.84),
-                            fontSize: 15,
-                            height: 1.35,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF111418),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.arrow_forward_rounded),
-                            label: Text(
-                              copy.action,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                              ),
+                        if (copy.title.isNotEmpty)
+                          Text(
+                            copy.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 30,
+                              height: 1.02,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0,
                             ),
                           ),
-                        ),
+                        if (copy.subtitle.isNotEmpty) ...<Widget>[
+                          if (copy.title.isNotEmpty) const SizedBox(height: 8),
+                          Text(
+                            copy.subtitle,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.84),
+                              fontSize: 15,
+                              height: 1.35,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                        if (copy.showAction) ...<Widget>[
+                          const SizedBox(height: 22),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF111418),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              onPressed: () => _openLink(context),
+                              icon: const Icon(Icons.arrow_forward_rounded),
+                              label: Text(
+                                copy.action,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -200,30 +205,28 @@ class PremiumPopupBanner extends StatelessWidget {
     final String apiTitle = banner?.title?.trim() ?? '';
     final String apiSubtitle = banner?.subtitle?.trim() ?? '';
     final String apiButtonText = banner?.buttonText?.trim() ?? '';
+    final String apiUrl = banner?.navigationUrl?.trim() ?? '';
     if (variant == PremiumPopupBannerVariant.society) {
       return _BannerCopy(
         badge: 'Society Management',
-        title: apiTitle.isEmpty ? 'Resident services, simplified' : apiTitle,
-        subtitle: apiSubtitle.isEmpty
-            ? 'Manage notices, dues, support, and security from one place.'
-            : apiSubtitle,
-        action: apiButtonText.isEmpty ? 'Open dashboard' : apiButtonText,
+        title: apiTitle,
+        subtitle: apiSubtitle,
+        action: apiButtonText,
+        showAction: apiButtonText.isNotEmpty && apiUrl.isNotEmpty,
       );
     }
     return _BannerCopy(
       badge: 'Property Management',
-      title: apiTitle.isEmpty ? 'Mega Sale' : apiTitle,
-      subtitle: apiSubtitle.isEmpty
-          ? 'Up to 50% OFF on featured rental and service offers.'
-          : apiSubtitle,
-      action: apiButtonText.isEmpty ? 'Shop Now' : apiButtonText,
+      title: apiTitle,
+      subtitle: apiSubtitle,
+      action: apiButtonText,
+      showAction: apiButtonText.isNotEmpty && apiUrl.isNotEmpty,
     );
   }
 
   Future<void> _openLink(BuildContext context) async {
     final String rawUrl = banner?.navigationUrl?.trim() ?? '';
     if (rawUrl.isEmpty) {
-      Navigator.of(context).pop();
       return;
     }
     final Uri uri = Uri.parse(
@@ -283,10 +286,12 @@ class _BannerCopy {
     required this.title,
     required this.subtitle,
     required this.action,
+    required this.showAction,
   });
 
   final String badge;
   final String title;
   final String subtitle;
   final String action;
+  final bool showAction;
 }

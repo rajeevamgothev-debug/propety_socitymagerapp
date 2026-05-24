@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
-import 'api_client.dart' show ApiResponse;
+import 'api_client.dart' show ApiClient, ApiResponse, AuthServiceTimeouts;
 import 'api_config.dart';
 import 'auth_storage.dart';
 
@@ -107,10 +108,7 @@ String? _readUploadedImageUrl(dynamic value, {int depth = 0}) {
       if (raw is String && !_looksLikeUploadedImageStringKey(key)) {
         continue;
       }
-      final String? url = _readUploadedImageUrl(
-        raw,
-        depth: depth + 1,
-      );
+      final String? url = _readUploadedImageUrl(raw, depth: depth + 1);
       if (url != null) {
         return url;
       }
@@ -138,6 +136,8 @@ String? _readUploadedImageUrl(dynamic value, {int depth = 0}) {
 
 class UploadService {
   UploadService._();
+
+  static const Duration _uploadTimeout = Duration(seconds: 30);
 
   static MediaType? _mediaTypeFromPath(String path) {
     final String ext = path.split('.').last.toLowerCase();
@@ -168,33 +168,45 @@ class UploadService {
     request.fields.addAll(fields);
 
     final MediaType? contentType = _mediaTypeFromPath(file.path);
-    final http.MultipartFile multipartFile =
-        await http.MultipartFile.fromPath(
+    if (contentType == null) {
+      throw Exception('Unsupported file type.');
+    }
+    final http.MultipartFile multipartFile = await http.MultipartFile.fromPath(
       fileField,
       file.path,
       contentType: contentType,
     );
     request.files.add(multipartFile);
 
-    debugPrint(
-      '[Upload] POST $url (file=${file.path}, size=${multipartFile.length} bytes, contentType=$contentType)',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[Upload] POST $url (file=${file.path}, size=${multipartFile.length} bytes, contentType=$contentType)',
+      );
+    }
 
-    final http.StreamedResponse streamedResponse = await request.send();
-    final String responseBody =
-        await streamedResponse.stream.bytesToString();
+    final http.StreamedResponse streamedResponse;
+    try {
+      streamedResponse = await request.send().timeout(_uploadTimeout);
+    } on SocketException {
+      throw Exception(ApiClient.offlineMessage);
+    } on TimeoutException {
+      throw Exception(ApiClient.offlineMessage);
+    } on http.ClientException {
+      throw Exception(ApiClient.offlineMessage);
+    }
+    final String responseBody = await streamedResponse.stream.bytesToString();
 
-    debugPrint(
-      '[Upload] status=${streamedResponse.statusCode} body=$responseBody',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[Upload] status=${streamedResponse.statusCode} body=$responseBody',
+      );
+    }
 
     final Map<String, dynamic> json;
     try {
       json = jsonDecode(responseBody) as Map<String, dynamic>;
     } on FormatException {
-      throw Exception(
-        'Upload failed (status ${streamedResponse.statusCode}).',
-      );
+      throw Exception('Upload failed (status ${streamedResponse.statusCode}).');
     }
 
     final bool success = json['success'] as bool? ?? false;
@@ -242,19 +254,15 @@ class UploadService {
   }
 
   static Future<ApiResponse> removeImage(String imageId) async {
-    return _postToUploadBase(
-      ApiConfig.removeImage,
-      <String, dynamic>{'ImageID': imageId},
-    );
+    return _postToUploadBase(ApiConfig.removeImage, <String, dynamic>{
+      'ImageID': imageId,
+    });
   }
 
-  static Future<String?> uploadVideo(
-    File file, {
-    String? imageId,
-  }) async {
+  static Future<String?> uploadVideo(File file, {String? imageId}) async {
     final Map<String, String> fields = <String, String>{
-      'Whether_Image_Available':
-          (imageId != null && imageId.trim().isNotEmpty).toString(),
+      'Whether_Image_Available': (imageId != null && imageId.trim().isNotEmpty)
+          .toString(),
       if (imageId != null && imageId.trim().isNotEmpty)
         'ImageID': imageId.trim(),
     };
@@ -274,21 +282,16 @@ class UploadService {
     );
 
     if (response.success && response.data != null) {
-      final Map<String, dynamic> data =
-          response.data as Map<String, dynamic>;
-      return _readString(
-        data,
-        <String>['Video_Original_URL', 'Video_URL'],
-      );
+      final Map<String, dynamic> data = response.data as Map<String, dynamic>;
+      return _readString(data, <String>['Video_Original_URL', 'Video_URL']);
     }
     return null;
   }
 
   static Future<ApiResponse> removeVideo(String videoId) async {
-    return _postToUploadBase(
-      ApiConfig.removeVideo,
-      <String, dynamic>{'VideoID': videoId},
-    );
+    return _postToUploadBase(ApiConfig.removeVideo, <String, dynamic>{
+      'VideoID': videoId,
+    });
   }
 
   static Future<String?> uploadAudio(File file) async {
@@ -307,18 +310,16 @@ class UploadService {
     );
 
     if (response.success && response.data != null) {
-      final Map<String, dynamic> data =
-          response.data as Map<String, dynamic>;
+      final Map<String, dynamic> data = response.data as Map<String, dynamic>;
       return _readString(data, <String>['Audio_URL']);
     }
     return null;
   }
 
   static Future<ApiResponse> removeAudio(String audioId) async {
-    return _postToUploadBase(
-      ApiConfig.removeAudio,
-      <String, dynamic>{'AudioID': audioId},
-    );
+    return _postToUploadBase(ApiConfig.removeAudio, <String, dynamic>{
+      'AudioID': audioId,
+    });
   }
 
   static Future<String?> uploadDocument(File file) async {
@@ -337,18 +338,16 @@ class UploadService {
     );
 
     if (response.success && response.data != null) {
-      final Map<String, dynamic> data =
-          response.data as Map<String, dynamic>;
+      final Map<String, dynamic> data = response.data as Map<String, dynamic>;
       return data['Document_URL'] as String?;
     }
     return null;
   }
 
   static Future<ApiResponse> removeDocument(String documentId) async {
-    return _postToUploadBase(
-      ApiConfig.removeDocument,
-      <String, dynamic>{'DocumentID': documentId},
-    );
+    return _postToUploadBase(ApiConfig.removeDocument, <String, dynamic>{
+      'DocumentID': documentId,
+    });
   }
 
   static Future<ApiResponse> _postToUploadBase(
@@ -372,27 +371,32 @@ class UploadService {
     }
 
     final Uri url = Uri.parse('${ApiConfig.uploadBaseUrl}$endpoint');
-    final http.Response response = await http.post(
-      url,
-      headers: <String, String>{
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(requestBody),
-    );
+    final http.Response response;
+    try {
+      response = await http
+          .post(
+            url,
+            headers: <String, String>{'Content-Type': 'application/json'},
+            body: jsonEncode(requestBody),
+          )
+          .timeout(AuthServiceTimeouts.network);
+    } on SocketException {
+      throw Exception(ApiClient.offlineMessage);
+    } on TimeoutException {
+      throw Exception(ApiClient.offlineMessage);
+    } on http.ClientException {
+      throw Exception(ApiClient.offlineMessage);
+    }
 
     final Map<String, dynamic> json =
         jsonDecode(response.body) as Map<String, dynamic>;
     return ApiResponse(
       success: json['success'] as bool? ?? false,
-      extras: (json['extras'] as Map<String, dynamic>?) ??
-          <String, dynamic>{},
+      extras: (json['extras'] as Map<String, dynamic>?) ?? <String, dynamic>{},
     );
   }
 
-  static String? _readString(
-    Map<String, dynamic>? data,
-    List<String> keys,
-  ) {
+  static String? _readString(Map<String, dynamic>? data, List<String> keys) {
     if (data == null) {
       return null;
     }

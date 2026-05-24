@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -7,10 +8,7 @@ import 'api_config.dart';
 import 'auth_storage.dart';
 
 class ApiResponse {
-  const ApiResponse({
-    required this.success,
-    required this.extras,
-  });
+  const ApiResponse({required this.success, required this.extras});
 
   final bool success;
   final Map<String, dynamic> extras;
@@ -27,20 +25,22 @@ typedef LogoutCallback = void Function();
 class ApiClient {
   ApiClient._();
 
+  static const String offlineMessage =
+      "hey! Looks like your internet isnt connected.";
+
   static final ApiClient instance = ApiClient._();
 
   LogoutCallback? onSessionExpired;
 
   bool _isRefreshing = false;
-  final List<Completer<ApiResponse>> _pendingRequests = <Completer<ApiResponse>>[];
+  final List<Completer<ApiResponse>> _pendingRequests =
+      <Completer<ApiResponse>>[];
 
   Future<ApiResponse> post(
     String endpoint, [
     Map<String, dynamic>? body,
   ]) async {
-    final Map<String, dynamic> requestBody = <String, dynamic>{
-      ...?body,
-    };
+    final Map<String, dynamic> requestBody = <String, dynamic>{...?body};
 
     // Auto-inject credentials
     final String? apiKey = AuthStorage.apiKey;
@@ -52,10 +52,7 @@ class ApiClient {
       onSessionExpired?.call();
       return const ApiResponse(
         success: false,
-        extras: <String, dynamic>{
-          'code': 1,
-          'msg': 'Session Expired',
-        },
+        extras: <String, dynamic>{'code': 1, 'msg': 'Session Expired'},
       );
     }
 
@@ -71,19 +68,26 @@ class ApiClient {
 
     final Uri url = Uri.parse('${ApiConfig.baseUrl}$endpoint');
 
-    final http.Response response = await http.post(
-      url,
-      headers: <String, String>{
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(requestBody),
-    );
+    final http.Response response;
+    try {
+      response = await http
+          .post(
+            url,
+            headers: <String, String>{'Content-Type': 'application/json'},
+            body: jsonEncode(requestBody),
+          )
+          .timeout(AuthServiceTimeouts.network);
+    } on SocketException {
+      throw Exception(offlineMessage);
+    } on TimeoutException {
+      throw Exception(offlineMessage);
+    } on http.ClientException {
+      throw Exception(offlineMessage);
+    }
 
-    final Map<String, dynamic> json =
-        jsonDecode(response.body) as Map<String, dynamic>;
+    final Map<String, dynamic> json = _decodeResponse(response);
     final bool success = json['success'] as bool? ?? false;
-    final Map<String, dynamic> extras =
-        (json['extras'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final Map<String, dynamic> extras = _extractExtras(json);
 
     final ApiResponse apiResponse = ApiResponse(
       success: success,
@@ -126,18 +130,18 @@ class ApiClient {
 
     try {
       // Step 1: Generate new DeviceID
-      final Uri deviceUrl =
-          Uri.parse('${ApiConfig.baseUrl}${ApiConfig.generateDeviceId}');
-      final http.Response deviceResponse = await http.post(
-        deviceUrl,
-        headers: <String, String>{'Content-Type': 'application/json'},
-        body: jsonEncode(<String, dynamic>{}),
+      final Uri deviceUrl = Uri.parse(
+        '${ApiConfig.baseUrl}${ApiConfig.generateDeviceId}',
       );
-      final Map<String, dynamic> deviceJson =
-          jsonDecode(deviceResponse.body) as Map<String, dynamic>;
-      final Map<String, dynamic> deviceExtras =
-          (deviceJson['extras'] as Map<String, dynamic>?) ??
-              <String, dynamic>{};
+      final http.Response deviceResponse = await http
+          .post(
+            deviceUrl,
+            headers: <String, String>{'Content-Type': 'application/json'},
+            body: jsonEncode(<String, dynamic>{}),
+          )
+          .timeout(AuthServiceTimeouts.network);
+      final Map<String, dynamic> deviceJson = _decodeResponse(deviceResponse);
+      final Map<String, dynamic> deviceExtras = _extractExtras(deviceJson);
       final String? newDeviceId = deviceExtras['DeviceID'] as String?;
 
       if (newDeviceId != null) {
@@ -145,23 +149,23 @@ class ApiClient {
       }
 
       // Step 2: Get new ApiKey via Splash
-      final Uri splashUrl =
-          Uri.parse('${ApiConfig.baseUrl}${ApiConfig.splashScreen}');
-      final http.Response splashResponse = await http.post(
-        splashUrl,
-        headers: <String, String>{'Content-Type': 'application/json'},
-        body: jsonEncode(<String, dynamic>{
-          'DeviceID': newDeviceId ?? AuthStorage.deviceId,
-          'DeviceType': 3,
-          'DeviceName': 'Mobile-Client',
-          'AppVersion': 1,
-        }),
+      final Uri splashUrl = Uri.parse(
+        '${ApiConfig.baseUrl}${ApiConfig.splashScreen}',
       );
-      final Map<String, dynamic> splashJson =
-          jsonDecode(splashResponse.body) as Map<String, dynamic>;
-      final Map<String, dynamic> splashExtras =
-          (splashJson['extras'] as Map<String, dynamic>?) ??
-              <String, dynamic>{};
+      final http.Response splashResponse = await http
+          .post(
+            splashUrl,
+            headers: <String, String>{'Content-Type': 'application/json'},
+            body: jsonEncode(<String, dynamic>{
+              'DeviceID': newDeviceId ?? AuthStorage.deviceId,
+              'DeviceType': 3,
+              'DeviceName': 'Mobile-Client',
+              'AppVersion': 1,
+            }),
+          )
+          .timeout(AuthServiceTimeouts.network);
+      final Map<String, dynamic> splashJson = _decodeResponse(splashResponse);
+      final Map<String, dynamic> splashExtras = _extractExtras(splashJson);
       final Map<String, dynamic>? splashData =
           splashExtras['Data'] as Map<String, dynamic>?;
       final String? newApiKey = splashData?['ApiKey'] as String?;
@@ -183,6 +187,30 @@ class ApiClient {
       _pendingRequests.clear();
 
       return retryResponse;
+    } on SocketException {
+      final Exception error = Exception(offlineMessage);
+      _isRefreshing = false;
+      for (final Completer<ApiResponse> completer in _pendingRequests) {
+        completer.completeError(error);
+      }
+      _pendingRequests.clear();
+      throw error;
+    } on TimeoutException {
+      final Exception error = Exception(offlineMessage);
+      _isRefreshing = false;
+      for (final Completer<ApiResponse> completer in _pendingRequests) {
+        completer.completeError(error);
+      }
+      _pendingRequests.clear();
+      throw error;
+    } on http.ClientException {
+      final Exception error = Exception(offlineMessage);
+      _isRefreshing = false;
+      for (final Completer<ApiResponse> completer in _pendingRequests) {
+        completer.completeError(error);
+      }
+      _pendingRequests.clear();
+      throw error;
     } catch (e) {
       _isRefreshing = false;
       for (final Completer<ApiResponse> completer in _pendingRequests) {
@@ -208,4 +236,42 @@ class ApiClient {
 
     return !publicEndpoints.contains(endpoint);
   }
+
+  Map<String, dynamic> _decodeResponse(http.Response response) {
+    final String contentType = response.headers['content-type'] ?? '';
+    final String body = response.body.trimLeft();
+    final bool looksJson = body.startsWith('{') || body.startsWith('[');
+
+    if (!contentType.toLowerCase().contains('json') && !looksJson) {
+      throw Exception('Unable to load data. Please try again later.');
+    }
+
+    try {
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } on FormatException {
+      throw Exception('Unable to load data. Please try again later.');
+    }
+
+    throw Exception('Unable to load data. Please try again later.');
+  }
+
+  Map<String, dynamic> _extractExtras(Map<String, dynamic> json) {
+    final Map<String, dynamic> extras = Map<String, dynamic>.from(
+      (json['extras'] as Map<String, dynamic>?) ?? <String, dynamic>{},
+    );
+    final dynamic topLevelMessage = json['message'];
+    if (!extras.containsKey('msg') && topLevelMessage is String) {
+      extras['msg'] = topLevelMessage;
+    }
+    return extras;
+  }
+}
+
+class AuthServiceTimeouts {
+  AuthServiceTimeouts._();
+
+  static const Duration network = Duration(seconds: 12);
 }

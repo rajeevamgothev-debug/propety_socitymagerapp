@@ -741,15 +741,19 @@ class PublicBannerData {
 
     return PublicBannerData(
       bannerId:
+          json['Mobile_BannerID'] as String? ??
           json['Popup_BannerID'] as String? ??
           json['BannerID'] as String? ??
           json['_id'] as String? ??
           '',
       title:
+          json['Mobile_Banner_Title'] as String? ??
           json['Popup_Banner_Title'] as String? ??
           json['Banner_Title'] as String? ??
           json['Title'] as String?,
-      subtitle: json['Popup_Banner_Subtitle'] as String?,
+      subtitle:
+          json['Mobile_Banner_Subtitle'] as String? ??
+          json['Popup_Banner_Subtitle'] as String?,
       buttonText: json['Button_Text'] as String?,
       imageUrl:
           mobileImage?['Image_Original_URL'] as String? ??

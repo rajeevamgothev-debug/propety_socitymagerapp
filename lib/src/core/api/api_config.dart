@@ -180,6 +180,7 @@ class ApiConfig {
   static const String fetchAppCommonSettings = '/Fetch_App_Common_Settings';
   static const String filterAllStates = '/Filter_All_States';
   static const String filterAllCities = '/Filter_All_Cities';
+  static const String userFilterAllMobileBanners = '/Filter_All_Mobile_Banners';
 
   // Upload (separate base URL)
   static const String uploadBaseUrl = 'https://api.urbaneasyflats.com/upload';

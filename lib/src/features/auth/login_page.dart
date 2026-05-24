@@ -7,6 +7,11 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_button.dart';
 import '../legal/legal_policy_page.dart';
 
+typedef OtpRequestedCallback = void Function(
+  String phone, {
+  bool otpAlreadySent,
+});
+
 class LoginPage extends StatefulWidget {
   const LoginPage({
     super.key,
@@ -16,7 +21,7 @@ class LoginPage extends StatefulWidget {
   });
 
   final AuthSource authSource;
-  final ValueChanged<String> onOtpRequested;
+  final OtpRequestedCallback onOtpRequested;
   final VoidCallback onBack;
 
   @override
@@ -62,10 +67,24 @@ class _LoginPageState extends State<LoginPage> {
         });
         widget.onOtpRequested(_phoneController.text.trim());
       } else {
+        final String message =
+            response.message ??
+            response.status ??
+            'Unable to send OTP. Please try again.';
+        if (_isOtpCooldownMessage(message)) {
+          setState(() {
+            _isLoading = false;
+            _otpSent = true;
+          });
+          widget.onOtpRequested(
+            _phoneController.text.trim(),
+            otpAlreadySent: true,
+          );
+          return;
+        }
         setState(() {
           _isLoading = false;
-          _errorMessage =
-              response.message ?? response.status ?? 'Failed to send OTP';
+          _errorMessage = message;
         });
       }
     } catch (_) {
@@ -75,6 +94,13 @@ class _LoginPageState extends State<LoginPage> {
         _errorMessage = 'Network error. Please check your connection.';
       });
     }
+  }
+
+  bool _isOtpCooldownMessage(String message) {
+    final String normalized = message.toLowerCase();
+    return normalized.contains('please wait') &&
+        normalized.contains('request') &&
+        normalized.contains('otp');
   }
 
   void _openPolicy(BuildContext context, LegalPolicyType type) {

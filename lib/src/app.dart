@@ -42,6 +42,7 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
   String? _accountBlockReason;
   bool _needsProfileSetup = false;
   String? _phoneNumber;
+  bool _otpAlreadySent = false;
   AuthSource? _authSource;
   AppRole _currentRole = AppRole.tenant;
   bool _hasScheduledUpdateCheck = false;
@@ -210,6 +211,7 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
     setState(() {
       _authSource = source;
       _phoneNumber = null;
+      _otpAlreadySent = false;
       _needsProfileSetup = false;
     });
   }
@@ -218,6 +220,7 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
     setState(() {
       _authSource = null;
       _phoneNumber = null;
+      _otpAlreadySent = false;
       _needsProfileSetup = false;
     });
   }
@@ -227,9 +230,10 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
     _backToLanding();
   }
 
-  void _onOtpRequested(String phone) {
+  void _onOtpRequested(String phone, {bool otpAlreadySent = false}) {
     setState(() {
       _phoneNumber = phone;
+      _otpAlreadySent = otpAlreadySent;
     });
   }
 
@@ -286,6 +290,7 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
       _isAccountBlocked = false;
       _accountBlockReason = null;
       _phoneNumber = null;
+      _otpAlreadySent = false;
       _authSource = null;
       _needsProfileSetup = false;
       _currentRole = AppRole.tenant;
@@ -344,9 +349,11 @@ class _UrbanEasyFlatsAppState extends State<UrbanEasyFlatsApp>
     return OtpPage(
       phoneNumber: _phoneNumber!,
       authSource: _authSource!,
+      otpAlreadySent: _otpAlreadySent,
       onBack: () {
         setState(() {
           _phoneNumber = null;
+          _otpAlreadySent = false;
         });
       },
       onVerified: (bool needsProfile) {

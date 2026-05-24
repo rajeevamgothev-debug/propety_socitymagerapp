@@ -15,6 +15,7 @@ class PublicDiscoveryService {
   static const String _baseUrl = 'https://api.urbaneasyflats.com/user';
   static const String _filterAllProperties = '/Filter_All_Properties';
   static const String _filterAllPopupBanners = '/Filter_All_Popup_Banners';
+  static const String _filterAllMobileBanners = '/Filter_All_Mobile_Banners';
   static const String _filterAllCities = '/Filter_All_Cities';
   static const String _generateUserOtp = '/Generate_User_OTP';
   static const String _createPropertyEnquiry = '/Create_Property_Enquiry';
@@ -131,6 +132,41 @@ class PublicDiscoveryService {
               PublicBannerData.fromJson(item as Map<String, dynamic>),
         )
         .where((PublicBannerData item) => (item.imageUrl ?? '').trim().isNotEmpty)
+        .toList();
+
+    return (
+      banners: banners,
+      count: extras['Count'] as int? ?? banners.length,
+    );
+  }
+
+  static Future<({List<PublicBannerData> banners, int count})>
+  filterMobileBanners({
+    int skip = 0,
+    int limit = 10,
+    String audience = 'property_manager',
+  }) async {
+    final Map<String, dynamic> extras = await _post(
+      _filterAllMobileBanners,
+      <String, dynamic>{
+        'Skip': skip,
+        'Limit': limit,
+        'Whether_Mobile_Banner_Audience_Filter': true,
+        'Mobile_Banner_Audience': audience,
+      },
+      includeApiKey: true,
+    );
+
+    final List<dynamic> dataList =
+        extras['Data'] as List<dynamic>? ?? <dynamic>[];
+    final List<PublicBannerData> banners = dataList
+        .map(
+          (dynamic item) =>
+              PublicBannerData.fromJson(item as Map<String, dynamic>),
+        )
+        .where(
+          (PublicBannerData item) => (item.imageUrl ?? '').trim().isNotEmpty,
+        )
         .toList();
 
     return (
