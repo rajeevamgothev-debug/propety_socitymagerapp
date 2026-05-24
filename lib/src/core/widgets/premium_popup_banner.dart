@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/api_models.dart';
 
@@ -110,7 +111,7 @@ class PremiumPopupBanner extends StatelessWidget {
                               foregroundColor: Colors.white,
                             ),
                             tooltip: 'Close',
-                            onPressed: () => Navigator.of(context).pop(),
+                            onPressed: () => _openLink(context),
                             icon: const Icon(Icons.close_rounded),
                           ),
                         ),
@@ -197,20 +198,41 @@ class PremiumPopupBanner extends StatelessWidget {
     PublicBannerData? banner,
   ) {
     final String apiTitle = banner?.title?.trim() ?? '';
+    final String apiSubtitle = banner?.subtitle?.trim() ?? '';
+    final String apiButtonText = banner?.buttonText?.trim() ?? '';
     if (variant == PremiumPopupBannerVariant.society) {
       return _BannerCopy(
         badge: 'Society Management',
         title: apiTitle.isEmpty ? 'Resident services, simplified' : apiTitle,
-        subtitle: 'Manage notices, dues, support, and security from one place.',
-        action: 'Open dashboard',
+        subtitle: apiSubtitle.isEmpty
+            ? 'Manage notices, dues, support, and security from one place.'
+            : apiSubtitle,
+        action: apiButtonText.isEmpty ? 'Open dashboard' : apiButtonText,
       );
     }
     return _BannerCopy(
       badge: 'Property Management',
       title: apiTitle.isEmpty ? 'Mega Sale' : apiTitle,
-      subtitle: 'Up to 50% OFF on featured rental and service offers.',
-      action: 'Shop Now',
+      subtitle: apiSubtitle.isEmpty
+          ? 'Up to 50% OFF on featured rental and service offers.'
+          : apiSubtitle,
+      action: apiButtonText.isEmpty ? 'Shop Now' : apiButtonText,
     );
+  }
+
+  Future<void> _openLink(BuildContext context) async {
+    final String rawUrl = banner?.navigationUrl?.trim() ?? '';
+    if (rawUrl.isEmpty) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final Uri uri = Uri.parse(
+      rawUrl.startsWith('http') ? rawUrl : 'https://$rawUrl',
+    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
   }
 }
 

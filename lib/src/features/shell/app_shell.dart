@@ -148,11 +148,29 @@ class _AppShellState extends State<AppShell> {
 
     PublicBannerData? banner;
     try {
-      final result = await PublicDiscoveryService.filterBanners(limit: 1);
+      final result = await PublicDiscoveryService.filterBanners(
+        limit: 1,
+        audience: widget.role == AppRole.societyManager
+            ? 'society_manager'
+            : 'property_manager',
+      );
       if (result.banners.isNotEmpty) {
         banner = result.banners.first;
       }
     } catch (_) {}
+
+    if (banner == null || banner.bannerId.isEmpty) {
+      return;
+    }
+    final int shownCount = AuthStorage.popupBannerShownCount(banner.bannerId);
+    final int displayCount = banner.displayCount < 1 ? 1 : banner.displayCount;
+    if (shownCount >= displayCount) {
+      return;
+    }
+    await AuthStorage.setPopupBannerShownCount(
+      banner.bannerId,
+      shownCount + 1,
+    );
 
     if (!mounted) {
       return;

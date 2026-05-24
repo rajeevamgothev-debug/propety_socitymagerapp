@@ -12,6 +12,7 @@ class AuthStorage {
   static const String _keyAccountBlockReason = 'accountBlockReason';
   static const String _keyPushToken = 'pushToken';
   static const String _keyLastSyncedPushToken = 'lastSyncedPushToken';
+  static const String _keyPopupBannerShownPrefix = 'popupBannerShown:';
 
   static final AuthStorageBackend _backend = createAuthStorageBackend();
   static bool _isInitialized = false;
@@ -85,6 +86,16 @@ class AuthStorage {
 
   static Future<void> clearLastSyncedPushToken() =>
       _store.remove(_keyLastSyncedPushToken);
+
+  static int popupBannerShownCount(String bannerId) =>
+      _store.getInt('$_keyPopupBannerShownPrefix$bannerId') ?? 0;
+
+  static Future<void> setPopupBannerShownCount(
+    String bannerId,
+    int count,
+  ) async {
+    await _store.setInt('$_keyPopupBannerShownPrefix$bannerId', count);
+  }
 
   static Future<void> saveLoginCredentials({
     required String sessionId,

@@ -726,8 +726,11 @@ class PublicBannerData {
   const PublicBannerData({
     required this.bannerId,
     this.title,
+    this.subtitle,
+    this.buttonText,
     this.imageUrl,
     this.navigationUrl,
+    this.displayCount = 1,
   });
 
   factory PublicBannerData.fromJson(Map<String, dynamic> json) {
@@ -737,24 +740,38 @@ class PublicBannerData {
         json['Mobile_Image_Information'] as Map<String, dynamic>?;
 
     return PublicBannerData(
-      bannerId: json['BannerID'] as String? ?? json['_id'] as String? ?? '',
-      title: json['Banner_Title'] as String? ?? json['Title'] as String?,
+      bannerId:
+          json['Popup_BannerID'] as String? ??
+          json['BannerID'] as String? ??
+          json['_id'] as String? ??
+          '',
+      title:
+          json['Popup_Banner_Title'] as String? ??
+          json['Banner_Title'] as String? ??
+          json['Title'] as String?,
+      subtitle: json['Popup_Banner_Subtitle'] as String?,
+      buttonText: json['Button_Text'] as String?,
       imageUrl:
           mobileImage?['Image_Original_URL'] as String? ??
           webImage?['Image_Original_URL'] as String?,
       navigationUrl:
+          json['Redirect_URL'] as String? ??
           json['URL'] as String? ??
           json['Link'] as String? ??
           json['Banner_URL'] as String? ??
           json['Navigation_URL'] as String? ??
           json['Redirect_URL'] as String?,
+      displayCount: _readInt(json['Display_Count']) ?? 1,
     );
   }
 
   final String bannerId;
   final String? title;
+  final String? subtitle;
+  final String? buttonText;
   final String? imageUrl;
   final String? navigationUrl;
+  final int displayCount;
 }
 
 class PublicCityData {
