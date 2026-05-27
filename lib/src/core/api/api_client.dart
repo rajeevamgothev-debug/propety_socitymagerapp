@@ -28,6 +28,12 @@ class ApiClient {
   static const String offlineMessage =
       "hey! Looks like your internet isnt connected.";
 
+  static int get _deviceType {
+    if (Platform.isIOS) return 2;
+    if (Platform.isAndroid) return 1;
+    return 3;
+  }
+
   static final ApiClient instance = ApiClient._();
 
   LogoutCallback? onSessionExpired;
@@ -158,7 +164,7 @@ class ApiClient {
             headers: <String, String>{'Content-Type': 'application/json'},
             body: jsonEncode(<String, dynamic>{
               'DeviceID': newDeviceId ?? AuthStorage.deviceId,
-              'DeviceType': 3,
+              'DeviceType': _deviceType,
               'DeviceName': 'Mobile-Client',
               'AppVersion': 1,
             }),

@@ -1,11 +1,12 @@
 import Flutter
+import FirebaseCore
 import FirebaseMessaging
 import UIKit
 import GoogleMaps
 import UserNotifications
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, MessagingDelegate {
   private let googleMapsApiKey = "AIzaSyBd4He3yQcnMKV3qgMmdApz16tB_f7Buhs"
   private var configChannel: FlutterMethodChannel?
 
@@ -13,6 +14,10 @@ import UserNotifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    if FirebaseApp.app() == nil {
+      FirebaseApp.configure()
+    }
+    Messaging.messaging().delegate = self
     GMSServices.provideAPIKey(googleMapsApiKey)
     UNUserNotificationCenter.current().delegate = self
     application.registerForRemoteNotifications()
@@ -23,7 +28,11 @@ import UserNotifications
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
-    Messaging.messaging().apnsToken = deviceToken
+#if DEBUG
+    Messaging.messaging().setAPNSToken(deviceToken, type: .sandbox)
+#else
+    Messaging.messaging().setAPNSToken(deviceToken, type: .prod)
+#endif
     let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
     NSLog("iOSPushDebug: didRegisterForRemoteNotificationsWithDeviceToken apnsToken=\(token)")
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
@@ -35,6 +44,10 @@ import UserNotifications
   ) {
     NSLog("iOSPushDebug: didFailToRegisterForRemoteNotificationsWithError error=\(error.localizedDescription)")
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
+
+  func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+    NSLog("iOSPushDebug: didReceiveRegistrationToken fcmToken=\(fcmToken ?? "nil")")
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {

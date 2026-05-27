@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -8,6 +9,12 @@ import 'auth_storage.dart';
 
 class AuthService {
   AuthService._();
+
+  static int get _deviceType {
+    if (Platform.isIOS) return 2;
+    if (Platform.isAndroid) return 1;
+    return 3;
+  }
 
   /// Initialize app: generate DeviceID + get ApiKey.
   /// Call this at app startup before any other API calls.
@@ -72,7 +79,7 @@ class AuthService {
       headers: <String, String>{'Content-Type': 'application/json'},
       body: jsonEncode(<String, dynamic>{
         'DeviceID': deviceId,
-        'DeviceType': 3,
+        'DeviceType': _deviceType,
         'DeviceName': 'Mobile-Client',
         'AppVersion': 1,
       }),
