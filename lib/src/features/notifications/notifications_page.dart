@@ -44,6 +44,80 @@ bool _isPaymentNotification(NotificationData notification) {
       combined.contains('maintenance');
 }
 
+const Duration _istOffset = Duration(hours: 5, minutes: 30);
+
+DateTime _toIst(DateTime value) {
+  return value.isUtc ? value.toUtc().add(_istOffset) : value;
+}
+
+DateTime _istDay(DateTime value) {
+  final DateTime ist = _toIst(value);
+  return DateTime(ist.year, ist.month, ist.day);
+}
+
+bool _isBookingConfirmedNotification(NotificationData notification) {
+  final String combined =
+      '${notification.type} ${notification.referenceType} ${notification.title} ${notification.message}'
+          .toLowerCase();
+  return combined.contains('booking') &&
+      (combined.contains('confirm') ||
+          combined.contains('approved') ||
+          combined.contains('accepted'));
+}
+
+bool _isExpiredNotification(NotificationData notification) {
+  final int retentionDays = _isBookingConfirmedNotification(notification)
+      ? 45
+      : 30;
+  final DateTime today = _istDay(DateTime.now().toUtc());
+  final int ageInDays = today.difference(_istDay(notification.createdAt)).inDays;
+  return ageInDays >= retentionDays;
+}
+
+List<NotificationData> _visibleNotifications(
+  Iterable<NotificationData> notifications,
+) {
+  return notifications
+      .where((NotificationData notification) => !_isExpiredNotification(notification))
+      .toList()
+    ..sort(
+      (NotificationData a, NotificationData b) =>
+          b.createdAt.compareTo(a.createdAt),
+    );
+}
+
+String _notificationDateGroupLabel(DateTime createdAt) {
+  final DateTime day = _istDay(createdAt);
+  final DateTime today = _istDay(DateTime.now().toUtc());
+  final int ageInDays = today.difference(day).inDays;
+  if (ageInDays == 0) return 'Today';
+  if (ageInDays == 1) return 'Yesterday';
+  return formatCompactDate(day);
+}
+
+List<_NotificationDateGroup> _groupNotificationsByDate(
+  List<NotificationData> notifications,
+) {
+  final List<_NotificationDateGroup> groups = <_NotificationDateGroup>[];
+  String? currentLabel;
+  for (final NotificationData notification in notifications) {
+    final String label = _notificationDateGroupLabel(notification.createdAt);
+    if (label != currentLabel) {
+      groups.add(_NotificationDateGroup(label, <NotificationData>[]));
+      currentLabel = label;
+    }
+    groups.last.notifications.add(notification);
+  }
+  return groups;
+}
+
+class _NotificationDateGroup {
+  _NotificationDateGroup(this.label, this.notifications);
+
+  final String label;
+  final List<NotificationData> notifications;
+}
+
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
 
@@ -125,19 +199,22 @@ class _NotificationsPageState extends State<NotificationsPage> {
               enquiryNotifications,
             )
           : result.notifications;
+      final List<NotificationData> activeNotifications = _visibleNotifications(
+        visibleNotifications,
+      );
 
-      await _loadContractDetailsFor(visibleNotifications);
+      await _loadContractDetailsFor(activeNotifications);
 
       if (!mounted) return;
 
       setState(() {
         if (reset) {
-          _notifications = visibleNotifications;
+          _notifications = activeNotifications;
         } else {
-          _notifications = <NotificationData>[
+          _notifications = _visibleNotifications(<NotificationData>[
             ..._notifications,
-            ...visibleNotifications,
-          ];
+            ...activeNotifications,
+          ]);
         }
         final int localUnreadCount = _notifications
             .where(
@@ -369,16 +446,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 child: Text('No notifications found.'),
               )
             else ...<Widget>[
-              ..._notifications.map(
-                (NotificationData n) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _NotificationCard(
-                    notification: n,
-                    contract: _contractsById[n.referenceId],
-                    onMarkRead: n.isRead ? null : () => _markAsRead(n),
-                  ),
-                ),
-              ),
+              ..._buildNotificationSections(),
               if (_isLoading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
@@ -420,6 +488,60 @@ class _NotificationsPageState extends State<NotificationsPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  List<Widget> _buildNotificationSections() {
+    final List<Widget> widgets = <Widget>[];
+    for (final _NotificationDateGroup group in _groupNotificationsByDate(
+      _notifications,
+    )) {
+      if (widgets.isNotEmpty) {
+        widgets.add(const SizedBox(height: 4));
+      }
+      widgets.add(_NotificationDateHeader(label: group.label));
+      widgets.add(const SizedBox(height: 8));
+      widgets.addAll(
+        group.notifications.map(
+          (NotificationData n) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _NotificationCard(
+              notification: n,
+              contract: _contractsById[n.referenceId],
+              onMarkRead: n.isRead ? null : () => _markAsRead(n),
+            ),
+          ),
+        ),
+      );
+    }
+    return widgets;
+  }
+}
+
+class _NotificationDateHeader extends StatelessWidget {
+  const _NotificationDateHeader({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        child: Text(
+          label,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: AppTheme.textSecondary,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1203,8 +1325,7 @@ class NotificationDisplayModel {
       title: title,
       message: summary,
       category: typeLabel,
-      time:
-          '${formatCompactDate(notification.createdAt)} at ${formatClock(notification.createdAt)}',
+      time: formatClock(notification.createdAt),
       isRead: notification.isRead,
       contextDetails: details,
       phone: phone,
