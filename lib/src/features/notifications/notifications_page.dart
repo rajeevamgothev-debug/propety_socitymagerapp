@@ -30,6 +30,20 @@ bool _isEnquiryNotification(NotificationData notification) {
       notification.type.toLowerCase() == 'enquiry';
 }
 
+bool _isPaymentNotification(NotificationData notification) {
+  final String referenceType = notification.referenceType.toLowerCase();
+  final String type = notification.type.toLowerCase();
+  final String title = notification.title.toLowerCase();
+  final String message = notification.message.toLowerCase();
+  final String combined = '$referenceType $type $title $message';
+  return combined.contains('bill') ||
+      combined.contains('rent') ||
+      combined.contains('payment') ||
+      combined.contains('wallet') ||
+      combined.contains('security deposit') ||
+      combined.contains('maintenance');
+}
+
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
 
@@ -622,17 +636,17 @@ class _NotificationCard extends StatelessWidget {
   }
 
   static String _propertyImageUrl(NotificationData notification) {
-    final String residentImageUrl = _dataText(notification, <String>[
-      'Tenant_Image_URL',
-      'Resident_Image_URL',
-      'tenantImage',
-      'residentImage',
-    ]);
-    if (residentImageUrl.isNotEmpty) return residentImageUrl;
-    if (!_isEnquiryNotification(notification)) return '';
-    return _dataText(notification, <String>[
+    final String propertyImageUrl = _dataText(notification, <String>[
       'Property_Image_URL',
       'Property_Image_Original_URL',
+      'propertyImageUrl',
+      'propertyImage',
+      'Property_Image',
+    ]);
+    if (_isPaymentNotification(notification)) return propertyImageUrl;
+    if (propertyImageUrl.isNotEmpty) return propertyImageUrl;
+    if (!_isEnquiryNotification(notification)) return '';
+    return _dataText(notification, <String>[
       'Image_Original_URL',
       'Image_URL',
     ]);

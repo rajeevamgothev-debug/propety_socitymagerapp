@@ -195,8 +195,10 @@ class PremiumNotificationContent {
   ) {
     final bool isBillType =
         type == 'rent_due' ||
+        type == 'payment' ||
         type == 'payment_success' ||
-        type == 'payment_failed';
+        type == 'payment_failed' ||
+        type == 'wallet';
     final String propertyImage = _first(data, <String>[
       'propertyImage',
       'propertyImageUrl',
@@ -225,7 +227,7 @@ class PremiumNotificationContent {
     ]);
 
     if (isBillType) {
-      return propertyImage.isNotEmpty ? propertyImage : genericImage;
+      return propertyImage;
     }
     if (residentImage.isNotEmpty) {
       return residentImage;
