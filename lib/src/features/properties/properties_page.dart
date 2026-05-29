@@ -1547,6 +1547,17 @@ class _PropertiesPageState extends State<PropertiesPage> {
                               'Rs ${calculation!.amountPerContract.toStringAsFixed(0)}',
                             ),
                             _detailLine(
+                              'Subscription months',
+                              '${calculation!.subscriptionMonths}',
+                            ),
+                            if (calculation!.extraContractsCount > 0)
+                              _detailLine(
+                                'Extra contract formula',
+                                '${calculation!.extraContractsCount} x Rs '
+                                '${calculation!.amountPerContract.toStringAsFixed(0)} x '
+                                '${calculation!.subscriptionMonths}',
+                              ),
+                            _detailLine(
                               'Extra contracts amount',
                               'Rs ${calculation!.extraContractsAmount.toStringAsFixed(0)}',
                             ),

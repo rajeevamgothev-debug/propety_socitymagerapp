@@ -1768,6 +1768,18 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                               value: '${calculation!.numberOfContracts}',
                             ),
                             _PurchaseSummaryRow(
+                              label: 'Remaining months',
+                              value:
+                                  '${calculation!.remainingSubscriptionMonths}',
+                            ),
+                            _PurchaseSummaryRow(
+                              label: 'Formula',
+                              value:
+                                  '${calculation!.numberOfContracts} x Rs '
+                                  '${calculation!.amountPerContract.toStringAsFixed(0)} x '
+                                  '${calculation!.remainingSubscriptionMonths}',
+                            ),
+                            _PurchaseSummaryRow(
                               label: 'Subtotal',
                               value:
                                   'Rs ${calculation!.subtotal.toStringAsFixed(0)}',

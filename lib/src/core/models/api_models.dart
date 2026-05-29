@@ -860,6 +860,9 @@ class SubscriptionCalculationData {
     required this.extraContractsCount,
     required this.totalAvailableContracts,
     required this.amountPerContract,
+    required this.subscriptionMonths,
+    required this.remainingSubscriptionMonths,
+    required this.pricingMode,
     required this.extraContractsAmount,
     required this.subtotal,
     required this.gstPercentage,
@@ -877,6 +880,9 @@ class SubscriptionCalculationData {
       extraContractsCount: readInt('Extra_Contracts_Count'),
       totalAvailableContracts: readInt('Total_Available_Contracts'),
       amountPerContract: (json['Amount_Per_Contract'] as num?)?.toDouble() ?? 0,
+      subscriptionMonths: readInt('Subscription_Months'),
+      remainingSubscriptionMonths: readInt('Remaining_Subscription_Months'),
+      pricingMode: json['Pricing_Mode'] as String? ?? '',
       extraContractsAmount:
           (json['Extra_Contracts_Amount'] as num?)?.toDouble() ?? 0,
       subtotal: (json['Subtotal'] as num?)?.toDouble() ?? 0,
@@ -892,6 +898,9 @@ class SubscriptionCalculationData {
   final int extraContractsCount;
   final int totalAvailableContracts;
   final double amountPerContract;
+  final int subscriptionMonths;
+  final int remainingSubscriptionMonths;
+  final String pricingMode;
   final double extraContractsAmount;
   final double subtotal;
   final double gstPercentage;
@@ -903,6 +912,9 @@ class ResidentContractsCalculationData {
   const ResidentContractsCalculationData({
     required this.amountPerContract,
     required this.numberOfContracts,
+    required this.subscriptionMonths,
+    required this.remainingSubscriptionMonths,
+    required this.pricingMode,
     required this.subtotal,
     required this.gstPercentage,
     required this.gstAmount,
@@ -913,6 +925,10 @@ class ResidentContractsCalculationData {
     return ResidentContractsCalculationData(
       amountPerContract: (json['Amount_Per_Contract'] as num?)?.toDouble() ?? 0,
       numberOfContracts: json['No_Of_Contracts'] as int? ?? 0,
+      subscriptionMonths: _readIntValue(json['Subscription_Months']),
+      remainingSubscriptionMonths:
+          _readIntValue(json['Remaining_Subscription_Months']),
+      pricingMode: json['Pricing_Mode'] as String? ?? '',
       subtotal: (json['Subtotal'] as num?)?.toDouble() ?? 0,
       gstPercentage: (json['GST_Percentage'] as num?)?.toDouble() ?? 0,
       gstAmount: (json['GST_Amount'] as num?)?.toDouble() ?? 0,
@@ -922,6 +938,9 @@ class ResidentContractsCalculationData {
 
   final double amountPerContract;
   final int numberOfContracts;
+  final int subscriptionMonths;
+  final int remainingSubscriptionMonths;
+  final String pricingMode;
   final double subtotal;
   final double gstPercentage;
   final double gstAmount;
