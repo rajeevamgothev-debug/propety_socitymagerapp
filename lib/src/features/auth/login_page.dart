@@ -112,154 +112,159 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final double keyboardBottom = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 30),
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                _PlainIconButton(
-                  icon: Icons.arrow_back_ios_new_rounded,
-                  onPressed: widget.onBack,
-                ),
-                const Spacer(),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: Image.asset(
-                    'assets/manager_logo.jpg',
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.cover,
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(22, 18, 22, keyboardBottom + 30),
+          child: Column(
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  _PlainIconButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onPressed: widget.onBack,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-            _QuietPropertyHeader(authSource: widget.authSource),
-            const SizedBox(height: 28),
-            Container(
-              padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: AppTheme.border),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x10121A26),
-                    blurRadius: 24,
-                    offset: Offset(0, 14),
+                  const Spacer(),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.asset(
+                      'assets/manager_logo.jpg',
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ],
               ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'Login or sign up',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        height: 1.08,
-                      ),
+              const SizedBox(height: 28),
+              _QuietPropertyHeader(authSource: widget.authSource),
+              const SizedBox(height: 28),
+              Container(
+                padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: AppTheme.border),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0x10121A26),
+                      blurRadius: 24,
+                      offset: Offset(0, 14),
                     ),
-                    const SizedBox(height: 22),
-                    Text(
-                      'Mobile number',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      maxLength: 10,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: InputDecoration(
-                        hintText: 'XXXXX XXXXX',
-                        prefixIcon: Padding(
-                          padding: const EdgeInsets.only(left: 12, right: 8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Text(
-                                '+91',
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: AppTheme.primary,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Container(
-                                width: 1,
-                                height: 24,
-                                color: AppTheme.border,
-                              ),
-                            ],
-                          ),
-                        ),
-                        prefixIconConstraints: const BoxConstraints(
-                          minWidth: 72,
-                        ),
-                        counterText: '',
-                      ),
-                      validator: (String? value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Phone number is required';
-                        }
-                        if (!_indianMobilePattern.hasMatch(value.trim())) {
-                          return 'Enter a valid 10-digit Indian mobile number';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      child: CustomButton(
-                        label: 'Continue',
-                        icon: const Icon(Icons.arrow_forward_rounded),
-                        size: CustomButtonSize.lg,
-                        isLoading: _isLoading,
-                        onPressed: _isLoading ? null : _requestOtp,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const Divider(height: 1, color: AppTheme.border),
-                    const SizedBox(height: 14),
-                    _TermsText(
-                      onTermsTap: () =>
-                          _openPolicy(context, LegalPolicyType.terms),
-                      onPrivacyTap: () =>
-                          _openPolicy(context, LegalPolicyType.privacy),
-                    ),
-                    if (_otpSent) ...<Widget>[
-                      const SizedBox(height: 14),
-                      _InlineStatusMessage(
-                        icon: Icons.check_circle_rounded,
-                        color: AppTheme.toneColor(UiTone.success),
-                        message: 'OTP sent successfully.',
-                      ),
-                    ],
-                    if (_errorMessage != null) ...<Widget>[
-                      const SizedBox(height: 14),
-                      _InlineStatusMessage(
-                        icon: Icons.error_rounded,
-                        color: AppTheme.toneColor(UiTone.danger),
-                        message: _errorMessage!,
-                      ),
-                    ],
                   ],
                 ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Login or sign up',
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          height: 1.08,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Text(
+                        'Mobile number',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        maxLength: 10,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: InputDecoration(
+                          hintText: 'XXXXX XXXXX',
+                          prefixIcon: Padding(
+                            padding: const EdgeInsets.only(left: 12, right: 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Text(
+                                  '+91',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: AppTheme.primary,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Container(
+                                  width: 1,
+                                  height: 24,
+                                  color: AppTheme.border,
+                                ),
+                              ],
+                            ),
+                          ),
+                          prefixIconConstraints: const BoxConstraints(
+                            minWidth: 72,
+                          ),
+                          counterText: '',
+                        ),
+                        validator: (String? value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Phone number is required';
+                          }
+                          if (!_indianMobilePattern.hasMatch(value.trim())) {
+                            return 'Enter a valid 10-digit Indian mobile number';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: CustomButton(
+                          label: 'Continue',
+                          icon: const Icon(Icons.arrow_forward_rounded),
+                          size: CustomButtonSize.lg,
+                          isLoading: _isLoading,
+                          onPressed: _isLoading ? null : _requestOtp,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Divider(height: 1, color: AppTheme.border),
+                      const SizedBox(height: 14),
+                      _TermsText(
+                        onTermsTap: () =>
+                            _openPolicy(context, LegalPolicyType.terms),
+                        onPrivacyTap: () =>
+                            _openPolicy(context, LegalPolicyType.privacy),
+                      ),
+                      if (_otpSent) ...<Widget>[
+                        const SizedBox(height: 14),
+                        _InlineStatusMessage(
+                          icon: Icons.check_circle_rounded,
+                          color: AppTheme.toneColor(UiTone.success),
+                          message: 'OTP sent successfully.',
+                        ),
+                      ],
+                      if (_errorMessage != null) ...<Widget>[
+                        const SizedBox(height: 14),
+                        _InlineStatusMessage(
+                          icon: Icons.error_rounded,
+                          color: AppTheme.toneColor(UiTone.danger),
+                          message: _errorMessage!,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -181,154 +181,159 @@ class _OtpPageState extends State<OtpPage> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final double keyboardBottom = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 30),
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                _OtpBackButton(onPressed: widget.onBack),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: AppTheme.border),
-                  ),
-                  child: Text(
-                    widget.authSource.label,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppTheme.primary,
-                      fontWeight: FontWeight.w900,
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(22, 18, 22, keyboardBottom + 30),
+          child: Column(
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  _OtpBackButton(onPressed: widget.onBack),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 44),
-            Container(
-              padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: AppTheme.border),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x10121A26),
-                    blurRadius: 24,
-                    offset: Offset(0, 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppTheme.border),
+                    ),
+                    child: Text(
+                      widget.authSource.label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primarySoft,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: const Icon(
-                        Icons.lock_outline_rounded,
-                        color: AppTheme.primary,
-                      ),
+              const SizedBox(height: 44),
+              Container(
+                padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: AppTheme.border),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0x10121A26),
+                      blurRadius: 24,
+                      offset: Offset(0, 14),
                     ),
-                    const SizedBox(height: 22),
-                    Text(
-                      'Enter verification code',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        height: 1.08,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '+91 ${widget.phoneNumber}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _otpController,
-                      keyboardType: TextInputType.number,
-                      maxLength: 4,
-                      autofocus: true,
-                      enabled: !_isLoading,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 12,
-                        color: AppTheme.primary,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: '0000',
-                        counterText: '',
-                        fillColor: const Color(0xFFFFFCF8),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(22),
-                          borderSide: const BorderSide(
-                            color: AppTheme.primary,
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                      validator: (String? value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'OTP is required';
-                        }
-                        if (value.trim().length != 4) {
-                          return 'Enter a valid 4-digit OTP';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _ResendRow(
-                      seconds: _resendCountdown,
-                      onResend: _resendOtp,
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: CustomButton(
-                        label: 'Verify',
-                        icon: const Icon(Icons.arrow_forward_rounded),
-                        size: CustomButtonSize.lg,
-                        isLoading: _isLoading,
-                        onPressed: _isLoading ? null : _verifyOtp,
-                      ),
-                    ),
-                    if (_errorMessage != null) ...<Widget>[
-                      const SizedBox(height: 14),
-                      Text(
-                        _errorMessage!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.toneColor(UiTone.danger),
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primarySoft,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Icon(
+                          Icons.lock_outline_rounded,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Text(
+                        'Enter verification code',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          height: 1.08,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '+91 ${widget.phoneNumber}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        controller: _otpController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        autofocus: true,
+                        enabled: !_isLoading,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 12,
+                          color: AppTheme.primary,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '0000',
+                          counterText: '',
+                          fillColor: const Color(0xFFFFFCF8),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(22),
+                            borderSide: const BorderSide(
+                              color: AppTheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        validator: (String? value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'OTP is required';
+                          }
+                          if (value.trim().length != 4) {
+                            return 'Enter a valid 4-digit OTP';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _ResendRow(
+                        seconds: _resendCountdown,
+                        onResend: _resendOtp,
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: CustomButton(
+                          label: 'Verify OTP',
+                          icon: const Icon(Icons.arrow_forward_rounded),
+                          size: CustomButtonSize.lg,
+                          isLoading: _isLoading,
+                          onPressed: _isLoading ? null : _verifyOtp,
+                        ),
+                      ),
+                      if (_errorMessage != null) ...<Widget>[
+                        const SizedBox(height: 14),
+                        Text(
+                          _errorMessage!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.toneColor(UiTone.danger),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
