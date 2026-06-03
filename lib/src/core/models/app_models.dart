@@ -856,6 +856,7 @@ class PropertyRecord {
     required this.status,
     required this.rent,
     required this.deposit,
+    this.displayTitle,
     this.isActive = true,
     this.imageUrl,
     this.address,
@@ -880,6 +881,7 @@ class PropertyRecord {
 
   final String id;
   final String title;
+  final String? displayTitle;
   final String type;
   final PropertyStatus status;
   final double rent;

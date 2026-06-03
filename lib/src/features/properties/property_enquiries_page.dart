@@ -47,6 +47,14 @@ const Map<int, Map<int, String>> _propertyOptionSubtypeLabels =
       },
     };
 
+const Map<int, String> _propertyOptionPgSharingLabels = <int, String>{
+  1: 'Single',
+  2: 'Double',
+  3: 'Triple',
+  4: 'Quad',
+  5: 'Dorm',
+};
+
 class PropertyEnquiriesPage extends StatefulWidget {
   const PropertyEnquiriesPage({
     super.key,
@@ -827,6 +835,7 @@ class _PropertyOption {
   const _PropertyOption({
     required this.id,
     required this.title,
+    required this.apiDisplayName,
     required this.flatType,
     required this.ownerName,
   });
@@ -840,6 +849,11 @@ class _PropertyOption {
     return _PropertyOption(
       id: _readString(<dynamic>[json['PropertyID'], json['_id']]),
       title: title.isEmpty ? 'Untitled' : title,
+      apiDisplayName: _readString(<dynamic>[
+        json['display_name'],
+        json['Display_Name'],
+        json['Property_Display_Label'],
+      ]),
       flatType: _readFlatType(json),
       ownerName: _readString(<dynamic>[
         json['Owner_Name'],
@@ -851,10 +865,14 @@ class _PropertyOption {
 
   final String id;
   final String title;
+  final String apiDisplayName;
   final String flatType;
   final String ownerName;
 
   String get displayLabel {
+    if (apiDisplayName.isNotEmpty) {
+      return apiDisplayName;
+    }
     if (flatType.isEmpty) {
       return title;
     }
@@ -891,7 +909,15 @@ class _PropertyOption {
     if (propertyType == null || subType == null) {
       return '';
     }
-    return _propertyOptionSubtypeLabels[propertyType]?[subType] ?? '';
+    final String subtype =
+        _propertyOptionSubtypeLabels[propertyType]?[subType] ?? '';
+    final int? pgSharingType = _readInt(json['PG_Sharing_Type']);
+    final String sharing = propertyType == 3 && pgSharingType != null
+        ? (_propertyOptionPgSharingLabels[pgSharingType] ?? '')
+        : '';
+    return <String>[subtype, sharing]
+        .where((String value) => value.isNotEmpty)
+        .join(' - ');
   }
 
   static int? _readInt(dynamic value) {

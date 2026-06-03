@@ -507,7 +507,9 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  property.title,
+                  property.displayTitle?.trim().isNotEmpty == true
+                      ? property.displayTitle!
+                      : property.title,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -1522,7 +1524,9 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      property.title,
+                      property.displayTitle?.trim().isNotEmpty == true
+                          ? property.displayTitle!
+                          : property.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -1933,7 +1937,9 @@ class _PublicPropertyDetailsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          property.title,
+          property.displayTitle?.trim().isNotEmpty == true
+              ? property.displayTitle!
+              : property.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -2314,7 +2320,9 @@ class _PropertyEnquirySheetState extends State<_PropertyEnquirySheet> {
             ),
             const SizedBox(height: 10),
             Text(
-              widget.property.title,
+              widget.property.displayTitle?.trim().isNotEmpty == true
+                  ? widget.property.displayTitle!
+                  : widget.property.title,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppTheme.textSecondary,
                   ),

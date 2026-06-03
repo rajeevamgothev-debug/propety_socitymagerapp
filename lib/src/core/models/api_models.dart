@@ -1961,6 +1961,7 @@ class PropertyData {
     required this.description,
     required this.propertyType,
     required this.propertyStatus,
+    this.displayTitle,
     this.isActive = true,
     this.rent = 0,
     this.deposit = 0,
@@ -2093,6 +2094,10 @@ class PropertyData {
       propertyId: json['PropertyID'] as String? ?? json['_id'] as String? ?? '',
       title:
           json['Title'] as String? ?? json['Property_Title'] as String? ?? '',
+      displayTitle:
+          json['display_name'] as String? ??
+          json['Display_Name'] as String? ??
+          json['Property_Display_Label'] as String?,
       description:
           json['Description'] as String? ??
           json['Property_Description'] as String? ??
@@ -2276,6 +2281,7 @@ class PropertyData {
 
   final String propertyId;
   final String title;
+  final String? displayTitle;
   final String description;
   final int propertyType;
   final int propertyStatus;
@@ -2369,6 +2375,7 @@ class PropertyData {
     return PropertyRecord(
       id: propertyId,
       title: title,
+      displayTitle: displayTitle,
       type: _mapPropertyType(propertyType),
       status: _mapPropertyStatus(propertyStatus),
       isActive: isActive,

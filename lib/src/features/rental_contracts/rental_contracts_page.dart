@@ -263,11 +263,30 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     return null;
   }
 
+  String _firstNonEmptyString(List<dynamic> values) {
+    for (final dynamic value in values) {
+      final String text = '${value ?? ''}'.trim();
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+    return '';
+  }
+
   String _propertyDisplayLabel(PropertyRecord property) {
     final Map<String, dynamic>? lite = _litePropertyForId(property.id);
 
     if (lite == null) {
       return property.title;
+    }
+
+    final String apiDisplayName = _firstNonEmptyString(<dynamic>[
+      lite['display_name'],
+      lite['Display_Name'],
+      lite['Property_Display_Label'],
+    ]);
+    if (apiDisplayName.isNotEmpty) {
+      return apiDisplayName;
     }
 
     final int? propertyType = _asInt(lite['Property_Type']);

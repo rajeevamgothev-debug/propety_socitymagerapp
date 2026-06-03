@@ -83,6 +83,14 @@ class _BillingPageState extends State<BillingPage> {
         },
       };
 
+  static const Map<int, String> _propertyPgSharingLabels = <int, String>{
+    1: 'Single',
+    2: 'Double',
+    3: 'Triple',
+    4: 'Quad',
+    5: 'Dorm',
+  };
+
   final TextEditingController _searchController = TextEditingController();
 
   BillStatus? _selectedFilter;
@@ -610,10 +618,28 @@ class _BillingPageState extends State<BillingPage> {
     if (propertyType == null || subType == null) {
       return '';
     }
-    return _propertySubtypeLabels[propertyType]?[subType] ?? '';
+    final String subtype = _propertySubtypeLabels[propertyType]?[subType] ?? '';
+    final int? pgSharingType = _readPropertyOptionInt(
+      property['PG_Sharing_Type'],
+    );
+    final String sharing = propertyType == 3 && pgSharingType != null
+        ? (_propertyPgSharingLabels[pgSharingType] ?? '')
+        : '';
+    return <String>[subtype, sharing]
+        .where((String value) => value.isNotEmpty)
+        .join(' - ');
   }
 
   static String _propertyOptionDropdownLabel(Map<String, dynamic> property) {
+    final String apiDisplayName = _readPropertyOptionString(<dynamic>[
+      property['display_name'],
+      property['Display_Name'],
+      property['Property_Display_Label'],
+    ]);
+    if (apiDisplayName.isNotEmpty) {
+      return apiDisplayName;
+    }
+
     final String title = _readPropertyOptionString(<dynamic>[
       property['Property_Title'],
       property['Title'],

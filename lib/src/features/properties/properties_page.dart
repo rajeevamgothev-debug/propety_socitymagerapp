@@ -4391,7 +4391,9 @@ class _PropertyDetailsPageState extends State<_PropertyDetailsPage> {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  property.title,
+                  property.displayTitle?.trim().isNotEmpty == true
+                      ? property.displayTitle!
+                      : property.title,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -6073,7 +6075,9 @@ class _PropertyRecordCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      property.title,
+                      property.displayTitle?.trim().isNotEmpty == true
+                          ? property.displayTitle!
+                          : property.title,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
