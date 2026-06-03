@@ -586,10 +586,6 @@ class _NotificationCard extends StatelessWidget {
             ),
             tone: tone,
           ),
-          if (propertyImageUrl.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 12),
-            _NotificationImagePreview(imageUrl: propertyImageUrl, tone: tone),
-          ],
           const SizedBox(height: 14),
           _NotificationMessageSection(display: display),
           if (display.contextDetails.isNotEmpty) ...<Widget>[
@@ -1160,33 +1156,6 @@ class _NotificationDetailsSheet extends StatelessWidget {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationImagePreview extends StatelessWidget {
-  const _NotificationImagePreview({required this.imageUrl, required this.tone});
-
-  final String imageUrl;
-  final UiTone tone;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color toneColor = AppTheme.toneColor(tone);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            color: AppTheme.toneSoft(tone),
-            alignment: Alignment.center,
-            child: Icon(Icons.apartment_rounded, color: toneColor),
-          ),
         ),
       ),
     );

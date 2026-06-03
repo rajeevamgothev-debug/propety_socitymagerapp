@@ -289,10 +289,10 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     }
 
     if (pgSharingLabel.isEmpty) {
-      return '$title ($subtypeLabel)';
+      return '$title - $subtypeLabel';
     }
 
-    return '$title ($subtypeLabel - $pgSharingLabel)';
+    return '$title - $subtypeLabel - $pgSharingLabel';
   }
 
   String _availableContractsLabel(PropertyRecord property) {

@@ -48,6 +48,41 @@ class BillingPage extends StatefulWidget {
 }
 
 class _BillingPageState extends State<BillingPage> {
+  static const Map<int, String> _propertyFlatTypeLabels = <int, String>{
+    1: '1 BHK',
+    2: '2 BHK',
+    3: '3 BHK',
+    4: '4 BHK',
+    5: 'Studio',
+    6: 'Duplex',
+    7: 'Penthouse',
+    8: 'Villa',
+  };
+
+  static const Map<int, Map<int, String>> _propertySubtypeLabels =
+      <int, Map<int, String>>{
+        1: <int, String>{
+          1: '1 BHK',
+          2: '2 BHK',
+          3: '3 BHK',
+          4: '4 BHK',
+          5: 'Studio',
+        },
+        2: <int, String>{
+          1: '2 BHK Villa',
+          2: '3 BHK Villa',
+          3: '4 BHK Villa',
+          4: 'Duplex Villa',
+        },
+        3: <int, String>{1: 'Mens PG', 2: 'Womens PG', 3: 'Coliving'},
+        4: <int, String>{
+          1: 'Office',
+          2: 'Retail',
+          3: 'Warehouse',
+          4: 'Showroom',
+        },
+      };
+
   final TextEditingController _searchController = TextEditingController();
 
   BillStatus? _selectedFilter;
@@ -415,7 +450,7 @@ class _BillingPageState extends State<BillingPage> {
         _pmContracts = result.contracts.map((RentalContractRecord c) {
           return <String, String>{
             'id': c.id,
-            'label': '${c.tenantName} — ${c.propertyTitle}',
+            'label': _contractOptionDropdownLabel(c),
           };
         }).toList();
         if (_pmBills.isNotEmpty) {
@@ -439,7 +474,8 @@ class _BillingPageState extends State<BillingPage> {
     }
 
     return bills.map((BillRecord bill) {
-      if ((bill.tenantImageUrl ?? '').trim().isNotEmpty) {
+      if ((bill.tenantImageUrl ?? '').trim().isNotEmpty &&
+          (bill.unitType ?? '').trim().isNotEmpty) {
         return bill;
       }
 
@@ -451,7 +487,11 @@ class _BillingPageState extends State<BillingPage> {
 
       linkedContract ??= _findMatchingPmContract(bill);
       final String imageUrl = linkedContract?.tenantImageUrl?.trim() ?? '';
-      return imageUrl.isEmpty ? bill : bill.copyWith(tenantImageUrl: imageUrl);
+      final String unitType = linkedContract?.flatType?.trim() ?? '';
+      return bill.copyWith(
+        tenantImageUrl: imageUrl.isEmpty ? null : imageUrl,
+        unitType: unitType.isEmpty ? null : unitType,
+      );
     }).toList();
   }
 
@@ -533,6 +573,73 @@ class _BillingPageState extends State<BillingPage> {
     return value.replaceAll(RegExp(r'\D'), '');
   }
 
+  static int? _readPropertyOptionInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
+  }
+
+  static String _readPropertyOptionString(List<dynamic> values) {
+    for (final dynamic value in values) {
+      final String text = '${value ?? ''}'.trim();
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+    return '';
+  }
+
+  static String _propertyOptionSubtypeLabel(Map<String, dynamic> property) {
+    final String explicit = _readPropertyOptionString(<dynamic>[
+      property['Flat_Type_Label'],
+      property['Property_Sub_Type_Label'],
+      property['Sub_Type_Label'],
+    ]);
+    if (explicit.isNotEmpty) {
+      return explicit;
+    }
+
+    final int? flatType = _readPropertyOptionInt(property['Flat_Type']);
+    if (flatType != null) {
+      return _propertyFlatTypeLabels[flatType] ?? '';
+    }
+
+    final int? propertyType = _readPropertyOptionInt(property['Property_Type']);
+    final int? subType = _readPropertyOptionInt(property['Sub_Type']);
+    if (propertyType == null || subType == null) {
+      return '';
+    }
+    return _propertySubtypeLabels[propertyType]?[subType] ?? '';
+  }
+
+  static String _propertyOptionDropdownLabel(Map<String, dynamic> property) {
+    final String title = _readPropertyOptionString(<dynamic>[
+      property['Property_Title'],
+      property['Title'],
+      property['Name'],
+    ]);
+    final String resolvedTitle = title.isEmpty ? 'Untitled' : title;
+    final String subtype = _propertyOptionSubtypeLabel(property);
+    if (subtype.isEmpty) {
+      return resolvedTitle;
+    }
+    return '$resolvedTitle - $subtype';
+  }
+
+  static String _contractOptionDropdownLabel(RentalContractRecord contract) {
+    final String tenant = contract.tenantName.trim();
+    final String property = contract.propertyTitle.trim();
+    final String flatType = (contract.flatType ?? '').trim();
+    final String propertyLabel = flatType.isEmpty
+        ? property
+        : '$property - $flatType';
+    if (tenant.isEmpty) {
+      return propertyLabel;
+    }
+    return '$tenant - $propertyLabel';
+  }
+
   Future<void> _loadPmProperties() async {
     try {
       final result = await PropertyService.filterPropertiesLite(limit: 200);
@@ -541,8 +648,7 @@ class _BillingPageState extends State<BillingPage> {
         _pmProperties = result.properties.map((Map<String, dynamic> p) {
           return <String, String>{
             'id': (p['PropertyID'] ?? p['_id'] ?? '').toString(),
-            'label': (p['Property_Title'] ?? p['Title'] ?? 'Untitled')
-                .toString(),
+            'label': _propertyOptionDropdownLabel(p),
           };
         }).toList();
       });
@@ -1848,6 +1954,9 @@ class _BillingPageState extends State<BillingPage> {
               rentalContractId:
                   fullBill.rentalContractId ?? bill.rentalContractId,
               propertyId: fullBill.propertyId ?? bill.propertyId,
+              unitType: (fullBill.unitType ?? '').isNotEmpty
+                  ? fullBill.unitType
+                  : bill.unitType,
               walletCredited: fullBill.walletCredited ?? bill.walletCredited,
               walletCreditTime:
                   fullBill.walletCreditTime ?? bill.walletCreditTime,
@@ -2501,7 +2610,7 @@ class _BillingPageState extends State<BillingPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        bill.propertyTitle ?? bill.title,
+                        _billDisplayTitle(bill),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -2810,7 +2919,14 @@ class _BillingPageState extends State<BillingPage> {
   }
 
   String _societyBillTitle(BillRecord bill) {
-    final String unit = bill.unitLabel.trim();
+    final String property = (bill.propertyTitle ?? '').trim();
+    final String unit = _billUnitTypeOrUnit(bill);
+    if (property.isNotEmpty && unit.isNotEmpty && unit != 'N/A') {
+      return '$property - $unit';
+    }
+    if (property.isNotEmpty) {
+      return property;
+    }
     if (unit.isNotEmpty && unit != 'N/A') {
       return unit;
     }
@@ -2845,7 +2961,7 @@ class _BillingPageState extends State<BillingPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        bill.title,
+                        _billDisplayTitle(bill),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -3013,6 +3129,22 @@ class _BillingPageState extends State<BillingPage> {
       }
     }
     return '${bill.category} for ${bill.unitLabel}';
+  }
+
+  String _billDisplayTitle(BillRecord bill) {
+    final String property = (bill.propertyTitle ?? '').trim();
+    final String unit = _billUnitTypeOrUnit(bill);
+    if (property.isNotEmpty && unit.isNotEmpty && unit != 'N/A') {
+      return '$property - $unit';
+    }
+    if (property.isNotEmpty) return property;
+    return bill.title;
+  }
+
+  static String _billUnitTypeOrUnit(BillRecord bill) {
+    final String unitType = (bill.unitType ?? '').trim();
+    if (unitType.isNotEmpty) return unitType;
+    return bill.unitLabel.trim();
   }
 
   String _paymentTypeLabel(int value) {

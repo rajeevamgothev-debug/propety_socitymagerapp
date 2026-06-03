@@ -569,6 +569,7 @@ class BillRecord {
     this.tenantImageUrl,
     this.rentalContractId,
     this.propertyId,
+    this.unitType,
     this.walletCredited,
     this.walletCreditTime,
     this.walletCreditedTime,
@@ -612,6 +613,7 @@ class BillRecord {
   final String? tenantImageUrl;
   final String? rentalContractId;
   final String? propertyId;
+  final String? unitType;
   final bool? walletCredited;
   final DateTime? walletCreditTime;
   final DateTime? walletCreditedTime;
@@ -655,6 +657,7 @@ class BillRecord {
     String? tenantImageUrl,
     String? rentalContractId,
     String? propertyId,
+    String? unitType,
     bool? walletCredited,
     DateTime? walletCreditTime,
     DateTime? walletCreditedTime,
@@ -699,6 +702,7 @@ class BillRecord {
       tenantImageUrl: tenantImageUrl ?? this.tenantImageUrl,
       rentalContractId: rentalContractId ?? this.rentalContractId,
       propertyId: propertyId ?? this.propertyId,
+      unitType: unitType ?? this.unitType,
       walletCredited: walletCredited ?? this.walletCredited,
       walletCreditTime: walletCreditTime ?? this.walletCreditTime,
       walletCreditedTime: walletCreditedTime ?? this.walletCreditedTime,
@@ -926,6 +930,7 @@ class RentalContractRecord {
     this.billDay,
     this.specialTerms,
     this.propertyId,
+    this.flatType,
     this.tenantStatus,
     this.vacateDate,
     this.tenantIdProof,
@@ -960,6 +965,7 @@ class RentalContractRecord {
   final int? billDay;
   final String? specialTerms;
   final String? propertyId;
+  final String? flatType;
   final int? tenantStatus;
   final DateTime? vacateDate;
   final ContractDocumentRecord? tenantIdProof;

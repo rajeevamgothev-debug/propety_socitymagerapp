@@ -121,6 +121,20 @@ int? _firstOptionalInt(List<dynamic> values) {
   return null;
 }
 
+String? _flatTypeLabel(int? type) {
+  return switch (type) {
+    1 => '1 BHK',
+    2 => '2 BHK',
+    3 => '3 BHK',
+    4 => '4 BHK',
+    5 => 'Studio',
+    6 => 'Duplex',
+    7 => 'Penthouse',
+    8 => 'Villa',
+    _ => null,
+  };
+}
+
 DateTime? _parseApiTimestamp(String? value) {
   final String text = value?.trim() ?? '';
   if (text.isEmpty) {
@@ -1154,6 +1168,16 @@ class BillData {
       return null;
     }
 
+    int? readInt(dynamic value) {
+      if (value is num) {
+        return value.toInt();
+      }
+      if (value is String) {
+        return int.tryParse(value.trim());
+      }
+      return null;
+    }
+
     final String resolvedUnit =
         firstNonEmpty(<String?>[
           unitLabel,
@@ -1247,6 +1271,14 @@ class BillData {
       propertyId: firstNonEmpty(<String?>[
         readString(contractInfo, 'PropertyID'),
         readString(payload, 'PropertyID'),
+      ]),
+      unitType: firstNonEmpty(<String?>[
+        _flatTypeLabel(readInt(contractInfo?['Flat_Type'])),
+        _flatTypeLabel(readInt(payload['Flat_Type'])),
+        readString(contractInfo, 'Flat_Type_Label'),
+        readString(payload, 'Flat_Type_Label'),
+        readString(contractInfo, 'Property_Sub_Type_Label'),
+        readString(payload, 'Property_Sub_Type_Label'),
       ]),
       walletCredited:
           payload['Whether_Bill_Amount_Credited_To_Wallet'] as bool?,
@@ -2474,6 +2506,7 @@ class RentalContractData {
     this.billDay,
     this.specialTerms,
     this.propertyId,
+    this.flatType,
     this.tenantStatus,
     this.vacateDate,
     this.tenantIdProof,
@@ -2652,6 +2685,7 @@ class RentalContractData {
       billDay: json['Bill_Day'] as int?,
       specialTerms: json['Special_Terms'] as String?,
       propertyId: json['PropertyID'] as String?,
+      flatType: _readOptionalInt(json['Flat_Type']),
       tenantStatus: json['Tenant_Status'] as int?,
       vacateDate: DateTime.tryParse(json['Vacate_Date'] as String? ?? ''),
       tenantIdProof: _parseDocument(
@@ -2699,6 +2733,7 @@ class RentalContractData {
   final int? billDay;
   final String? specialTerms;
   final String? propertyId;
+  final int? flatType;
   final int? tenantStatus;
   final DateTime? vacateDate;
   final ContractDocumentData? tenantIdProof;
@@ -2734,6 +2769,7 @@ class RentalContractData {
       billDay: billDay,
       specialTerms: specialTerms,
       propertyId: propertyId,
+      flatType: _flatTypeLabel(flatType),
       tenantStatus: tenantStatus,
       vacateDate: vacateDate,
       tenantIdProof: tenantIdProof?.toRecord(),

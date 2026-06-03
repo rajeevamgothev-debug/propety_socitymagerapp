@@ -12,6 +12,41 @@ import '../../core/widgets/custom_card.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/tone_badge.dart';
 
+const Map<int, String> _propertyOptionFlatTypeLabels = <int, String>{
+  1: '1 BHK',
+  2: '2 BHK',
+  3: '3 BHK',
+  4: '4 BHK',
+  5: 'Studio',
+  6: 'Duplex',
+  7: 'Penthouse',
+  8: 'Villa',
+};
+
+const Map<int, Map<int, String>> _propertyOptionSubtypeLabels =
+    <int, Map<int, String>>{
+      1: <int, String>{
+        1: '1 BHK',
+        2: '2 BHK',
+        3: '3 BHK',
+        4: '4 BHK',
+        5: 'Studio',
+      },
+      2: <int, String>{
+        1: '2 BHK Villa',
+        2: '3 BHK Villa',
+        3: '4 BHK Villa',
+        4: 'Duplex Villa',
+      },
+      3: <int, String>{1: 'Mens PG', 2: 'Womens PG', 3: 'Coliving'},
+      4: <int, String>{
+        1: 'Office',
+        2: 'Retail',
+        3: 'Warehouse',
+        4: 'Showroom',
+      },
+    };
+
 class PropertyEnquiriesPage extends StatefulWidget {
   const PropertyEnquiriesPage({
     super.key,
@@ -363,7 +398,10 @@ class _PropertyEnquiriesPageState extends State<PropertyEnquiriesPage> {
                   ..._properties.map((_PropertyOption p) {
                     return DropdownMenuItem<String?>(
                       value: p.id,
-                      child: Text(p.title, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        p.displayLabel,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     );
                   }),
                 ],
@@ -789,6 +827,7 @@ class _PropertyOption {
   const _PropertyOption({
     required this.id,
     required this.title,
+    required this.flatType,
     required this.ownerName,
   });
 
@@ -801,6 +840,7 @@ class _PropertyOption {
     return _PropertyOption(
       id: _readString(<dynamic>[json['PropertyID'], json['_id']]),
       title: title.isEmpty ? 'Untitled' : title,
+      flatType: _readFlatType(json),
       ownerName: _readString(<dynamic>[
         json['Owner_Name'],
         json['OwnerName'],
@@ -811,7 +851,15 @@ class _PropertyOption {
 
   final String id;
   final String title;
+  final String flatType;
   final String ownerName;
+
+  String get displayLabel {
+    if (flatType.isEmpty) {
+      return title;
+    }
+    return '$title - $flatType';
+  }
 
   static String _readString(List<dynamic> values) {
     for (final dynamic value in values) {
@@ -821,6 +869,36 @@ class _PropertyOption {
       }
     }
     return '';
+  }
+
+  static String _readFlatType(Map<String, dynamic> json) {
+    final String explicit = _readString(<dynamic>[
+      json['Flat_Type_Label'],
+      json['Property_Sub_Type_Label'],
+      json['Sub_Type_Label'],
+    ]);
+    if (explicit.isNotEmpty) {
+      return explicit;
+    }
+
+    final int? flatType = _readInt(json['Flat_Type']);
+    if (flatType != null) {
+      return _propertyOptionFlatTypeLabels[flatType] ?? '';
+    }
+
+    final int? propertyType = _readInt(json['Property_Type']);
+    final int? subType = _readInt(json['Sub_Type']);
+    if (propertyType == null || subType == null) {
+      return '';
+    }
+    return _propertyOptionSubtypeLabels[propertyType]?[subType] ?? '';
+  }
+
+  static int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
   }
 }
 
