@@ -1091,6 +1091,11 @@ class _BillingPageState extends State<BillingPage> {
               Expanded(
                 child: DropdownButtonFormField<String?>(
                   value: _pmPropertyId,
+                  menuMaxHeight:
+                      (MediaQuery.sizeOf(context).height * 0.55).clamp(
+                    240.0,
+                    420.0,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Property',
                     contentPadding: const EdgeInsets.symmetric(
@@ -1102,17 +1107,39 @@ class _BillingPageState extends State<BillingPage> {
                     ),
                   ),
                   isExpanded: true,
+                  selectedItemBuilder: (BuildContext context) {
+                    return <Widget>[
+                      const Text(
+                        'All Properties',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      ..._pmProperties.map(
+                        (Map<String, String> p) => Text(
+                          p['label']!,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ];
+                  },
                   items: <DropdownMenuItem<String?>>[
                     const DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('All Properties'),
+                      child: Text(
+                        'All Properties',
+                        softWrap: true,
+                      ),
                     ),
                     ..._pmProperties.map(
                       (Map<String, String> p) => DropdownMenuItem<String?>(
                         value: p['id'],
-                        child: Text(
-                          p['label']!,
-                          overflow: TextOverflow.ellipsis,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.sizeOf(context).width - 72,
+                          ),
+                          child: Text(
+                            p['label']!,
+                            softWrap: true,
+                          ),
                         ),
                       ),
                     ),
