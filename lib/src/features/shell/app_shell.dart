@@ -22,6 +22,8 @@ import '../block/block_issues_page.dart';
 import '../block/block_security_page.dart';
 import '../bookings/tenant_property_bookings_page.dart';
 import '../communication/communication_page.dart';
+import '../community/community_feed_page.dart';
+import '../community/create_post_page.dart';
 import '../dashboard/dashboard_page.dart';
 import '../more/more_page.dart';
 import '../audit/audit_logs_page.dart';
@@ -167,10 +169,7 @@ class _AppShellState extends State<AppShell> {
     if (shownCount >= displayCount) {
       return;
     }
-    await AuthStorage.setPopupBannerShownCount(
-      banner.bannerId,
-      shownCount + 1,
-    );
+    await AuthStorage.setPopupBannerShownCount(banner.bannerId, shownCount + 1);
 
     if (!mounted) {
       return;
@@ -719,6 +718,7 @@ class _AppShellState extends State<AppShell> {
       'rental_contracts' => tabs.indexWhere(
         (tab) => tab.key == 'rental_contracts',
       ),
+      'community_feed' => null,
       _ => null,
     };
   }
@@ -791,6 +791,12 @@ class _AppShellState extends State<AppShell> {
         announcements: _announcements,
         isLoading: _isLoading,
         onRefresh: _loadData,
+        societyId: _societyId,
+      ),
+      'create_post' => CreatePostPage(role: widget.role, societyId: _societyId),
+      'community_feed' => CommunityFeedPage(
+        canInteract: true,
+        role: widget.role,
         societyId: _societyId,
       ),
       'settings' => const SettingsPage(),
@@ -1477,6 +1483,14 @@ class _AppShellState extends State<AppShell> {
           readyNow: true,
         ),
         ModuleStatusItem(
+          title: 'Community Feed',
+          subtitle: 'View posts and use + to create posts or polls',
+          icon: Icons.dynamic_feed_outlined,
+          phaseLabel: 'Ready now',
+          actionKey: 'community_feed',
+          readyNow: true,
+        ),
+        ModuleStatusItem(
           title: 'Support',
           subtitle: 'Society support tickets and status updates',
           icon: Icons.support_agent_outlined,
@@ -1565,6 +1579,14 @@ class _AppShellState extends State<AppShell> {
           icon: Icons.support_agent_outlined,
           phaseLabel: 'Ready now',
           actionKey: 'support',
+          readyNow: true,
+        ),
+        ModuleStatusItem(
+          title: 'Community Feed',
+          subtitle: 'View posts and use + to create posts or polls',
+          icon: Icons.dynamic_feed_outlined,
+          phaseLabel: 'Ready now',
+          actionKey: 'community_feed',
           readyNow: true,
         ),
         ModuleStatusItem(

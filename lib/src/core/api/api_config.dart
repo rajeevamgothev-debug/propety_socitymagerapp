@@ -52,6 +52,15 @@ class ApiConfig {
   static const String createAnnouncement = '/Create_Society_Announcement';
   static const String editAnnouncement = '/Edit_Society_Announcement';
 
+  // Community
+  static const String createCommunityPost = '/Create_Community_Post';
+  static const String createCommunityPoll = '/Create_Community_Poll';
+  static const String filterCommunityFeed = '/Filter_Community_Feed';
+  static const String createCommunityComment = '/Create_Community_Comment';
+  static const String filterCommunityComments = '/Filter_Community_Comments';
+  static const String toggleCommunityReaction = '/Toggle_Community_Reaction';
+  static const String voteCommunityPoll = '/Vote_Community_Poll';
+
   // Incidents
   static const String filterTenantIncidents =
       '/Filter_All_Society_Incidents_WRT_Tenant';
