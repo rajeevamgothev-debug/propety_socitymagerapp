@@ -79,7 +79,8 @@ class _CommunityFeedPageState extends State<CommunityFeedPage> {
         titleSpacing: 12,
         title: const Text('Community'),
         actions: <Widget>[
-          if (widget.role == AppRole.societyManager)
+          if (widget.role == AppRole.societyManager ||
+              widget.role == AppRole.propertyManager)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: FilledButton.icon(
