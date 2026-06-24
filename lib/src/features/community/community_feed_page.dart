@@ -79,12 +79,24 @@ class _CommunityFeedPageState extends State<CommunityFeedPage> {
         titleSpacing: 12,
         title: const Text('Community'),
         actions: <Widget>[
-          if (widget.role == AppRole.societyManager ||
-              widget.role == AppRole.propertyManager)
-            IconButton(
-              tooltip: 'Create',
-              onPressed: _openCreateMenu,
-              icon: const Icon(Icons.add_rounded),
+          if (widget.role == AppRole.societyManager)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: FilledButton.icon(
+                onPressed: _openCreateMenu,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Post'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
             ),
           IconButton(
             tooltip: 'Refresh',

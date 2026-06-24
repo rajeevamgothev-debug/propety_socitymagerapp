@@ -20,7 +20,7 @@ android {
     namespace = "com.urbaneasy.managernews"
     compileSdk = 36
     buildToolsVersion = "36.1.0"
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
