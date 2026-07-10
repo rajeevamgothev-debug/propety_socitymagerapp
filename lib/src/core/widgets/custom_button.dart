@@ -45,7 +45,7 @@ class _CustomButtonState extends State<CustomButton> {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: tokens.backgroundColor,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: tokens.borderColor,
               width: tokens.borderWidth,
@@ -55,8 +55,8 @@ class _CustomButtonState extends State<CustomButton> {
                 ? const <BoxShadow>[
                     BoxShadow(
                       color: Color(0x33173B6C),
-                      blurRadius: 24,
-                      offset: Offset(0, 14),
+                      blurRadius: 12,
+                      offset: Offset(0, 6),
                     ),
                   ]
                 : null,
@@ -73,7 +73,7 @@ class _CustomButtonState extends State<CustomButton> {
                   _pressed = value;
                 });
               },
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(14),
               splashColor: tokens.foregroundColor.withAlpha(20),
               highlightColor: tokens.foregroundColor.withAlpha(10),
               child: ConstrainedBox(

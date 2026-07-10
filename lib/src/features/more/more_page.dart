@@ -5,6 +5,7 @@ import '../../core/models/app_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_card.dart';
 import '../../core/widgets/tone_badge.dart';
+import '../settings/rent_reminder_settings_page.dart';
 
 class MorePage extends StatelessWidget {
   const MorePage({
@@ -24,10 +25,12 @@ class MorePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<ModuleStatusItem> readyModules =
-        modules.where((ModuleStatusItem m) => m.readyNow).toList();
-    final List<ModuleStatusItem> comingModules =
-        modules.where((ModuleStatusItem m) => !m.readyNow).toList();
+    final List<ModuleStatusItem> readyModules = modules
+        .where((ModuleStatusItem m) => m.readyNow)
+        .toList();
+    final List<ModuleStatusItem> comingModules = modules
+        .where((ModuleStatusItem m) => !m.readyNow)
+        .toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 124),
@@ -47,6 +50,11 @@ class MorePage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
+
+        if (role == AppRole.propertyManager) ...<Widget>[
+          _AccountReminderCard(vendor: vendor),
+          const SizedBox(height: 24),
+        ],
 
         if (readyModules.isNotEmpty)
           _ModuleSection(
@@ -73,6 +81,83 @@ class MorePage extends StatelessWidget {
   }
 }
 
+class _AccountReminderCard extends StatelessWidget {
+  const _AccountReminderCard({this.vendor});
+
+  final VendorData? vendor;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = vendor?.rentReminderSettings?.enabled ?? false;
+    final String summary = enabled
+        ? 'Manage WhatsApp rent reminders and your default bill schedule from one account page.'
+        : 'Set WhatsApp reminders plus default bill date, due date, and due time.';
+
+    return CustomCard(
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const RentReminderSettingsPage(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: enabled ? const Color(0xFFE8FFF1) : AppTheme.primarySoft,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                Icons.alarm_on_rounded,
+                color: enabled
+                    ? const Color(0xFF15803D)
+                    : const Color(0xFF2563EB),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Rent Reminder Alarm',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    summary,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ToneBadge(
+                    label: enabled ? 'Active' : 'Set Schedule',
+                    tone: enabled ? UiTone.success : UiTone.brand,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 22,
+              color: AppTheme.textMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Profile header — avatar, name, phone, role & vendor-ID badges
 // ---------------------------------------------------------------------------
@@ -91,10 +176,12 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final String displayName =
-        (vendor?.fullName.isNotEmpty ?? false) ? vendor!.fullName : 'UrbanEasyFlats User';
-    final String? phone =
-        (vendor?.phone.isNotEmpty ?? false) ? vendor!.phone : null;
+    final String displayName = (vendor?.fullName.isNotEmpty ?? false)
+        ? vendor!.fullName
+        : 'UrbanEasyFlats User';
+    final String? phone = (vendor?.phone.isNotEmpty ?? false)
+        ? vendor!.phone
+        : null;
 
     return CustomCard(
       child: InkWell(
@@ -133,7 +220,8 @@ class _ProfileHeader extends StatelessWidget {
                       ToneBadge(label: role.label, tone: UiTone.brand),
                       if (vendor?.vendorId.isNotEmpty ?? false)
                         ToneBadge(
-                          label: 'ID: ${vendor!.vendorId.length > 8 ? '${vendor!.vendorId.substring(0, 8)}...' : vendor!.vendorId}',
+                          label:
+                              'ID: ${vendor!.vendorId.length > 8 ? '${vendor!.vendorId.substring(0, 8)}...' : vendor!.vendorId}',
                           tone: UiTone.neutral,
                         ),
                     ],
@@ -172,17 +260,13 @@ class _ProfileAvatar extends StatelessWidget {
           ? Image.network(
               imageUrl!,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(
+              errorBuilder: (_, _, _) => const Icon(
                 Icons.person_rounded,
                 color: AppTheme.primary,
                 size: 28,
               ),
             )
-          : const Icon(
-              Icons.person_rounded,
-              color: AppTheme.primary,
-              size: 28,
-            ),
+          : const Icon(Icons.person_rounded, color: AppTheme.primary, size: 28),
     );
   }
 }
@@ -258,10 +342,12 @@ class _MenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final Color iconBg =
-        dimmed ? AppTheme.surfaceMuted : AppTheme.toneSoft(UiTone.brand);
-    final Color iconColor =
-        dimmed ? AppTheme.textMuted : AppTheme.toneColor(UiTone.brand);
+    final Color iconBg = dimmed
+        ? AppTheme.surfaceMuted
+        : AppTheme.toneSoft(UiTone.brand);
+    final Color iconColor = dimmed
+        ? AppTheme.textMuted
+        : AppTheme.toneColor(UiTone.brand);
 
     return InkWell(
       onTap: dimmed ? null : onTap,
@@ -348,7 +434,7 @@ class _SignOutRow extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: red.withOpacity(0.08),
+                  color: red.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.logout_outlined, color: red, size: 20),
@@ -357,9 +443,9 @@ class _SignOutRow extends StatelessWidget {
               Text(
                 'Sign out',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: red,
-                    ),
+                  fontWeight: FontWeight.w600,
+                  color: red,
+                ),
               ),
               const Spacer(),
               const Icon(Icons.chevron_right_rounded, size: 20, color: red),
@@ -414,15 +500,15 @@ class ModulePlaceholderPage extends StatelessWidget {
                 Text(
                   module.title,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   module.subtitle,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 ToneBadge(

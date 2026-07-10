@@ -30,24 +30,24 @@ class CustomBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white.withAlpha(244),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: Colors.white.withAlpha(210)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.border),
           boxShadow: const <BoxShadow>[
             BoxShadow(
-              color: Color(0x22121A26),
-              blurRadius: 30,
-              offset: Offset(0, 16),
+              color: Color(0x140B1526),
+              blurRadius: 18,
+              offset: Offset(0, 8),
             ),
           ],
         ),
         child: SafeArea(
           top: false,
           child: SizedBox(
-            height: 66,
+            height: 64,
             child: Row(
               children: List<Widget>.generate(items.length, (int index) {
                 return Expanded(
@@ -83,20 +83,21 @@ class _NavItem extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(14),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color: selected ? AppTheme.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
+            color: selected ? AppTheme.primarySoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: selected ? Border.all(color: AppTheme.primaryTone) : null,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Icon(item.icon, size: 21, color: selected ? Colors.white : color),
+              Icon(item.icon, size: 21, color: color),
               const SizedBox(height: 4),
               Text(
                 item.label,
@@ -105,7 +106,7 @@ class _NavItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  color: selected ? Colors.white : color,
+                  color: color,
                   height: 1.1,
                 ),
               ),

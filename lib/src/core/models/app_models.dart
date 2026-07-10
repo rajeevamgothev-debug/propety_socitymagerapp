@@ -930,6 +930,11 @@ class RentalContractRecord {
     this.tokenAmount,
     this.maintenanceAmount,
     this.billDay,
+    this.whetherCustomBillGenerationDayAvailable,
+    this.customBillGenerationDay,
+    this.whetherCustomBillDueScheduleAvailable,
+    this.customBillDueDay,
+    this.customBillDueTime,
     this.specialTerms,
     this.propertyId,
     this.flatType,
@@ -965,6 +970,11 @@ class RentalContractRecord {
   final double? tokenAmount;
   final double? maintenanceAmount;
   final int? billDay;
+  final bool? whetherCustomBillGenerationDayAvailable;
+  final int? customBillGenerationDay;
+  final bool? whetherCustomBillDueScheduleAvailable;
+  final int? customBillDueDay;
+  final String? customBillDueTime;
   final String? specialTerms;
   final String? propertyId;
   final String? flatType;
@@ -1162,7 +1172,11 @@ String formatLedgerTimestamp(DateTime? date) {
   final DateTime localDate = date.toLocal();
   final DateTime now = DateTime.now();
   final DateTime today = DateTime(now.year, now.month, now.day);
-  final DateTime valueDay = DateTime(localDate.year, localDate.month, localDate.day);
+  final DateTime valueDay = DateTime(
+    localDate.year,
+    localDate.month,
+    localDate.day,
+  );
   final String clock = formatClock(localDate);
   if (valueDay == today) return 'Today • $clock';
   if (valueDay == today.subtract(const Duration(days: 1))) {

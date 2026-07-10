@@ -379,7 +379,7 @@ class _AppShellState extends State<AppShell> {
       onPopInvokedWithResult: (bool didPop, _) => _handleBackPress(didPop),
       child: Scaffold(
         appBar: AppBar(
-          leading: _selectedIndex == 0 && _tabHistory.isEmpty
+          leading: _selectedIndex == 0
               ? null
               : IconButton(
                   tooltip: 'Back',
@@ -1899,10 +1899,10 @@ class _ShellIconButton extends StatelessWidget {
       message: tooltip,
       child: Material(
         color: AppTheme.surfaceMuted,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          borderRadius: BorderRadius.circular(12),
           child: SizedBox(
             width: 38,
             height: 38,
@@ -1926,10 +1926,10 @@ class _NotificationBell extends StatelessWidget {
       message: 'Notifications',
       child: Material(
         color: AppTheme.surfaceMuted,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          borderRadius: BorderRadius.circular(12),
           child: SizedBox(
             width: 38,
             height: 38,
@@ -1944,17 +1944,20 @@ class _NotificationBell extends StatelessWidget {
                 ),
                 if (unreadCount > 0)
                   Positioned(
-                    top: 6,
-                    right: 5,
+                    top: 5,
+                    right: 3,
                     child: Container(
-                      padding: const EdgeInsets.all(2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
                       constraints: const BoxConstraints(
                         minWidth: 16,
                         minHeight: 16,
                       ),
                       decoration: BoxDecoration(
                         color: AppTheme.toneColor(UiTone.danger),
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(999),
                         border: Border.all(color: AppTheme.surface, width: 1.5),
                       ),
                       child: Text(

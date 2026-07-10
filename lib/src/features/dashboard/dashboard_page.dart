@@ -1869,6 +1869,16 @@ class _PremiumDashboardScroll extends StatelessWidget {
   final bool isLoading;
   final ValueChanged<String> onShortcutSelected;
 
+  String get _mobileBannerAudience {
+    if (role == AppRole.societyManager) {
+      return 'society_manager';
+    }
+    if (role == AppRole.propertyManager) {
+      return 'property_manager';
+    }
+    return 'tenant';
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<DashboardMetric> visibleMetrics = metrics.take(4).toList();
@@ -1884,18 +1894,28 @@ class _PremiumDashboardScroll extends StatelessWidget {
           metrics: visibleMetrics,
           onShortcutSelected: onShortcutSelected,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         MobileBannerCarousel(audience: _mobileBannerAudience),
         if (isLoading) ...<Widget>[
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           const _DashboardSkeleton(),
         ],
         const SizedBox(height: 18),
+        _PremiumSectionHeader(title: 'Quick actions'),
+        _QuickActionGrid(
+          shortcuts: visibleShortcuts,
+          onShortcutSelected: onShortcutSelected,
+        ),
+        const SizedBox(height: 20),
         _PremiumSectionHeader(
           title: 'Overview',
-          actionLabel: role == AppRole.propertyManager ? 'Properties' : 'Society',
+          actionLabel: role == AppRole.propertyManager
+              ? 'View properties'
+              : 'View society',
           onAction: () => onShortcutSelected(
-            role == AppRole.propertyManager ? 'properties' : 'society_management',
+            role == AppRole.propertyManager
+                ? 'properties'
+                : 'society_management',
           ),
         ),
         _PremiumMetricGrid(metrics: visibleMetrics),
@@ -1903,12 +1923,6 @@ class _PremiumDashboardScroll extends StatelessWidget {
         _RevenueAnalyticsCard(
           metrics: visibleMetrics,
           summary: billCollectionSummary,
-        ),
-        const SizedBox(height: 20),
-        _PremiumSectionHeader(title: 'Quick actions'),
-        _QuickActionGrid(
-          shortcuts: visibleShortcuts,
-          onShortcutSelected: onShortcutSelected,
         ),
         const SizedBox(height: 20),
         _PremiumSectionHeader(title: 'Recent activity'),
@@ -1925,16 +1939,6 @@ class _PremiumDashboardScroll extends StatelessWidget {
         ],
       ],
     );
-  }
-
-  String get _mobileBannerAudience {
-    if (role == AppRole.societyManager) {
-      return 'society_manager';
-    }
-    if (role == AppRole.propertyManager) {
-      return 'property_manager';
-    }
-    return 'tenant';
   }
 }
 
@@ -1958,20 +1962,21 @@ class _PremiumHeroCard extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final String rawName = (vendor?.fullName ?? societyInfo?.name ?? '').trim();
     final String title = rawName.isEmpty ? 'Premium command center' : rawName;
-    final DashboardMetric? primaryMetric =
-        metrics.isNotEmpty ? metrics.first : null;
+    final DashboardMetric? primaryMetric = metrics.isNotEmpty
+        ? metrics.first
+        : null;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Color(0x10121A26),
-            blurRadius: 24,
-            offset: Offset(0, 14),
+            color: Color(0x120B1526),
+            blurRadius: 18,
+            offset: Offset(0, 8),
           ),
         ],
       ),
@@ -1981,75 +1986,94 @@ class _PremiumHeroCard extends StatelessWidget {
           Row(
             children: <Widget>[
               Container(
-                width: 50,
-                height: 50,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   color: AppTheme.primarySoft,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.primaryTone),
                 ),
                 child: Icon(role.icon, color: AppTheme.primary),
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceMuted,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  role.label,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.w900,
-                  ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w900,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      role.homeHeadline,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.textSecondary,
+                        height: 1.45,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 22),
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              color: AppTheme.textPrimary,
-              fontWeight: FontWeight.w900,
-              height: 1.08,
-            ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _HeaderLabel(label: role.label),
+              if (primaryMetric != null)
+                _HeaderLabel(
+                  label: '${primaryMetric.title}: ${primaryMetric.value}',
+                ),
+              ...metrics
+                  .skip(1)
+                  .take(2)
+                  .map(
+                    (DashboardMetric metric) =>
+                        _HeaderLabel(label: '${metric.title}: ${metric.value}'),
+                  ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            role.homeHeadline,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textSecondary,
-              height: 1.45,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Expanded(
-                child: _HeroStatPill(
-                  label: primaryMetric?.title ?? 'Portfolio health',
-                  value: primaryMetric?.value ?? 'Live',
+                child: _HeroActionButton(
+                  icon: role == AppRole.propertyManager
+                      ? Icons.apartment_outlined
+                      : Icons.domain_outlined,
+                  label: role == AppRole.propertyManager
+                      ? 'Open properties'
+                      : 'Open society',
+                  onTap: () => onShortcutSelected(
+                    role == AppRole.propertyManager
+                        ? 'properties'
+                        : 'society_management',
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
-              _HeroIconAction(
-                icon: Icons.add_home_work_outlined,
-                onTap: () => onShortcutSelected(
-                  role == AppRole.propertyManager ? 'properties' : 'residents',
+              Expanded(
+                child: _HeroActionButton(
+                  icon: Icons.receipt_long_outlined,
+                  label: role == AppRole.propertyManager
+                      ? 'Open rental bills'
+                      : 'Open bills',
+                  onTap: () => onShortcutSelected(
+                    role == AppRole.propertyManager
+                        ? 'rental_bills'
+                        : 'billing',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              _HeroIconAction(
-                icon: Icons.receipt_long_outlined,
-                onTap: () => onShortcutSelected('billing'),
               ),
             ],
           ),
@@ -2059,80 +2083,51 @@ class _PremiumHeroCard extends StatelessWidget {
   }
 }
 
-class _HeroStatPill extends StatelessWidget {
-  const _HeroStatPill({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceMuted,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 10,
-            height: 10,
-            decoration: const BoxDecoration(
-              color: AppTheme.secondary,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.textPrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroIconAction extends StatelessWidget {
-  const _HeroIconAction({required this.icon, required this.onTap});
+class _HeroActionButton extends StatelessWidget {
+  const _HeroActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.primary,
-      borderRadius: BorderRadius.circular(20),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: SizedBox(
-          width: 48,
-          height: 48,
-          child: Icon(icon, color: Colors.white, size: 22),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 54,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(icon, color: AppTheme.primary, size: 20),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2174,33 +2169,42 @@ class _PremiumMetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final Color accent = index.isEven ? AppTheme.primary : AppTheme.secondary;
+    final Color accent = AppTheme.toneColor(metric.tone);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.border),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x10121A26),
-            blurRadius: 24,
-            offset: Offset(0, 14),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: accent.withAlpha(22),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(Icons.auto_graph_rounded, color: accent, size: 20),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  _compactMetricTitle(metric.title),
+                  maxLines: 2,
+                  overflow: TextOverflow.fade,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: accent.withAlpha(20),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.auto_graph_rounded, color: accent, size: 18),
+              ),
+            ],
           ),
           const Spacer(),
           Text(
@@ -2214,16 +2218,6 @@ class _PremiumMetricCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            metric.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
             metric.subtitle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -2235,6 +2229,15 @@ class _PremiumMetricCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _compactMetricTitle(String title) {
+    switch (title) {
+      case 'Pending Approval':
+        return 'Pending approval';
+      default:
+        return title;
+    }
   }
 }
 
@@ -2259,7 +2262,6 @@ class _RevenueAnalyticsCard extends StatelessWidget {
       todayCollected,
       pendingAmount,
       overdueAmount,
-      securityCollected,
     ];
     final double maxValue = values.fold<double>(
       0,
@@ -2267,22 +2269,37 @@ class _RevenueAnalyticsCard extends StatelessWidget {
     );
     final String headline = _formatCurrency(monthCollected);
     final String supporting = todayCollected > 0
-        ? '${_formatCurrency(todayCollected)} today'
-        : '${_formatCurrency(totalCollected)} total collected';
+        ? '${_formatCurrency(todayCollected)} collected today'
+        : '${_formatCurrency(totalCollected)} collected overall';
+    final List<_RevenueBarValue> bars = <_RevenueBarValue>[
+      _RevenueBarValue(
+        label: 'Collected',
+        value: totalCollected,
+        color: AppTheme.primary,
+      ),
+      _RevenueBarValue(
+        label: 'This month',
+        value: monthCollected,
+        color: AppTheme.secondary,
+      ),
+      _RevenueBarValue(
+        label: 'Today',
+        value: todayCollected,
+        color: const Color(0xFF2563EB),
+      ),
+      _RevenueBarValue(
+        label: 'Pending',
+        value: pendingAmount,
+        color: const Color(0xFF475569),
+      ),
+    ];
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFCF8),
-        borderRadius: BorderRadius.circular(30),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x10121A26),
-            blurRadius: 24,
-            offset: Offset(0, 14),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2318,51 +2335,37 @@ class _RevenueAnalyticsCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           SizedBox(
-            height: 98,
+            height: 156,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: <Widget>[
-                _ChartBar(
-                  heightFactor: _heightFactor(totalCollected, maxValue),
-                  active: totalCollected > 0,
-                ),
-                _ChartBar(
-                  heightFactor: _heightFactor(monthCollected, maxValue),
-                  active: monthCollected > 0,
-                ),
-                _ChartBar(
-                  heightFactor: _heightFactor(todayCollected, maxValue),
-                  active: todayCollected > 0,
-                ),
-                _ChartBar(
-                  heightFactor: _heightFactor(pendingAmount, maxValue),
-                ),
-                _ChartBar(
-                  heightFactor: _heightFactor(overdueAmount, maxValue),
-                ),
-                _ChartBar(
-                  heightFactor: _heightFactor(securityCollected, maxValue),
-                  active: securityCollected > 0,
-                ),
-              ],
+              children: bars
+                  .map(
+                    (_RevenueBarValue item) => _RevenueChartColumn(
+                      label: item.label,
+                      value: _formatCurrency(item.value),
+                      heightFactor: _heightFactor(item.value, maxValue),
+                      color: item.color,
+                    ),
+                  )
+                  .toList(),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: <Widget>[
               Expanded(
                 child: _RevenueMiniStat(
-                  label: 'Pending',
-                  value: _formatCurrency(pendingAmount),
+                  label: 'Overdue',
+                  value: _formatCurrency(overdueAmount),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _RevenueMiniStat(
-                  label: 'Overdue',
-                  value: _formatCurrency(overdueAmount),
+                  label: 'Security',
+                  value: _formatCurrency(securityCollected),
                 ),
               ),
             ],
@@ -2407,8 +2410,8 @@ class _RevenueMiniStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
@@ -2437,27 +2440,64 @@ class _RevenueMiniStat extends StatelessWidget {
   }
 }
 
-class _ChartBar extends StatelessWidget {
-  const _ChartBar({required this.heightFactor, this.active = false});
+class _RevenueChartColumn extends StatelessWidget {
+  const _RevenueChartColumn({
+    required this.label,
+    required this.value,
+    required this.heightFactor,
+    required this.color,
+  });
 
+  final String label;
+  final String value;
   final double heightFactor;
-  final bool active;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: FractionallySizedBox(
-          heightFactor: heightFactor,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: active ? AppTheme.primary : AppTheme.primarySoft,
-              borderRadius: BorderRadius.circular(999),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Expanded(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: FractionallySizedBox(
+                heightFactor: heightFactor,
+                child: Container(
+                  width: 34,
+                  decoration: BoxDecoration(
+                    color: color.withAlpha(28),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border(top: BorderSide(color: color, width: 4)),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2481,10 +2521,10 @@ class _QuickActionGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       itemCount: shortcuts.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: .9,
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.18,
       ),
       itemBuilder: (BuildContext context, int index) {
         final AppShortcut shortcut = shortcuts[index];
@@ -2507,14 +2547,14 @@ class _QuickActionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(26),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppTheme.border),
           ),
           child: Column(
@@ -2525,18 +2565,28 @@ class _QuickActionTile extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: AppTheme.primarySoft,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(shortcut.icon, color: AppTheme.primary, size: 20),
               ),
               const Spacer(),
               Text(
                 shortcut.title,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w900,
                   height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                shortcut.subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.textSecondary,
+                  height: 1.3,
                 ),
               ),
             ],
@@ -2595,7 +2645,7 @@ class _ActivityTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.border),
       ),
       child: Row(
@@ -2606,7 +2656,7 @@ class _ActivityTile extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               color: AppTheme.toneSoft(tone),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: accent, size: 20),
           ),
@@ -2659,7 +2709,7 @@ class _EmptyActivityCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.border),
       ),
       child: Row(
@@ -2669,7 +2719,7 @@ class _EmptyActivityCard extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               color: AppTheme.primarySoft,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.done_all_rounded, color: AppTheme.primary),
           ),
@@ -2687,6 +2737,43 @@ class _EmptyActivityCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HeaderLabel extends StatelessWidget {
+  const _HeaderLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: AppTheme.textSecondary,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _RevenueBarValue {
+  const _RevenueBarValue({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
 }
 
 class _PremiumSectionHeader extends StatelessWidget {
@@ -2709,9 +2796,9 @@ class _PremiumSectionHeader extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
             ),
           ),
           if (actionLabel != null && onAction != null)

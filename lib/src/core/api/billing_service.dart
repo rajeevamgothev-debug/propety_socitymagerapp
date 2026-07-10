@@ -25,13 +25,15 @@ class BillingService {
   }
 
   static Future<
-      ({
-        List<BillRecord> bills,
-        int count,
-        double pendingAmount,
-        double paidAmount,
-        double overdueAmount,
-      })> filterTenantBillsDetailed({
+    ({
+      List<BillRecord> bills,
+      int count,
+      double pendingAmount,
+      double paidAmount,
+      double overdueAmount,
+    })
+  >
+  filterTenantBillsDetailed({
     int skip = 0,
     int limit = 50,
     BillStatus? statusFilter,
@@ -44,8 +46,7 @@ class BillingService {
         'Skip': skip,
         'Limit': limit,
         'Whether_Bill_Status_Filter': statusFilter != null,
-        if (statusFilter != null)
-          'Bill_Status': _billStatusToApi(statusFilter),
+        if (statusFilter != null) 'Bill_Status': _billStatusToApi(statusFilter),
         'Whether_Search_Filter': search != null && search.isNotEmpty,
         if (search != null && search.isNotEmpty) 'Search': search,
         'Whether_Bill_Type_Filter': billType != null,
@@ -53,8 +54,9 @@ class BillingService {
       },
     );
 
-    final ({List<BillRecord> bills, int count}) parsed =
-        _parseBillResponse(response);
+    final ({List<BillRecord> bills, int count}) parsed = _parseBillResponse(
+      response,
+    );
     return (
       bills: parsed.bills,
       count: parsed.count,
@@ -69,17 +71,19 @@ class BillingService {
   /// Filter society resident bills with summary totals (for society manager,
   /// treasurer, president roles — supports bill type, block, building, search).
   static Future<
-      ({
-        List<BillRecord> bills,
-        int count,
-        double pendingAmount,
-        double collectedAmount,
-        double overdueAmount,
-        double todayCollection,
-        double monthCollection,
-        double monthOverdue,
-        double monthPending,
-      })> filterSocietyResidentBills({
+    ({
+      List<BillRecord> bills,
+      int count,
+      double pendingAmount,
+      double collectedAmount,
+      double overdueAmount,
+      double todayCollection,
+      double monthCollection,
+      double monthOverdue,
+      double monthPending,
+    })
+  >
+  filterSocietyResidentBills({
     required String societyId,
     int skip = 0,
     int limit = 10,
@@ -100,8 +104,7 @@ class BillingService {
         'Skip': skip,
         'Limit': limit,
         'Whether_Bill_Status_Filter': statusFilter != null,
-        if (statusFilter != null)
-          'Bill_Status': _billStatusToApi(statusFilter),
+        if (statusFilter != null) 'Bill_Status': _billStatusToApi(statusFilter),
         'Whether_Bill_Type_Filter': billType != null,
         'Bill_Type': billType ?? 1,
         'Whether_Block_Filter': blockId != null && blockId.isNotEmpty,
@@ -116,8 +119,10 @@ class BillingService {
       },
     );
 
-    final ({List<BillRecord> bills, int count}) parsed =
-        _parseBillResponse(response, societyId: societyId);
+    final ({List<BillRecord> bills, int count}) parsed = _parseBillResponse(
+      response,
+      societyId: societyId,
+    );
     return (
       bills: parsed.bills,
       count: parsed.count,
@@ -131,21 +136,21 @@ class BillingService {
           (response.extras['Today_Collection'] as num?)?.toDouble() ?? 0,
       monthCollection:
           (response.extras['Current_Month_Collection'] as num?)?.toDouble() ??
-              0,
+          0,
       monthOverdue:
           (response.extras['Current_Month_Overdue_Amount'] as num?)
               ?.toDouble() ??
-              0,
+          0,
       monthPending:
           (response.extras['Current_Month_Pending_Amount'] as num?)
               ?.toDouble() ??
-              0,
+          0,
     );
   }
 
   /// Filter property contract bills (for property owners).
   static Future<({List<BillRecord> bills, int count})>
-      filterPropertyContractBills({
+  filterPropertyContractBills({
     String? propertyId,
     int skip = 0,
     int limit = 50,
@@ -163,20 +168,22 @@ class BillingService {
   /// Filter property contract bills with summary totals (for property manager
   /// billing page direct fetch with search + contract filter).
   static Future<
-      ({
-        List<BillRecord> bills,
-        int count,
-        double pendingAmount,
-        double collectedAmount,
-        double overdueAmount,
-        double todayCollection,
-        double monthCollection,
-        double monthOverdue,
-        double monthPending,
-        double totalSecurityBill,
-        double pendingSecurity,
-        double collectedSecurity,
-      })> filterPropertyContractBillsDetailed({
+    ({
+      List<BillRecord> bills,
+      int count,
+      double pendingAmount,
+      double collectedAmount,
+      double overdueAmount,
+      double todayCollection,
+      double monthCollection,
+      double monthOverdue,
+      double monthPending,
+      double totalSecurityBill,
+      double pendingSecurity,
+      double collectedSecurity,
+    })
+  >
+  filterPropertyContractBillsDetailed({
     String? propertyId,
     int skip = 0,
     int limit = 50,
@@ -185,10 +192,16 @@ class BillingService {
     String? search,
     int? billType,
     String? propertyVendorId,
+    DateTime? billMonth,
   }) async {
-    final bool hasPropertyFilter =
-        propertyId != null && propertyId.isNotEmpty;
+    final bool hasPropertyFilter = propertyId != null && propertyId.isNotEmpty;
     final bool hasContractFilter = contractId != null && contractId.isNotEmpty;
+    final DateTime? monthStart = billMonth == null
+        ? null
+        : DateTime(billMonth.year, billMonth.month);
+    final DateTime? monthEnd = billMonth == null
+        ? null
+        : DateTime(billMonth.year, billMonth.month + 1, 0, 23, 59, 59, 999);
     final ApiResponse response = await ApiClient.instance.post(
       ApiConfig.filterPropertyContractBills,
       <String, dynamic>{
@@ -197,8 +210,7 @@ class BillingService {
         'Skip': skip,
         'Limit': limit,
         'Whether_Bill_Status_Filter': statusFilter != null,
-        if (statusFilter != null)
-          'Bill_Status': _billStatusToApi(statusFilter),
+        if (statusFilter != null) 'Bill_Status': _billStatusToApi(statusFilter),
         'Whether_Bill_Type_Filter': billType != null,
         if (billType != null) 'Bill_Type': billType,
         'Whether_Property_Vendor_Filter':
@@ -210,11 +222,16 @@ class BillingService {
         'Rental_ContractID': hasContractFilter ? contractId : '',
         'Whether_Search_Filter': search != null && search.isNotEmpty,
         if (search != null && search.isNotEmpty) 'Search': search,
+        'Whether_Bill_Month_Filter': billMonth != null,
+        if (monthStart != null)
+          'Bill_Month_Start': monthStart.toIso8601String(),
+        if (monthEnd != null) 'Bill_Month_End': monthEnd.toIso8601String(),
       },
     );
 
-    final ({List<BillRecord> bills, int count}) parsed =
-        _parseBillResponse(response);
+    final ({List<BillRecord> bills, int count}) parsed = _parseBillResponse(
+      response,
+    );
     return (
       bills: parsed.bills,
       count: parsed.count,
@@ -228,23 +245,23 @@ class BillingService {
           (response.extras['Today_Collection'] as num?)?.toDouble() ?? 0,
       monthCollection:
           (response.extras['Current_Month_Collection'] as num?)?.toDouble() ??
-              0,
+          0,
       monthOverdue:
           (response.extras['Current_Month_Overdue_Amount'] as num?)
               ?.toDouble() ??
-              0,
+          0,
       monthPending:
           (response.extras['Current_Month_Pending_Amount'] as num?)
               ?.toDouble() ??
-              0,
+          0,
       totalSecurityBill:
           (response.extras['Total_Security_Bill_Amount'] as num?)?.toDouble() ??
-              0,
+          0,
       pendingSecurity:
           (response.extras['Pending_Security_Amount'] as num?)?.toDouble() ?? 0,
       collectedSecurity:
           (response.extras['Collected_Security_Amount'] as num?)?.toDouble() ??
-              0,
+          0,
     );
   }
 
@@ -256,8 +273,9 @@ class BillingService {
     );
 
     if (response.success && response.data != null) {
-      return BillData.fromJson(response.data as Map<String, dynamic>)
-          .toBillRecord();
+      return BillData.fromJson(
+        response.data as Map<String, dynamic>,
+      ).toBillRecord();
     }
     return null;
   }
@@ -273,12 +291,13 @@ class BillingService {
     final List<dynamic> dataList = response.data as List<dynamic>;
     final List<Map<String, dynamic>> billMaps = dataList
         .whereType<Map<String, dynamic>>()
-        .where((Map<String, dynamic> item) => _isBillForSociety(item, societyId))
+        .where(
+          (Map<String, dynamic> item) => _isBillForSociety(item, societyId),
+        )
         .toList();
     final List<BillRecord> bills = billMaps
         .map(
-          (Map<String, dynamic> item) =>
-              BillData.fromJson(item).toBillRecord(),
+          (Map<String, dynamic> item) => BillData.fromJson(item).toBillRecord(),
         )
         .toList();
 
@@ -346,10 +365,7 @@ class BillingService {
   }) async {
     return ApiClient.instance.post(
       ApiConfig.collectBillAmount,
-      <String, dynamic>{
-        'BillID': billId,
-        'Payment_Type': paymentType,
-      },
+      <String, dynamic>{'BillID': billId, 'Payment_Type': paymentType},
     );
   }
 
@@ -372,8 +388,7 @@ class BillingService {
         if (paymentDescription != null && paymentDescription.isNotEmpty)
           'Bill_Payment_Description': paymentDescription,
         'Whether_Bill_Payment_Image_Available': whetherPaymentImageAvailable,
-        if (whetherPaymentImageAvailable && imageId != null)
-          'ImageID': imageId,
+        if (whetherPaymentImageAvailable && imageId != null) 'ImageID': imageId,
       },
     );
   }
@@ -393,10 +408,7 @@ class BillingService {
   }) async {
     return ApiClient.instance.post(
       ApiConfig.generatePropertyBills,
-      <String, dynamic>{
-        'PropertyID': propertyId,
-        'Whether_Paid': whetherPaid,
-      },
+      <String, dynamic>{'PropertyID': propertyId, 'Whether_Paid': whetherPaid},
     );
   }
 

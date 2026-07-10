@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/api/api_client.dart';
 import '../../core/api/billing_service.dart';
 import '../../core/api/block_building_service.dart';
 import '../../core/api/society_service.dart';
@@ -125,6 +126,9 @@ class _BillingPageState extends State<BillingPage> {
   double _pmTotalSecurityBill = 0;
   double _pmPendingSecurity = 0;
   double _pmCollectedSecurity = 0;
+  RentReminderSettingsData? _rentReminderSettings;
+  bool _isReminderSettingsLoading = false;
+  DateTime? _pmBillMonthFilter;
   int _pmSkip = 0;
   int _pmTotalCount = 0;
   static const int _pmPageSize = 10;
@@ -194,6 +198,7 @@ class _BillingPageState extends State<BillingPage> {
   Future<void> _loadVendor() async {
     try {
       _vendor = await VendorService.fetchVendorInfo();
+      _rentReminderSettings = _vendor?.rentReminderSettings;
     } catch (_) {
       _vendor = null;
     }
@@ -209,6 +214,7 @@ class _BillingPageState extends State<BillingPage> {
         _loadPmBills(),
         _loadPmContracts(),
         _loadPmProperties(),
+        _loadRentReminderSettings(),
       ]);
     }
     if (_usesSocietyFlow && _societyId.isNotEmpty) {
@@ -408,6 +414,7 @@ class _BillingPageState extends State<BillingPage> {
             : _searchController.text.trim(),
         statusFilter: _selectedFilter,
         contractId: _pmContractId,
+        billMonth: _pmBillMonthFilter,
       );
       if (!mounted) {
         return;
@@ -439,6 +446,33 @@ class _BillingPageState extends State<BillingPage> {
         _pmError = error.toString().replaceFirst('Exception: ', '');
         _isPmLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadRentReminderSettings() async {
+    if (!_usesPmFlow) {
+      return;
+    }
+    setState(() {
+      _isReminderSettingsLoading = true;
+    });
+    try {
+      final RentReminderSettingsData? settings =
+          await VendorService.fetchRentReminderSettings();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _rentReminderSettings = settings;
+      });
+    } catch (_) {
+      // This control is optional for billing load; keep the page usable.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isReminderSettingsLoading = false;
+        });
+      }
     }
   }
 
@@ -511,7 +545,8 @@ class _BillingPageState extends State<BillingPage> {
 
     for (final RentalContractRecord contract in _pmContractsById.values) {
       final bool propertyMatches =
-          billPropertyId.isEmpty || billPropertyId == (contract.propertyId ?? '');
+          billPropertyId.isEmpty ||
+          billPropertyId == (contract.propertyId ?? '');
       final bool phoneMatches =
           billPhone.isNotEmpty &&
           billPhone == _digitsOnly(contract.tenantPhone ?? '');
@@ -537,12 +572,13 @@ class _BillingPageState extends State<BillingPage> {
     }
 
     return bills.where((BillRecord bill) {
-      final RentalContractRecord? linkedContract =
-          _linkedContractForPmBill(bill);
+      final RentalContractRecord? linkedContract = _linkedContractForPmBill(
+        bill,
+      );
       if (propertyId.isNotEmpty) {
         final String billPropertyId = (bill.propertyId ?? '').trim();
-        final String linkedPropertyId =
-            (linkedContract?.propertyId ?? '').trim();
+        final String linkedPropertyId = (linkedContract?.propertyId ?? '')
+            .trim();
         final bool canCheckProperty =
             billPropertyId.isNotEmpty || linkedPropertyId.isNotEmpty;
         if (canCheckProperty &&
@@ -625,9 +661,10 @@ class _BillingPageState extends State<BillingPage> {
     final String sharing = propertyType == 3 && pgSharingType != null
         ? (_propertyPgSharingLabels[pgSharingType] ?? '')
         : '';
-    return <String>[subtype, sharing]
-        .where((String value) => value.isNotEmpty)
-        .join(' - ');
+    return <String>[
+      subtype,
+      sharing,
+    ].where((String value) => value.isNotEmpty).join(' - ');
   }
 
   static String _propertyOptionDropdownLabel(Map<String, dynamic> property) {
@@ -687,6 +724,297 @@ class _BillingPageState extends State<BillingPage> {
     });
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 400), _loadPmBills);
+  }
+
+  static const List<String> _monthShortNames = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  static const List<String> _monthLongNames = <String>[
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  String _pmBillMonthFilterLabel() {
+    final DateTime? selected = _pmBillMonthFilter;
+    if (selected == null) {
+      return 'All Months';
+    }
+    return '${_monthLongNames[selected.month - 1]} ${selected.year}';
+  }
+
+  String _pmSummaryMonthLabel() {
+    final DateTime selected = _pmBillMonthFilter ?? DateTime.now();
+    return _monthLongNames[selected.month - 1];
+  }
+
+  Future<void> _openPmBillMonthFilterSheet() async {
+    final DateTime now = DateTime.now();
+    final int currentYear = now.year;
+    final int currentMonth = now.month;
+    int selectedYear = (_pmBillMonthFilter ?? now).year;
+    int selectedMonth = (_pmBillMonthFilter ?? now).month;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext sheetContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            final bool canMoveToFutureYear = selectedYear < currentYear;
+            final String selectedLabel =
+                '${_monthLongNames[selectedMonth - 1]} $selectedYear';
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  16,
+                  20,
+                  20 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceElevated,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppTheme.borderSoft),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primarySoft,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.calendar_month_rounded,
+                              color: AppTheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  'Filter by bill month',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Showing bills for $selectedLabel',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: AppTheme.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          IconButton(
+                            tooltip: 'Previous year',
+                            onPressed: () {
+                              setModalState(() {
+                                selectedYear -= 1;
+                              });
+                            },
+                            icon: const Icon(Icons.chevron_left_rounded),
+                          ),
+                          Expanded(
+                            child: Column(
+                              children: <Widget>[
+                                Text(
+                                  'Year',
+                                  style: Theme.of(context).textTheme.labelMedium
+                                      ?.copyWith(color: AppTheme.textMuted),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '$selectedYear',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: canMoveToFutureYear
+                                ? 'Next year'
+                                : 'Future years disabled',
+                            onPressed: canMoveToFutureYear
+                                ? () {
+                                    setModalState(() {
+                                      selectedYear += 1;
+                                      if (selectedYear == currentYear &&
+                                          selectedMonth > currentMonth) {
+                                        selectedMonth = currentMonth;
+                                      }
+                                    });
+                                  }
+                                : null,
+                            icon: const Icon(Icons.chevron_right_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                            childAspectRatio: 2.2,
+                          ),
+                      itemCount: 12,
+                      itemBuilder: (BuildContext context, int index) {
+                        final int month = index + 1;
+                        final bool isFutureMonth =
+                            selectedYear == currentYear && month > currentMonth;
+                        final bool isSelected = selectedMonth == month;
+                        return OutlinedButton(
+                          onPressed: isFutureMonth
+                              ? null
+                              : () {
+                                  setModalState(() {
+                                    selectedMonth = month;
+                                  });
+                                },
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: isSelected
+                                ? AppTheme.primarySoft
+                                : (isFutureMonth
+                                      ? AppTheme.surfaceMuted
+                                      : AppTheme.surface),
+                            foregroundColor: isSelected
+                                ? AppTheme.primary
+                                : (isFutureMonth
+                                      ? AppTheme.textMuted
+                                      : AppTheme.textPrimary),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? AppTheme.primary
+                                  : (isFutureMonth
+                                        ? AppTheme.borderSoft
+                                        : AppTheme.border),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 0,
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size.fromHeight(52),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _monthShortNames[index],
+                              maxLines: 1,
+                              overflow: TextOverflow.visible,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    height: 1.0,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected
+                                        ? AppTheme.primary
+                                        : (isFutureMonth
+                                              ? AppTheme.textMuted
+                                              : AppTheme.textPrimary),
+                                  ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _pmBillMonthFilter = null;
+                                _pmSkip = 0;
+                              });
+                              Navigator.of(sheetContext).pop();
+                              _loadPmBills();
+                            },
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            label: const Text('Clear'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _pmBillMonthFilter = DateTime(
+                                  selectedYear,
+                                  selectedMonth,
+                                );
+                                _pmSkip = 0;
+                              });
+                              Navigator.of(sheetContext).pop();
+                              _loadPmBills();
+                            },
+                            icon: const Icon(Icons.check_rounded, size: 18),
+                            label: const Text('Apply'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildPmExportMenu(ThemeData theme, List<BillRecord> bills) {
@@ -763,6 +1091,408 @@ class _BillingPageState extends State<BillingPage> {
     );
   }
 
+  String _formatReminderScheduleLabel(RentReminderSettingsData? settings) {
+    if (settings == null || !settings.enabled) {
+      return 'Automatic WhatsApp rent reminders are off';
+    }
+    final String time = settings.reminderTimeLabel.isNotEmpty
+        ? settings.reminderTimeLabel
+        : _formatReminderTimeLabel(settings.reminderTime);
+    return 'Every month on day ${settings.reminderDay} at $time';
+  }
+
+  String _formatReminderTimeLabel(String time) {
+    final TimeOfDay parsed = _timeOfDayFromReminderTime(time);
+    final int hour = parsed.hourOfPeriod == 0 ? 12 : parsed.hourOfPeriod;
+    final String minute = parsed.minute.toString().padLeft(2, '0');
+    final String period = parsed.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
+  }
+
+  TimeOfDay _timeOfDayFromReminderTime(String time) {
+    final List<String> parts = time.split(':');
+    final int hour = parts.isNotEmpty ? int.tryParse(parts.first) ?? 10 : 10;
+    final int minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    return TimeOfDay(hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
+  }
+
+  String _formatReminderTimeForApi(TimeOfDay time) {
+    return '${time.hour.toString().padLeft(2, '0')}:'
+        '${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildRentReminderScheduleButton(ThemeData theme) {
+    final RentReminderSettingsData? settings = _rentReminderSettings;
+    final bool enabled = settings?.enabled ?? false;
+    final String timeLabel = settings == null
+        ? _formatReminderTimeLabel('10:00')
+        : (settings.reminderTimeLabel.isNotEmpty
+              ? settings.reminderTimeLabel
+              : _formatReminderTimeLabel(settings.reminderTime));
+    return CustomCard(
+      padding: CustomCardPadding.sm,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: enabled
+                      ? const Color(0x1F25D366)
+                      : AppTheme.surfaceMuted,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.alarm_rounded,
+                  color: enabled ? const Color(0xFF128C4A) : AppTheme.textMuted,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Rent reminder alarm',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _isReminderSettingsLoading
+                          ? 'Loading reminder settings...'
+                          : (enabled
+                                ? 'WhatsApp reminders go only to unpaid rent bills.'
+                                : 'Automatic WhatsApp rent reminders are off.'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              _ReminderStatusPill(enabled: enabled),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceMuted,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Schedule',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    _ReminderInfoChip(
+                      icon: Icons.calendar_month_outlined,
+                      label: enabled
+                          ? 'Every month on day ${settings?.reminderDay ?? 1}'
+                          : 'No monthly day selected',
+                    ),
+                    _ReminderInfoChip(
+                      icon: Icons.schedule_rounded,
+                      label: enabled ? timeLabel : 'No reminder time selected',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _isReminderSettingsLoading
+                      ? 'Please wait while settings load.'
+                      : _formatReminderScheduleLabel(settings),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppTheme.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isReminderSettingsLoading
+                  ? null
+                  : _openRentReminderScheduleSheet,
+              icon: const Icon(Icons.edit_calendar_rounded, size: 18),
+              label: Text(enabled ? 'Edit Schedule' : 'Set Schedule'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openRentReminderScheduleSheet() async {
+    final RentReminderSettingsData current =
+        _rentReminderSettings ??
+        const RentReminderSettingsData(
+          enabled: false,
+          reminderDay: 1,
+          reminderTime: '10:00',
+        );
+    bool enabled = current.enabled;
+    int reminderDay = current.reminderDay.clamp(1, 28);
+    TimeOfDay reminderTime = _timeOfDayFromReminderTime(current.reminderTime);
+    bool saving = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext sheetContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            final String timeLabel = MaterialLocalizations.of(
+              context,
+            ).formatTimeOfDay(reminderTime);
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  16,
+                  20,
+                  20 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        const Icon(Icons.alarm_rounded),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Monthly WhatsApp reminder',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        _ReminderStatusPill(enabled: enabled),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceMuted,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Reminder preview',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  color: AppTheme.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: <Widget>[
+                              _ReminderInfoChip(
+                                icon: Icons.calendar_month_outlined,
+                                label: 'Day $reminderDay every month',
+                              ),
+                              _ReminderInfoChip(
+                                icon: Icons.schedule_rounded,
+                                label: timeLabel,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: enabled,
+                      title: const Text('Send automatically'),
+                      subtitle: const Text(
+                        'Only unpaid rent bills will receive WhatsApp reminders.',
+                      ),
+                      onChanged: saving
+                          ? null
+                          : (bool value) {
+                              setModalState(() {
+                                enabled = value;
+                              });
+                            },
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<int>(
+                      initialValue: reminderDay,
+                      decoration: const InputDecoration(
+                        labelText: 'Monthly day',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: List<DropdownMenuItem<int>>.generate(28, (
+                        int index,
+                      ) {
+                        final int day = index + 1;
+                        return DropdownMenuItem<int>(
+                          value: day,
+                          child: Text('Day $day of every month'),
+                        );
+                      }),
+                      onChanged: saving
+                          ? null
+                          : (int? value) {
+                              if (value == null) {
+                                return;
+                              }
+                              setModalState(() {
+                                reminderDay = value;
+                              });
+                            },
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              final TimeOfDay? picked = await showTimePicker(
+                                context: context,
+                                initialTime: reminderTime,
+                              );
+                              if (picked != null) {
+                                setModalState(() {
+                                  reminderTime = picked;
+                                });
+                              }
+                            },
+                      icon: const Icon(Icons.schedule_rounded),
+                      label: Text('Time: $timeLabel'),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: saving
+                                ? null
+                                : () => Navigator.of(sheetContext).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: saving
+                                ? null
+                                : () async {
+                                    final NavigatorState sheetNavigator =
+                                        Navigator.of(sheetContext);
+                                    setModalState(() {
+                                      saving = true;
+                                    });
+                                    try {
+                                      final ApiResponse response =
+                                          await VendorService.updateRentReminderSettings(
+                                            enabled: enabled,
+                                            reminderDay: reminderDay,
+                                            reminderTime:
+                                                _formatReminderTimeForApi(
+                                                  reminderTime,
+                                                ),
+                                          );
+                                      if (!response.success) {
+                                        throw Exception(
+                                          response.message ??
+                                              response.status ??
+                                              'Unable to save reminder settings.',
+                                        );
+                                      }
+                                      final RentReminderSettingsData settings =
+                                          response.data is Map<String, dynamic>
+                                          ? RentReminderSettingsData.fromJson(
+                                              response.data
+                                                  as Map<String, dynamic>,
+                                            )
+                                          : RentReminderSettingsData(
+                                              enabled: enabled,
+                                              reminderDay: reminderDay,
+                                              reminderTime:
+                                                  _formatReminderTimeForApi(
+                                                    reminderTime,
+                                                  ),
+                                            );
+                                      if (!mounted) {
+                                        return;
+                                      }
+                                      setState(() {
+                                        _rentReminderSettings = settings;
+                                      });
+                                      sheetNavigator.pop();
+                                      _showMessage(
+                                        enabled
+                                            ? 'Rent reminder alarm saved.'
+                                            : 'Rent reminder alarm turned off.',
+                                      );
+                                    } catch (error) {
+                                      setModalState(() {
+                                        saving = false;
+                                      });
+                                      _showMessage(
+                                        error.toString().replaceFirst(
+                                          'Exception: ',
+                                          '',
+                                        ),
+                                      );
+                                    }
+                                  },
+                            child: saving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Save'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
@@ -783,7 +1513,9 @@ class _BillingPageState extends State<BillingPage> {
       'November',
       'December',
     ];
-    final String currentMonth = monthNames[DateTime.now().month - 1];
+    final String currentMonth = _usesPmFlow
+        ? _pmSummaryMonthLabel()
+        : monthNames[DateTime.now().month - 1];
     final List<BillRecord> sourceBills = _usesPmFlow
         ? _pmBills
         : (_usesTenantWebsiteFlow
@@ -1091,11 +1823,8 @@ class _BillingPageState extends State<BillingPage> {
               Expanded(
                 child: DropdownButtonFormField<String?>(
                   value: _pmPropertyId,
-                  menuMaxHeight:
-                      (MediaQuery.sizeOf(context).height * 0.55).clamp(
-                    240.0,
-                    420.0,
-                  ),
+                  menuMaxHeight: (MediaQuery.sizeOf(context).height * 0.55)
+                      .clamp(240.0, 420.0),
                   decoration: InputDecoration(
                     labelText: 'Property',
                     contentPadding: const EdgeInsets.symmetric(
@@ -1114,20 +1843,15 @@ class _BillingPageState extends State<BillingPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       ..._pmProperties.map(
-                        (Map<String, String> p) => Text(
-                          p['label']!,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        (Map<String, String> p) =>
+                            Text(p['label']!, overflow: TextOverflow.ellipsis),
                       ),
                     ];
                   },
                   items: <DropdownMenuItem<String?>>[
                     const DropdownMenuItem<String?>(
                       value: null,
-                      child: Text(
-                        'All Properties',
-                        softWrap: true,
-                      ),
+                      child: Text('All Properties', softWrap: true),
                     ),
                     ..._pmProperties.map(
                       (Map<String, String> p) => DropdownMenuItem<String?>(
@@ -1136,10 +1860,7 @@ class _BillingPageState extends State<BillingPage> {
                           constraints: BoxConstraints(
                             maxWidth: MediaQuery.sizeOf(context).width - 72,
                           ),
-                          child: Text(
-                            p['label']!,
-                            softWrap: true,
-                          ),
+                          child: Text(p['label']!, softWrap: true),
                         ),
                       ),
                     ),
@@ -1196,43 +1917,69 @@ class _BillingPageState extends State<BillingPage> {
             ],
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<BillStatus?>(
-            value: _selectedFilter,
-            decoration: InputDecoration(
-              labelText: 'Status',
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: DropdownButtonFormField<BillStatus?>(
+                  value: _selectedFilter,
+                  decoration: InputDecoration(
+                    labelText: 'Status',
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  items: <DropdownMenuItem<BillStatus?>>[
+                    const DropdownMenuItem<BillStatus?>(
+                      value: null,
+                      child: Text('All Status'),
+                    ),
+                    ...<BillStatus>[
+                      BillStatus.pending,
+                      BillStatus.paid,
+                      BillStatus.overdue,
+                    ].map(
+                      (BillStatus s) => DropdownMenuItem<BillStatus?>(
+                        value: s,
+                        child: Text(s.label),
+                      ),
+                    ),
+                  ],
+                  onChanged: (BillStatus? value) {
+                    setState(() {
+                      _selectedFilter = value;
+                      _pmSkip = 0;
+                    });
+                    _loadPmBills();
+                  },
+                ),
               ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            items: <DropdownMenuItem<BillStatus?>>[
-              const DropdownMenuItem<BillStatus?>(
-                value: null,
-                child: Text('All Status'),
-              ),
-              ...<BillStatus>[
-                BillStatus.pending,
-                BillStatus.paid,
-                BillStatus.overdue,
-              ].map(
-                (BillStatus s) => DropdownMenuItem<BillStatus?>(
-                  value: s,
-                  child: Text(s.label),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _openPmBillMonthFilterSheet,
+                  icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                  label: Text(
+                    _pmBillMonthFilterLabel(),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 ),
               ),
             ],
-            onChanged: (BillStatus? value) {
-              setState(() {
-                _selectedFilter = value;
-                _pmSkip = 0;
-              });
-              _loadPmBills();
-            },
           ),
-          const SizedBox(height: 12),
         ],
         if (_usesTenantWebsiteFlow) ...<Widget>[
           TextField(
@@ -2211,8 +2958,12 @@ class _BillingPageState extends State<BillingPage> {
                       label: 'Bill Date',
                       value: formatCompactDate(activeBill.billDate!),
                     ),
+                  _DueDetailPanel(
+                    dueDate: activeBill.dueDate,
+                    status: activeBill.status,
+                  ),
                   _DetailLine(
-                    label: 'Due Date',
+                    label: 'Last Due Date',
                     value: formatCompactDate(activeBill.dueDate),
                   ),
                   if (activeBill.paidDate != null)
@@ -2716,10 +3467,9 @@ class _BillingPageState extends State<BillingPage> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _PmInfoRow(
-                    icon: Icons.event_outlined,
-                    label: 'Due Date',
-                    value: formatCompactDate(bill.dueDate),
+                  child: _PmDueHighlight(
+                    dueDate: bill.dueDate,
+                    status: bill.status,
                   ),
                 ),
               ],
@@ -2908,11 +3658,13 @@ class _BillingPageState extends State<BillingPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Due: ${formatCompactDate(bill.dueDate)}',
+              'Bill Date: ${bill.billDate != null ? formatCompactDate(bill.billDate!) : '-'}',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: AppTheme.textSecondary,
               ),
             ),
+            const SizedBox(height: 12),
+            _SocietyDueBanner(dueDate: bill.dueDate, status: bill.status),
             const SizedBox(height: 18),
             Wrap(
               spacing: 10,
@@ -3045,7 +3797,7 @@ class _BillingPageState extends State<BillingPage> {
                 ),
                 Expanded(
                   child: _MetaItem(
-                    label: 'Due',
+                    label: 'Last Due',
                     value: formatCompactDate(bill.dueDate),
                   ),
                 ),
@@ -3568,6 +4320,285 @@ class _SocietyActionButton extends StatelessWidget {
   }
 }
 
+class _ReminderStatusPill extends StatelessWidget {
+  const _ReminderStatusPill({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color background = enabled
+        ? const Color(0xFFDCFCE7)
+        : AppTheme.surfaceMuted;
+    final Color foreground = enabled
+        ? const Color(0xFF15803D)
+        : AppTheme.textMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        enabled ? 'Active' : 'Off',
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReminderInfoChip extends StatelessWidget {
+  const _ReminderInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 16, color: AppTheme.textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DueToneData {
+  const _DueToneData({
+    required this.background,
+    required this.foreground,
+    required this.border,
+    required this.icon,
+    required this.statusLabel,
+  });
+
+  final Color background;
+  final Color foreground;
+  final Color border;
+  final IconData icon;
+  final String statusLabel;
+}
+
+_DueToneData _dueToneForStatus(BillStatus status) {
+  switch (status) {
+    case BillStatus.paid:
+      return const _DueToneData(
+        background: Color(0xFFECFDF5),
+        foreground: Color(0xFF047857),
+        border: Color(0xFFA7F3D0),
+        icon: Icons.check_circle_outline,
+        statusLabel: 'Paid',
+      );
+    case BillStatus.overdue:
+      return const _DueToneData(
+        background: Color(0xFFFEF2F2),
+        foreground: Color(0xFFB91C1C),
+        border: Color(0xFFFECACA),
+        icon: Icons.warning_amber_rounded,
+        statusLabel: 'Overdue',
+      );
+    case BillStatus.partial:
+      return const _DueToneData(
+        background: Color(0xFFEFF6FF),
+        foreground: Color(0xFF1D4ED8),
+        border: Color(0xFFBFDBFE),
+        icon: Icons.pie_chart_outline,
+        statusLabel: 'Partial',
+      );
+    case BillStatus.pending:
+      return const _DueToneData(
+        background: Color(0xFFFFFBEB),
+        foreground: Color(0xFFB45309),
+        border: Color(0xFFFDE68A),
+        icon: Icons.schedule_outlined,
+        statusLabel: 'Pending',
+      );
+  }
+}
+
+class _PmDueHighlight extends StatelessWidget {
+  const _PmDueHighlight({required this.dueDate, required this.status});
+
+  final DateTime dueDate;
+  final BillStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final _DueToneData tone = _dueToneForStatus(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: tone.background,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(tone.icon, size: 16, color: tone.foreground),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Last Due Date',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: tone.foreground,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  formatCompactDate(dueDate),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: tone.foreground,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SocietyDueBanner extends StatelessWidget {
+  const _SocietyDueBanner({required this.dueDate, required this.status});
+
+  final DateTime dueDate;
+  final BillStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final _DueToneData tone = _dueToneForStatus(status);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: tone.background,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(tone.icon, color: tone.foreground),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Last Due Date',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: tone.foreground,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  formatCompactDate(dueDate),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: tone.foreground,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            tone.statusLabel,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: tone.foreground,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DueDetailPanel extends StatelessWidget {
+  const _DueDetailPanel({required this.dueDate, required this.status});
+
+  final DateTime dueDate;
+  final BillStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final _DueToneData tone = _dueToneForStatus(status);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: tone.background,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: tone.border),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(tone.icon, color: tone.foreground),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Last Due Date',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: tone.foreground,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    formatCompactDate(dueDate),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: tone.foreground,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              tone.statusLabel,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: tone.foreground,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PaymentProofImage extends StatelessWidget {
   const _PaymentProofImage({this.imageUrl, this.localPath});
 
@@ -3787,7 +4818,7 @@ class _BillTenantAvatarState extends State<_BillTenantAvatar> {
             : Image.network(
                 url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Icon(
+                errorBuilder: (_, _, _) => const Icon(
                   Icons.person_outline,
                   color: AppTheme.textMuted,
                   size: 28,

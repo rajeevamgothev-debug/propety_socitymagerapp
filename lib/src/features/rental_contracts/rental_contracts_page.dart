@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -159,6 +157,35 @@ bool _isContractActiveForDisplay(RentalContractRecord contract) {
   return contract.isActive &&
       !_isContractClosed(contract) &&
       !_isContractExpired(contract);
+}
+
+int _normalizedContractScheduleDay(int? value, {int fallback = 1}) {
+  final int parsed = value ?? fallback;
+  if (parsed < 1) {
+    return 1;
+  }
+  if (parsed > 28) {
+    return 28;
+  }
+  return parsed;
+}
+
+TimeOfDay _contractTimeOfDayFromStorage(String? value) {
+  final List<String> parts = (value ?? '').split(':');
+  final int hour = parts.isNotEmpty ? int.tryParse(parts.first) ?? 23 : 23;
+  final int minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 59 : 59;
+  return TimeOfDay(hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
+}
+
+String _contractTimeOfDayToStorage(TimeOfDay time) {
+  return '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
+}
+
+String _contractFormatStoredTime(BuildContext context, String? value) {
+  return MaterialLocalizations.of(
+    context,
+  ).formatTimeOfDay(_contractTimeOfDayFromStorage(value));
 }
 
 bool _matchesContractStatusFilter(
@@ -596,6 +623,21 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     DateTime startDate = contract?.startDate ?? DateTime.now();
     DateTime endDate =
         contract?.endDate ?? DateTime.now().add(const Duration(days: 365));
+    bool useCustomBillingDay =
+        contract?.whetherCustomBillGenerationDayAvailable ?? false;
+    int customBillingDay = _normalizedContractScheduleDay(
+      contract?.customBillGenerationDay,
+      fallback: 1,
+    );
+    bool useCustomDueSchedule =
+        contract?.whetherCustomBillDueScheduleAvailable ?? false;
+    int customDueDay = _normalizedContractScheduleDay(
+      contract?.customBillDueDay,
+      fallback: 5,
+    );
+    TimeOfDay customDueTime = _contractTimeOfDayFromStorage(
+      contract?.customBillDueTime,
+    );
     bool isSubmitting = false;
     bool isUploadingDoc = false;
 
@@ -779,6 +821,17 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                 'Owner_PhoneNumber': ownerPhoneController.text.trim(),
                 'Contract_Start_Date': _formatDate(startDate),
                 'Contract_End_Date': _formatDate(endDate),
+                'Whether_Custom_Bill_Generation_Day_Available':
+                    useCustomBillingDay,
+                'Custom_Bill_Generation_Day': useCustomBillingDay
+                    ? customBillingDay
+                    : 0,
+                'Whether_Custom_Bill_Due_Schedule_Available':
+                    useCustomDueSchedule,
+                'Custom_Bill_Due_Day': useCustomDueSchedule ? customDueDay : 0,
+                'Custom_Bill_Due_Time': useCustomDueSchedule
+                    ? _contractTimeOfDayToStorage(customDueTime)
+                    : '',
                 'Monthly_Rent':
                     double.tryParse(rentController.text.trim()) ?? 0,
                 'Security_Deposit':
@@ -988,6 +1041,171 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                       controller: tenantNameController,
                       decoration: const InputDecoration(
                         labelText: 'Tenant name',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE0F2FE),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.event_repeat_rounded,
+                                  color: Color(0xFF0369A1),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text(
+                                      'Billing Schedule',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Set optional contract override rules. Leave both on default to use the Account-page billing defaults or the old backend logic.',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _ContractScheduleCard(
+                            title: 'Monthly Bill Generation',
+                            subtitle:
+                                'Choose when rent bills should auto-generate from upcoming months.',
+                            enabled: useCustomBillingDay,
+                            enabledLabel: 'Custom day',
+                            disabledLabel: 'Default logic',
+                            onEnabledChanged: (bool value) {
+                              setModalState(() {
+                                useCustomBillingDay = value;
+                              });
+                            },
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: List<Widget>.generate(28, (int index) {
+                                final int day = index + 1;
+                                final bool selected = customBillingDay == day;
+                                return _ScheduleDayChip(
+                                  day: day,
+                                  selected: selected,
+                                  enabled: useCustomBillingDay,
+                                  onTap: () {
+                                    setModalState(() {
+                                      customBillingDay = day;
+                                    });
+                                  },
+                                );
+                              }),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _ContractScheduleCard(
+                            title: 'Due Date and Time',
+                            subtitle:
+                                'Choose an optional monthly due day and exact time for rent bills.',
+                            enabled: useCustomDueSchedule,
+                            enabledLabel: 'Custom due',
+                            disabledLabel: 'Default due rule',
+                            onEnabledChanged: (bool value) {
+                              setModalState(() {
+                                useCustomDueSchedule = value;
+                              });
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: List<Widget>.generate(28, (
+                                    int index,
+                                  ) {
+                                    final int day = index + 1;
+                                    final bool selected = customDueDay == day;
+                                    return _ScheduleDayChip(
+                                      day: day,
+                                      selected: selected,
+                                      enabled: useCustomDueSchedule,
+                                      onTap: () {
+                                        setModalState(() {
+                                          customDueDay = day;
+                                        });
+                                      },
+                                    );
+                                  }),
+                                ),
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: useCustomDueSchedule
+                                        ? () async {
+                                            final TimeOfDay? picked =
+                                                await showTimePicker(
+                                                  context: context,
+                                                  initialTime: customDueTime,
+                                                );
+                                            if (picked == null) {
+                                              return;
+                                            }
+                                            setModalState(() {
+                                              customDueTime = picked;
+                                            });
+                                          }
+                                        : null,
+                                    icon: const Icon(
+                                      Icons.schedule_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      MaterialLocalizations.of(
+                                        context,
+                                      ).formatTimeOfDay(customDueTime),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      minimumSize: const Size(0, 48),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -2716,6 +2934,23 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                               label: _contractLifecycleBadgeLabel(contract),
                               tone: _contractLifecycleTone(contract),
                             ),
+                            if (contract
+                                    .whetherCustomBillGenerationDayAvailable ==
+                                true)
+                              ToneBadge(
+                                label:
+                                    'Auto bill day ${contract.customBillGenerationDay}',
+                                tone: UiTone.brand,
+                              ),
+                            if (contract.whetherCustomBillDueScheduleAvailable ==
+                                    true &&
+                                (contract.customBillDueDay ?? 0) > 0 &&
+                                (contract.customBillDueTime ?? '').isNotEmpty)
+                              ToneBadge(
+                                label:
+                                    'Due ${contract.customBillDueDay} • ${_contractFormatStoredTime(context, contract.customBillDueTime)}',
+                                tone: UiTone.neutral,
+                              ),
                             if (isReadyToVacate && !isClosed)
                               const ToneBadge(
                                 label: 'Ready to Vacate',
@@ -2893,6 +3128,132 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
   }
 }
 
+class _ContractScheduleCard extends StatelessWidget {
+  const _ContractScheduleCard({
+    required this.title,
+    required this.subtitle,
+    required this.enabled,
+    required this.enabledLabel,
+    required this.disabledLabel,
+    required this.onEnabledChanged,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool enabled;
+  final String enabledLabel;
+  final String disabledLabel;
+  final ValueChanged<bool> onEnabledChanged;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Switch(value: enabled, onChanged: onEnabledChanged),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              ToneBadge(
+                label: enabled ? enabledLabel : disabledLabel,
+                tone: enabled ? UiTone.brand : UiTone.neutral,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Opacity(
+            opacity: enabled ? 1 : 0.45,
+            child: IgnorePointer(ignoring: !enabled, child: child),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScheduleDayChip extends StatelessWidget {
+  const _ScheduleDayChip({
+    required this.day,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final int day;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        width: 46,
+        height: 42,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected
+              ? Theme.of(context).colorScheme.primary
+              : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? Theme.of(context).colorScheme.primary
+                : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Text(
+          '$day',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: selected ? Colors.white : AppTheme.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ContractDetailPage extends StatelessWidget {
   const _ContractDetailPage({required this.contract, required this.onSharePdf});
 
@@ -3004,6 +3365,29 @@ class _ContractDetailPage extends StatelessWidget {
               ),
               if (contract.billDay != null)
                 _DetailRow(label: 'Bill Day', value: '${contract.billDay}'),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          _DetailSection(
+            title: 'Billing Schedule',
+            color: const Color(0xFFF8FAFC),
+            children: <Widget>[
+              _DetailRow(
+                label: 'Auto Bill Day',
+                value: contract.whetherCustomBillGenerationDayAvailable == true
+                    ? 'Day ${contract.customBillGenerationDay}'
+                    : 'Default contract start-day logic',
+              ),
+              _DetailRow(
+                label: 'Due Schedule',
+                value:
+                    contract.whetherCustomBillDueScheduleAvailable == true &&
+                        (contract.customBillDueDay ?? 0) > 0 &&
+                        (contract.customBillDueTime ?? '').isNotEmpty
+                    ? 'Day ${contract.customBillDueDay} at ${_contractFormatStoredTime(context, contract.customBillDueTime)}'
+                    : 'Default system due rule',
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -3191,7 +3575,7 @@ class _TenantAvatarState extends State<_TenantAvatar> {
       child = Image.network(
         url,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const Icon(
+        errorBuilder: (_, _, _) => const Icon(
           Icons.person_outline,
           color: AppTheme.textMuted,
           size: 28,

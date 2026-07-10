@@ -486,6 +486,8 @@ class VendorData {
     this.propertySummary,
     this.rentalContractSummary,
     this.walletInfo,
+    this.rentReminderSettings,
+    this.billingDefaultSchedule,
   });
 
   factory VendorData.fromJson(Map<String, dynamic> json) {
@@ -549,6 +551,18 @@ class VendorData {
               json['Wallet_Information'] as Map<String, dynamic>,
             )
           : null,
+      rentReminderSettings:
+          json['Rent_Reminder_Settings'] is Map<String, dynamic>
+          ? RentReminderSettingsData.fromJson(
+              json['Rent_Reminder_Settings'] as Map<String, dynamic>,
+            )
+          : null,
+      billingDefaultSchedule:
+          json['Billing_Default_Schedule'] is Map<String, dynamic>
+          ? BillingDefaultScheduleData.fromJson(
+              json['Billing_Default_Schedule'] as Map<String, dynamic>,
+            )
+          : null,
     );
   }
 
@@ -569,6 +583,68 @@ class VendorData {
   final PropertySummaryData? propertySummary;
   final RentalContractSummaryData? rentalContractSummary;
   final WalletSummaryData? walletInfo;
+  final RentReminderSettingsData? rentReminderSettings;
+  final BillingDefaultScheduleData? billingDefaultSchedule;
+}
+
+class RentReminderSettingsData {
+  const RentReminderSettingsData({
+    required this.enabled,
+    required this.reminderDay,
+    required this.reminderTime,
+    this.reminderTimeLabel = '',
+    this.lastRunAt,
+  });
+
+  factory RentReminderSettingsData.fromJson(Map<String, dynamic> json) {
+    return RentReminderSettingsData(
+      enabled: _readBool(json['Whether_Enabled']) ?? false,
+      reminderDay: _readIntValue(json['Reminder_Day'], fallback: 1),
+      reminderTime: json['Reminder_Time'] as String? ?? '10:00',
+      reminderTimeLabel: json['Reminder_Time_Label'] as String? ?? '',
+      lastRunAt: _parseApiTimestamp(json['Last_Run_At'] as String?),
+    );
+  }
+
+  final bool enabled;
+  final int reminderDay;
+  final String reminderTime;
+  final String reminderTimeLabel;
+  final DateTime? lastRunAt;
+}
+
+class BillingDefaultScheduleData {
+  const BillingDefaultScheduleData({
+    required this.whetherBillGenerationDayAvailable,
+    required this.billGenerationDay,
+    required this.whetherDueScheduleAvailable,
+    required this.dueDay,
+    required this.dueTime,
+    this.dueTimeLabel = '',
+  });
+
+  factory BillingDefaultScheduleData.fromJson(Map<String, dynamic> json) {
+    return BillingDefaultScheduleData(
+      whetherBillGenerationDayAvailable:
+          _readBool(json['Whether_Bill_Generation_Day_Available']) ?? false,
+      billGenerationDay: _readIntValue(
+        json['Bill_Generation_Day'],
+        fallback: 1,
+      ),
+      whetherDueScheduleAvailable:
+          _readBool(json['Whether_Due_Schedule_Available']) ?? false,
+      dueDay: _readIntValue(json['Due_Day'], fallback: 5),
+      dueTime: json['Due_Time'] as String? ?? '23:59',
+      dueTimeLabel: json['Due_Time_Label'] as String? ?? '',
+    );
+  }
+
+  final bool whetherBillGenerationDayAvailable;
+  final int billGenerationDay;
+  final bool whetherDueScheduleAvailable;
+  final int dueDay;
+  final String dueTime;
+  final String dueTimeLabel;
 }
 
 class WalletSummaryData {
@@ -940,8 +1016,9 @@ class ResidentContractsCalculationData {
       amountPerContract: (json['Amount_Per_Contract'] as num?)?.toDouble() ?? 0,
       numberOfContracts: json['No_Of_Contracts'] as int? ?? 0,
       subscriptionMonths: _readIntValue(json['Subscription_Months']),
-      remainingSubscriptionMonths:
-          _readIntValue(json['Remaining_Subscription_Months']),
+      remainingSubscriptionMonths: _readIntValue(
+        json['Remaining_Subscription_Months'],
+      ),
       pricingMode: json['Pricing_Mode'] as String? ?? '',
       subtotal: (json['Subtotal'] as num?)?.toDouble() ?? 0,
       gstPercentage: (json['GST_Percentage'] as num?)?.toDouble() ?? 0,
@@ -2192,13 +2269,12 @@ class PropertyData {
           ?.toInt(),
       currentSubscriptionExpiryDate:
           currentSubscription?['Subscription_Expiry_Date'] as String?,
-      currentSubscriptionExtraResidentContracts:
-          _firstOptionalInt(<dynamic>[
-            currentSubscription?['Extra_Resident_Contracts'],
-            currentSubscription?['Extra_Resident_Contracts_Count'],
-            currentSubscription?['Extra_Contracts_Count'],
-            currentSubscription?['Purchased_Resident_Contracts_Count'],
-          ]),
+      currentSubscriptionExtraResidentContracts: _firstOptionalInt(<dynamic>[
+        currentSubscription?['Extra_Resident_Contracts'],
+        currentSubscription?['Extra_Resident_Contracts_Count'],
+        currentSubscription?['Extra_Contracts_Count'],
+        currentSubscription?['Purchased_Resident_Contracts_Count'],
+      ]),
       currentSubscriptionPaymentStatus:
           (currentSubscription?['Payment_Status'] as num?)?.toInt(),
       currentSubscriptionPaymentDate:
@@ -2211,43 +2287,38 @@ class PropertyData {
               currentSubscription!['Calculation_Data'] as Map<String, dynamic>,
             )
           : null,
-      totalPurchasedResidentContractsCreationCount:
-          _firstOptionalInt(<dynamic>[
-            json['Total_Purchased_Resident_Contracts_Creation_Count'],
-            json['Total_Purchased_Resident_Contracts_Count'],
-            json['Purchased_Resident_Contracts_Count'],
-            json['Extra_Resident_Contracts'],
-            json['Extra_Resident_Contracts_Count'],
-            json['Extra_Contracts_Count'],
-          ]),
-      availableResidentContractsCreationCount:
-          _firstOptionalInt(<dynamic>[
-            json['Available_Resident_Contracts_Creation_Count'],
-            json['Available_Resident_Contracts_Count'],
-            json['Available_Contracts_Count'],
-            json['Total_Available_Contracts'],
-          ]),
-      freeResidentContractsCount:
-          _firstOptionalInt(<dynamic>[
-            json['Total_Free_Resident_Contracts_Count'],
-            json['Free_Resident_Contracts_Count'],
-            json['Free_Contracts_Count'],
-          ]),
-      usedResidentContractsCount:
-          _firstOptionalInt(<dynamic>[
-            json['Used_Resident_Contracts_Creation_Count'],
-            json['Used_Resident_Contracts_Count'],
-            json['Active_Rental_Contracts_Count'],
-            json['Active_Resident_Contracts_Count'],
-            json['Used_Contracts_Count'],
-          ]),
-      totalResidentContractsCount:
-          _firstOptionalInt(<dynamic>[
-            json['Total_Resident_Contracts_Creation_Count'],
-            json['Total_Resident_Contracts_Count'],
-            json['Total_Available_Contracts'],
-            json['Total_Contracts_Count'],
-          ]),
+      totalPurchasedResidentContractsCreationCount: _firstOptionalInt(<dynamic>[
+        json['Total_Purchased_Resident_Contracts_Creation_Count'],
+        json['Total_Purchased_Resident_Contracts_Count'],
+        json['Purchased_Resident_Contracts_Count'],
+        json['Extra_Resident_Contracts'],
+        json['Extra_Resident_Contracts_Count'],
+        json['Extra_Contracts_Count'],
+      ]),
+      availableResidentContractsCreationCount: _firstOptionalInt(<dynamic>[
+        json['Available_Resident_Contracts_Creation_Count'],
+        json['Available_Resident_Contracts_Count'],
+        json['Available_Contracts_Count'],
+        json['Total_Available_Contracts'],
+      ]),
+      freeResidentContractsCount: _firstOptionalInt(<dynamic>[
+        json['Total_Free_Resident_Contracts_Count'],
+        json['Free_Resident_Contracts_Count'],
+        json['Free_Contracts_Count'],
+      ]),
+      usedResidentContractsCount: _firstOptionalInt(<dynamic>[
+        json['Used_Resident_Contracts_Creation_Count'],
+        json['Used_Resident_Contracts_Count'],
+        json['Active_Rental_Contracts_Count'],
+        json['Active_Resident_Contracts_Count'],
+        json['Used_Contracts_Count'],
+      ]),
+      totalResidentContractsCount: _firstOptionalInt(<dynamic>[
+        json['Total_Resident_Contracts_Creation_Count'],
+        json['Total_Resident_Contracts_Count'],
+        json['Total_Available_Contracts'],
+        json['Total_Contracts_Count'],
+      ]),
       carpetArea: (json['Carpet_Area'] as num?)?.toDouble(),
       noOfFloors: json['No_Of_Floors'] as int?,
       gender: json['Gender'] as int?,
@@ -2511,6 +2582,11 @@ class RentalContractData {
     this.tokenAmount,
     this.maintenanceAmount,
     this.billDay,
+    this.whetherCustomBillGenerationDayAvailable,
+    this.customBillGenerationDay,
+    this.whetherCustomBillDueScheduleAvailable,
+    this.customBillDueDay,
+    this.customBillDueTime,
     this.specialTerms,
     this.propertyId,
     this.flatType,
@@ -2690,6 +2766,13 @@ class RentalContractData {
           (json['Maintainance_Charge'] as num?)?.toDouble() ??
           (json['Maintenance_Amount'] as num?)?.toDouble(),
       billDay: json['Bill_Day'] as int?,
+      whetherCustomBillGenerationDayAvailable:
+          json['Whether_Custom_Bill_Generation_Day_Available'] as bool?,
+      customBillGenerationDay: json['Custom_Bill_Generation_Day'] as int?,
+      whetherCustomBillDueScheduleAvailable:
+          json['Whether_Custom_Bill_Due_Schedule_Available'] as bool?,
+      customBillDueDay: json['Custom_Bill_Due_Day'] as int?,
+      customBillDueTime: json['Custom_Bill_Due_Time'] as String?,
       specialTerms: json['Special_Terms'] as String?,
       propertyId: json['PropertyID'] as String?,
       flatType: _readOptionalInt(json['Flat_Type']),
@@ -2738,6 +2821,11 @@ class RentalContractData {
   final double? tokenAmount;
   final double? maintenanceAmount;
   final int? billDay;
+  final bool? whetherCustomBillGenerationDayAvailable;
+  final int? customBillGenerationDay;
+  final bool? whetherCustomBillDueScheduleAvailable;
+  final int? customBillDueDay;
+  final String? customBillDueTime;
   final String? specialTerms;
   final String? propertyId;
   final int? flatType;
@@ -2774,6 +2862,13 @@ class RentalContractData {
       tokenAmount: tokenAmount,
       maintenanceAmount: maintenanceAmount,
       billDay: billDay,
+      whetherCustomBillGenerationDayAvailable:
+          whetherCustomBillGenerationDayAvailable,
+      customBillGenerationDay: customBillGenerationDay,
+      whetherCustomBillDueScheduleAvailable:
+          whetherCustomBillDueScheduleAvailable,
+      customBillDueDay: customBillDueDay,
+      customBillDueTime: customBillDueTime,
       specialTerms: specialTerms,
       propertyId: propertyId,
       flatType: _flatTypeLabel(flatType),
@@ -3005,14 +3100,12 @@ class ResidentData {
       'Top_Level_Tenant_Image_Information',
       'Top_Level_Vendor_Image_Information',
     ];
-    final String? profileImageUrl = _firstImageUrl(
-      residentImageSource,
-      residentImageKeys,
-    ) ?? _readImageUrl(residentImageSource);
-    final String? profileImageId = _firstImageId(
-      residentImageSource,
-      residentImageKeys,
-    ) ?? _readImageId(residentImageSource);
+    final String? profileImageUrl =
+        _firstImageUrl(residentImageSource, residentImageKeys) ??
+        _readImageUrl(residentImageSource);
+    final String? profileImageId =
+        _firstImageId(residentImageSource, residentImageKeys) ??
+        _readImageId(residentImageSource);
 
     String? readString(Map<String, dynamic>? source, String key) {
       final dynamic value = source?[key];
@@ -3228,7 +3321,8 @@ class WalletTransactionData {
   });
 
   factory WalletTransactionData.fromJson(Map<String, dynamic> json) {
-    final String? rawTimestamp = json['created_at'] as String? ??
+    final String? rawTimestamp =
+        json['created_at'] as String? ??
         json['createdAt'] as String? ??
         json['Transaction_Date'] as String? ??
         json['Date'] as String?;
@@ -3280,11 +3374,13 @@ class WithdrawalData {
   factory WithdrawalData.fromJson(Map<String, dynamic> json) {
     final Map<String, dynamic>? bankAccountDetails =
         json['Bank_Account_Details'] as Map<String, dynamic>?;
-    final String? rawCreatedAt = json['created_at'] as String? ??
+    final String? rawCreatedAt =
+        json['created_at'] as String? ??
         json['createdAt'] as String? ??
         json['Withdrawal_Date'] as String? ??
         json['Date'] as String?;
-    final String? rawProcessedAt = json['processed_at'] as String? ??
+    final String? rawProcessedAt =
+        json['processed_at'] as String? ??
         json['Payout_Processed_At'] as String? ??
         json['payout_completed_at'] as String? ??
         json['updated_at'] as String?;

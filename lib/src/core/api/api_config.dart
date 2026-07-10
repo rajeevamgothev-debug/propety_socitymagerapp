@@ -17,6 +17,14 @@ class ApiConfig {
   static const String setVendorProfile = '/Set_Vendor_Profile';
   static const String requestAccountDeletion = '/Request_Account_Deletion';
   static const String requestAccountUnlock = '/Request_Account_Unlock';
+  static const String fetchRentReminderSettings =
+      '/Fetch_Rent_Reminder_Settings';
+  static const String updateRentReminderSettings =
+      '/Update_Rent_Reminder_Settings';
+  static const String fetchBillingDefaultSchedule =
+      '/Fetch_Billing_Default_Schedule';
+  static const String updateBillingDefaultSchedule =
+      '/Update_Billing_Default_Schedule';
 
   // Society
   static const String createSociety = '/Create_Society';
