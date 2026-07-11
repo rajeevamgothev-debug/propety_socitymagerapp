@@ -77,11 +77,7 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
           3: '4 BHK Villa',
           4: 'Duplex Villa',
         },
-        3: <int, String>{
-          1: 'Mens PG',
-          2: 'Womens PG',
-          3: 'Coliving',
-        },
+        3: <int, String>{1: 'Mens PG', 2: 'Womens PG', 3: 'Coliving'},
         4: <int, String>{
           1: 'Office',
           2: 'Retail',
@@ -164,10 +160,12 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
     });
 
     try {
-      final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
-        PublicDiscoveryService.filterCities(limit: 1000),
-        _fetchProperties(),
-      ]);
+      final List<dynamic> results = await Future.wait<dynamic>(
+        <Future<dynamic>>[
+          PublicDiscoveryService.filterCities(limit: 1000),
+          _fetchProperties(),
+        ],
+      );
 
       if (!mounted) {
         return;
@@ -231,8 +229,8 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
     return _fetchAllProperties();
   }
 
-  Future<({List<PropertyData> properties, int count})> _fetchAllProperties()
-      async {
+  Future<({List<PropertyData> properties, int count})>
+  _fetchAllProperties() async {
     const int serverPageSize = 100;
     final List<PropertyData> allProperties = <PropertyData>[];
     int skip = 0;
@@ -241,15 +239,15 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
     while (true) {
       final ({List<PropertyData> properties, int count}) result =
           await PublicDiscoveryService.filterProperties(
-        skip: skip,
-        limit: serverPageSize,
-        search: _searchController.text,
-        propertyType: _propertyTypeFilter,
-        categoryType: _categoryFilter,
-        subType: _subTypeFilter,
-        latitude: _latitude,
-        longitude: _longitude,
-      );
+            skip: skip,
+            limit: serverPageSize,
+            search: _searchController.text,
+            propertyType: _propertyTypeFilter,
+            categoryType: _categoryFilter,
+            subType: _subTypeFilter,
+            latitude: _latitude,
+            longitude: _longitude,
+          );
 
       if (skip == 0) {
         expectedCount = result.count;
@@ -268,13 +266,11 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
       }
     }
 
-    final List<PropertyData> filteredProperties =
-        _applyClientFilters(allProperties);
-
-    return (
-      properties: filteredProperties,
-      count: filteredProperties.length,
+    final List<PropertyData> filteredProperties = _applyClientFilters(
+      allProperties,
     );
+
+    return (properties: filteredProperties, count: filteredProperties.length);
   }
 
   List<PropertyData> _applyClientFilters(List<PropertyData> items) {
@@ -282,7 +278,8 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
       if (_cityFilter != 'all' && item.cityId != _cityFilter) {
         return false;
       }
-      if (_pgSharingTypeFilter != null && item.pgSharingType != _pgSharingTypeFilter) {
+      if (_pgSharingTypeFilter != null &&
+          item.pgSharingType != _pgSharingTypeFilter) {
         return false;
       }
       final double rent = item.rent;
@@ -404,7 +401,9 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
       return;
     }
 
-    final Uri uri = Uri.parse('https://www.google.com/maps?q=$latitude,$longitude');
+    final Uri uri = Uri.parse(
+      'https://www.google.com/maps?q=$latitude,$longitude',
+    );
     final bool launched = await launchUrl(
       uri,
       mode: LaunchMode.externalApplication,
@@ -532,8 +531,9 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
                       separatorBuilder: (_, __) => const SizedBox(width: 10),
                       itemBuilder: (BuildContext context, int index) {
                         return ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusMedium),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusMedium,
+                          ),
                           child: SizedBox(
                             width: 280,
                             child: _PropertyImage(
@@ -584,10 +584,7 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
                         tone: UiTone.warning,
                       ),
                     if (property.whetherVerifiedPlus == true)
-                      const ToneBadge(
-                        label: 'Verified+',
-                        tone: UiTone.warning,
-                      ),
+                      const ToneBadge(label: 'Verified+', tone: UiTone.warning),
                   ],
                 ),
                 if (address.isNotEmpty) ...<Widget>[
@@ -606,12 +603,13 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
                     ),
                   ),
                 ],
-                if (property.latitude != null && property.longitude != null) ...<Widget>[
+                if (property.latitude != null &&
+                    property.longitude != null) ...<Widget>[
                   const SizedBox(height: 12),
                   TextButton.icon(
                     onPressed: () => _openMap(property),
-                    icon: const Icon(Icons.map_outlined),
-                    label: const Text('Open in maps'),
+                    icon: const Icon(Icons.location_on_outlined),
+                    label: const Text('View location on map'),
                   ),
                 ],
                 // Property specs
@@ -638,8 +636,7 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
                           label:
                               '${property.bedrooms} Bedroom${property.bedrooms! > 1 ? 's' : ''}',
                         ),
-                      if (property.bathrooms != null &&
-                          property.bathrooms! > 0)
+                      if (property.bathrooms != null && property.bathrooms! > 0)
                         _SpecChip(
                           icon: Icons.shower_outlined,
                           label:
@@ -648,8 +645,7 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
                       if (property.area != null && property.area! > 0)
                         _SpecChip(
                           icon: Icons.square_foot_outlined,
-                          label:
-                              '${property.area!.toStringAsFixed(0)} sq ft',
+                          label: '${property.area!.toStringAsFixed(0)} sq ft',
                         ),
                       if (property.furnishedType != null &&
                           property.furnishedType! > 0)
@@ -749,13 +745,13 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
               : _subTypeLabel(property.propertyType, property.subType),
           furnishedLabel:
               property.furnishedType != null && property.furnishedType! > 0
-                  ? _furnishedLabel(property.furnishedType!)
-                  : null,
+              ? _furnishedLabel(property.furnishedType!)
+              : null,
           pgSharingLabel:
               property.propertyType == 3 && property.pgSharingType != null
-                  ? (_pgSharingTypes[property.pgSharingType] ??
-                      'Shared accommodation')
-                  : null,
+              ? (_pgSharingTypes[property.pgSharingType] ??
+                    'Shared accommodation')
+              : null,
           amenityLabels: (property.amenityIds ?? <int>[])
               .take(10)
               .map(_amenityLabel)
@@ -774,9 +770,8 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
     final String? successMessage = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      builder: (BuildContext context) => _PropertyEnquirySheet(
-        property: property,
-      ),
+      builder: (BuildContext context) =>
+          _PropertyEnquirySheet(property: property),
     );
 
     if (!mounted || successMessage == null || successMessage.isEmpty) {
@@ -792,10 +787,7 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
     final int totalPages = ((_totalCount / _pageSize).ceil()).clamp(1, 99999);
     final List<PropertyData> visibleProperties = widget.previewOnly
         ? _properties.take(widget.previewLimit).toList()
-        : _properties
-            .skip((_page - 1) * _pageSize)
-            .take(_pageSize)
-            .toList();
+        : _properties.skip((_page - 1) * _pageSize).take(_pageSize).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -876,11 +868,7 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          colors: <Color>[
-            Color(0xFFEFF6FF),
-            Colors.white,
-            Color(0xFFF0FDFA),
-          ],
+          colors: <Color>[Color(0xFFEFF6FF), Colors.white, Color(0xFFF0FDFA)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1101,259 +1089,263 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
       isScrollControlled: true,
       builder: (BuildContext bottomSheetContext) {
         return StatefulBuilder(
-          builder: (
-            BuildContext modalContext,
-            void Function(void Function()) setModalState,
-          ) {
-            final Map<int, String> subtypeOptions =
-                _subTypesByProperty[selectedPropertyType] ??
+          builder:
+              (
+                BuildContext modalContext,
+                void Function(void Function()) setModalState,
+              ) {
+                final Map<int, String> subtypeOptions =
+                    _subTypesByProperty[selectedPropertyType] ??
                     const <int, String>{};
 
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  8,
-                  20,
-                  MediaQuery.of(modalContext).viewInsets.bottom + 24,
-                ),
-                child: ListView(
-                  shrinkWrap: true,
-                  children: <Widget>[
-                    Row(
+                return SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      8,
+                      20,
+                      MediaQuery.of(modalContext).viewInsets.bottom + 24,
+                    ),
+                    child: ListView(
+                      shrinkWrap: true,
                       children: <Widget>[
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                'Filters',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.w700),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    'Filters',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Refine by property type, category, city, and price.',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Refine by property type, category, city, and price.',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: AppTheme.textSecondary),
-                              ),
-                            ],
-                          ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                setModalState(() {
+                                  selectedPropertyType = null;
+                                  selectedCategory = null;
+                                  selectedSubType = null;
+                                  selectedPgSharingType = null;
+                                  selectedCity = 'all';
+                                  selectedPriceRange = 'all';
+                                });
+                              },
+                              child: const Text('Clear all'),
+                            ),
+                          ],
                         ),
-                        TextButton(
-                          onPressed: () {
+                        const SizedBox(height: 14),
+                        DropdownButtonFormField<int?>(
+                          value: selectedPropertyType,
+                          decoration: const InputDecoration(
+                            labelText: 'Property type',
+                            prefixIcon: Icon(Icons.home_work_outlined),
+                          ),
+                          items: <DropdownMenuItem<int?>>[
+                            const DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text('All property types'),
+                            ),
+                            ..._propertyTypes.entries.map(
+                              (MapEntry<int, String> entry) =>
+                                  DropdownMenuItem<int?>(
+                                    value: entry.key,
+                                    child: Text(entry.value),
+                                  ),
+                            ),
+                          ],
+                          onChanged: (int? value) {
                             setModalState(() {
-                              selectedPropertyType = null;
-                              selectedCategory = null;
+                              selectedPropertyType = value;
                               selectedSubType = null;
-                              selectedPgSharingType = null;
-                              selectedCity = 'all';
-                              selectedPriceRange = 'all';
+                              if (value != 3) {
+                                selectedPgSharingType = null;
+                              }
                             });
                           },
-                          child: const Text('Clear all'),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    DropdownButtonFormField<int?>(
-                      value: selectedPropertyType,
-                      decoration: const InputDecoration(
-                        labelText: 'Property type',
-                        prefixIcon: Icon(Icons.home_work_outlined),
-                      ),
-                      items: <DropdownMenuItem<int?>>[
-                        const DropdownMenuItem<int?>(
-                          value: null,
-                          child: Text('All property types'),
-                        ),
-                        ..._propertyTypes.entries.map(
-                          (MapEntry<int, String> entry) => DropdownMenuItem<int?>(
-                            value: entry.key,
-                            child: Text(entry.value),
-                          ),
-                        ),
-                      ],
-                      onChanged: (int? value) {
-                        setModalState(() {
-                          selectedPropertyType = value;
-                          selectedSubType = null;
-                          if (value != 3) {
-                            selectedPgSharingType = null;
-                          }
-                        });
-                      },
-                    ),
-                    if (selectedPropertyType != null) ...<Widget>[
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int?>(
-                        value: selectedSubType,
-                        decoration: const InputDecoration(
-                          labelText: 'Sub type',
-                          prefixIcon: Icon(Icons.layers_outlined),
-                        ),
-                        items: <DropdownMenuItem<int?>>[
-                          const DropdownMenuItem<int?>(
-                            value: null,
-                            child: Text('All sub types'),
-                          ),
-                          ...subtypeOptions.entries.map(
-                            (MapEntry<int, String> entry) =>
-                                DropdownMenuItem<int?>(
-                              value: entry.key,
-                              child: Text(entry.value),
+                        if (selectedPropertyType != null) ...<Widget>[
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<int?>(
+                            value: selectedSubType,
+                            decoration: const InputDecoration(
+                              labelText: 'Sub type',
+                              prefixIcon: Icon(Icons.layers_outlined),
                             ),
-                          ),
-                        ],
-                        onChanged: (int? value) {
-                          setModalState(() {
-                            selectedSubType = value;
-                          });
-                        },
-                      ),
-                    ],
-                    if (selectedPropertyType == 3) ...<Widget>[
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int?>(
-                        value: selectedPgSharingType,
-                        decoration: const InputDecoration(
-                          labelText: 'PG sharing type',
-                          prefixIcon: Icon(Icons.groups_2_outlined),
-                        ),
-                        items: <DropdownMenuItem<int?>>[
-                          const DropdownMenuItem<int?>(
-                            value: null,
-                            child: Text('All PG sharing types'),
-                          ),
-                          ..._pgSharingTypes.entries.map(
-                            (MapEntry<int, String> entry) =>
-                                DropdownMenuItem<int?>(
-                              value: entry.key,
-                              child: Text(entry.value),
-                            ),
-                          ),
-                        ],
-                        onChanged: (int? value) {
-                          setModalState(() {
-                            selectedPgSharingType = value;
-                          });
-                        },
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<int?>(
-                      value: selectedCategory,
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        prefixIcon: Icon(Icons.sell_outlined),
-                      ),
-                      items: <DropdownMenuItem<int?>>[
-                        const DropdownMenuItem<int?>(
-                          value: null,
-                          child: Text('All categories'),
-                        ),
-                        ..._categoryTypes.entries.map(
-                          (MapEntry<int, String> entry) => DropdownMenuItem<int?>(
-                            value: entry.key,
-                            child: Text(entry.value),
-                          ),
-                        ),
-                      ],
-                      onChanged: (int? value) {
-                        setModalState(() {
-                          selectedCategory = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: selectedCity,
-                      decoration: const InputDecoration(
-                        labelText: 'City',
-                        prefixIcon: Icon(Icons.location_city_outlined),
-                      ),
-                      items: <DropdownMenuItem<String>>[
-                        const DropdownMenuItem<String>(
-                          value: 'all',
-                          child: Text('All cities'),
-                        ),
-                        ..._cities.map(
-                          (PublicCityData city) => DropdownMenuItem<String>(
-                            value: city.cityId,
-                            child: Text(city.cityName),
-                          ),
-                        ),
-                      ],
-                      onChanged: (String? value) {
-                        setModalState(() {
-                          selectedCity = value ?? 'all';
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: selectedPriceRange,
-                      decoration: const InputDecoration(
-                        labelText: 'Price range',
-                        prefixIcon: Icon(Icons.currency_rupee_outlined),
-                      ),
-                      items: _priceRanges.entries
-                          .map(
-                            (MapEntry<String, String> entry) =>
-                                DropdownMenuItem<String>(
-                              value: entry.key,
-                              child: Text(entry.value),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (String? value) {
-                        setModalState(() {
-                          selectedPriceRange = value ?? 'all';
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: CustomButton(
-                            label: 'Cancel',
-                            variant: CustomButtonVariant.outline,
-                            onPressed: () =>
-                                Navigator.of(bottomSheetContext).pop(),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: CustomButton(
-                            label: 'Show results',
-                            icon: const Icon(Icons.search_rounded),
-                            onPressed: () {
-                              setState(() {
-                                _propertyTypeFilter = selectedPropertyType;
-                                _categoryFilter = selectedCategory;
-                                _subTypeFilter = selectedSubType;
-                                _pgSharingTypeFilter = selectedPgSharingType;
-                                _cityFilter = selectedCity;
-                                _priceRange = selectedPriceRange;
-                                _page = 1;
+                            items: <DropdownMenuItem<int?>>[
+                              const DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text('All sub types'),
+                              ),
+                              ...subtypeOptions.entries.map(
+                                (MapEntry<int, String> entry) =>
+                                    DropdownMenuItem<int?>(
+                                      value: entry.key,
+                                      child: Text(entry.value),
+                                    ),
+                              ),
+                            ],
+                            onChanged: (int? value) {
+                              setModalState(() {
+                                selectedSubType = value;
                               });
-                              Navigator.of(bottomSheetContext).pop();
-                              _loadProperties();
                             },
                           ),
+                        ],
+                        if (selectedPropertyType == 3) ...<Widget>[
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<int?>(
+                            value: selectedPgSharingType,
+                            decoration: const InputDecoration(
+                              labelText: 'PG sharing type',
+                              prefixIcon: Icon(Icons.groups_2_outlined),
+                            ),
+                            items: <DropdownMenuItem<int?>>[
+                              const DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text('All PG sharing types'),
+                              ),
+                              ..._pgSharingTypes.entries.map(
+                                (MapEntry<int, String> entry) =>
+                                    DropdownMenuItem<int?>(
+                                      value: entry.key,
+                                      child: Text(entry.value),
+                                    ),
+                              ),
+                            ],
+                            onChanged: (int? value) {
+                              setModalState(() {
+                                selectedPgSharingType = value;
+                              });
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<int?>(
+                          value: selectedCategory,
+                          decoration: const InputDecoration(
+                            labelText: 'Category',
+                            prefixIcon: Icon(Icons.sell_outlined),
+                          ),
+                          items: <DropdownMenuItem<int?>>[
+                            const DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text('All categories'),
+                            ),
+                            ..._categoryTypes.entries.map(
+                              (MapEntry<int, String> entry) =>
+                                  DropdownMenuItem<int?>(
+                                    value: entry.key,
+                                    child: Text(entry.value),
+                                  ),
+                            ),
+                          ],
+                          onChanged: (int? value) {
+                            setModalState(() {
+                              selectedCategory = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: selectedCity,
+                          decoration: const InputDecoration(
+                            labelText: 'City',
+                            prefixIcon: Icon(Icons.location_city_outlined),
+                          ),
+                          items: <DropdownMenuItem<String>>[
+                            const DropdownMenuItem<String>(
+                              value: 'all',
+                              child: Text('All cities'),
+                            ),
+                            ..._cities.map(
+                              (PublicCityData city) => DropdownMenuItem<String>(
+                                value: city.cityId,
+                                child: Text(city.cityName),
+                              ),
+                            ),
+                          ],
+                          onChanged: (String? value) {
+                            setModalState(() {
+                              selectedCity = value ?? 'all';
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: selectedPriceRange,
+                          decoration: const InputDecoration(
+                            labelText: 'Price range',
+                            prefixIcon: Icon(Icons.currency_rupee_outlined),
+                          ),
+                          items: _priceRanges.entries
+                              .map(
+                                (MapEntry<String, String> entry) =>
+                                    DropdownMenuItem<String>(
+                                      value: entry.key,
+                                      child: Text(entry.value),
+                                    ),
+                              )
+                              .toList(),
+                          onChanged: (String? value) {
+                            setModalState(() {
+                              selectedPriceRange = value ?? 'all';
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: CustomButton(
+                                label: 'Cancel',
+                                variant: CustomButtonVariant.outline,
+                                onPressed: () =>
+                                    Navigator.of(bottomSheetContext).pop(),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: CustomButton(
+                                label: 'Show results',
+                                icon: const Icon(Icons.search_rounded),
+                                onPressed: () {
+                                  setState(() {
+                                    _propertyTypeFilter = selectedPropertyType;
+                                    _categoryFilter = selectedCategory;
+                                    _subTypeFilter = selectedSubType;
+                                    _pgSharingTypeFilter =
+                                        selectedPgSharingType;
+                                    _cityFilter = selectedCity;
+                                    _priceRange = selectedPriceRange;
+                                    _page = 1;
+                                  });
+                                  Navigator.of(bottomSheetContext).pop();
+                                  _loadProperties();
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            );
-          },
+                  ),
+                );
+              },
         );
       },
     );
@@ -1401,10 +1393,7 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: <Widget>[
-                      _PropertyImage(
-                        imageUrl: property.imageUrl,
-                        height: 170,
-                      ),
+                      _PropertyImage(imageUrl: property.imageUrl, height: 170),
                       // Type badge
                       Positioned(
                         top: 10,
@@ -1629,8 +1618,8 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
                         if (property.propertyType == 3 &&
                             property.pgSharingType != null)
                           _CompactTag(
-                            label: _pgSharingTypes[
-                                    property.pgSharingType] ??
+                            label:
+                                _pgSharingTypes[property.pgSharingType] ??
                                 'Shared',
                           ),
                       ],
@@ -1723,9 +1712,9 @@ class PublicDiscoverySectionState extends State<PublicDiscoverySection> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -1777,19 +1766,16 @@ class _LeadTag extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppTheme.primaryHover,
-              fontWeight: FontWeight.w700,
-            ),
+          color: AppTheme.primaryHover,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
 }
 
 class _ActiveFilterChip extends StatelessWidget {
-  const _ActiveFilterChip({
-    required this.label,
-    required this.onDeleted,
-  });
+  const _ActiveFilterChip({required this.label, required this.onDeleted});
 
   final String label;
   final VoidCallback onDeleted;
@@ -1802,9 +1788,9 @@ class _ActiveFilterChip extends StatelessWidget {
       side: const BorderSide(color: AppTheme.borderStrong),
       backgroundColor: Colors.white,
       deleteIcon: const Icon(Icons.close_rounded, size: 18),
-      labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+      labelStyle: Theme.of(
+        context,
+      ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
     );
   }
 }
@@ -1849,23 +1835,24 @@ class _PropertyImage extends StatelessWidget {
           ),
         );
       },
-      loadingBuilder: (
-        BuildContext context,
-        Widget child,
-        ImageChunkEvent? loadingProgress,
-      ) {
-        if (loadingProgress == null) {
-          return child;
-        }
+      loadingBuilder:
+          (
+            BuildContext context,
+            Widget child,
+            ImageChunkEvent? loadingProgress,
+          ) {
+            if (loadingProgress == null) {
+              return child;
+            }
 
-        return Container(
-          height: height,
-          width: double.infinity,
-          color: AppTheme.surfaceMuted,
-          alignment: Alignment.center,
-          child: const CircularProgressIndicator(),
-        );
-      },
+            return Container(
+              height: height,
+              width: double.infinity,
+              color: AppTheme.surfaceMuted,
+              alignment: Alignment.center,
+              child: const CircularProgressIndicator(),
+            );
+          },
     );
   }
 }
@@ -1893,9 +1880,9 @@ class _SpecChip extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -1954,10 +1941,7 @@ class _PublicPropertyDetailsPage extends StatelessWidget {
           if (imageUrls.isEmpty)
             ClipRRect(
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              child: _PropertyImage(
-                imageUrl: property.imageUrl,
-                height: 240,
-              ),
+              child: _PropertyImage(imageUrl: property.imageUrl, height: 240),
             )
           else
             SizedBox(
@@ -1985,15 +1969,9 @@ class _PublicPropertyDetailsPage extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: <Widget>[
-              ToneBadge(
-                label: propertyTypeLabel,
-                tone: UiTone.brand,
-              ),
+              ToneBadge(label: propertyTypeLabel, tone: UiTone.brand),
               if (subTypeLabel != null)
-                ToneBadge(
-                  label: subTypeLabel!,
-                  tone: UiTone.neutral,
-                ),
+                ToneBadge(label: subTypeLabel!, tone: UiTone.neutral),
               if (property.category != null)
                 ToneBadge(
                   label: property.category == 1 ? 'Rent' : 'Lease',
@@ -2016,10 +1994,7 @@ class _PublicPropertyDetailsPage extends StatelessWidget {
                   tone: UiTone.warning,
                 ),
               if (property.whetherVerifiedPlus == true)
-                const ToneBadge(
-                  label: 'Verified+',
-                  tone: UiTone.warning,
-                ),
+                const ToneBadge(label: 'Verified+', tone: UiTone.warning),
             ],
           ),
           if (address.isNotEmpty) ...<Widget>[
@@ -2042,8 +2017,8 @@ class _PublicPropertyDetailsPage extends StatelessWidget {
             const SizedBox(height: 12),
             TextButton.icon(
               onPressed: onOpenMap,
-              icon: const Icon(Icons.map_outlined),
-              label: const Text('Open in maps'),
+              icon: const Icon(Icons.location_on_outlined),
+              label: const Text('View location on map'),
             ),
           ],
           if ((property.bedrooms != null && property.bedrooms! > 0) ||
@@ -2080,10 +2055,7 @@ class _PublicPropertyDetailsPage extends StatelessWidget {
                     label: '${property.area!.toStringAsFixed(0)} sq ft',
                   ),
                 if (furnishedLabel != null)
-                  _SpecChip(
-                    icon: Icons.chair_outlined,
-                    label: furnishedLabel!,
-                  ),
+                  _SpecChip(icon: Icons.chair_outlined, label: furnishedLabel!),
               ],
             ),
           ],
@@ -2198,7 +2170,9 @@ class _PropertyEnquirySheetState extends State<_PropertyEnquirySheet> {
     });
 
     try {
-      await PublicDiscoveryService.generateUserOtp(_phoneController.text.trim());
+      await PublicDiscoveryService.generateUserOtp(
+        _phoneController.text.trim(),
+      );
       if (!mounted) {
         return;
       }
@@ -2230,8 +2204,8 @@ class _PropertyEnquirySheetState extends State<_PropertyEnquirySheet> {
     try {
       final String status =
           await PublicDiscoveryService.createAuthenticatedPropertyEnquiry(
-        propertyId: widget.property.propertyId,
-      );
+            propertyId: widget.property.propertyId,
+          );
 
       if (!mounted) {
         return;
@@ -2314,26 +2288,26 @@ class _PropertyEnquirySheetState extends State<_PropertyEnquirySheet> {
               _isLoggedIn
                   ? 'Confirm enquiry'
                   : (_otpSent ? 'Verify and submit' : 'Property enquiry'),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
             Text(
               widget.property.displayTitle?.trim().isNotEmpty == true
                   ? widget.property.displayTitle!
                   : widget.property.title,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 16),
             if (_isLoggedIn) ...<Widget>[
               Text(
                 'We will use your logged-in profile details for this enquiry.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
               ),
             ] else if (!_otpSent) ...<Widget>[
               TextField(
@@ -2413,8 +2387,8 @@ class _PropertyEnquirySheetState extends State<_PropertyEnquirySheet> {
                     onPressed: _isSubmitting
                         ? null
                         : (_isLoggedIn
-                            ? _submitLoggedInEnquiry
-                            : (_otpSent ? _submitEnquiry : _sendOtp)),
+                              ? _submitLoggedInEnquiry
+                              : (_otpSent ? _submitEnquiry : _sendOtp)),
                   ),
                 ),
               ],

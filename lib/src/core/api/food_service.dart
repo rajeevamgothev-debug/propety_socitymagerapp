@@ -62,6 +62,50 @@ class FoodMenuItem {
   final String propertyName;
   final String winningOptionText;
 
+  List<FoodMenuOption> get rankedOptions {
+    final List<FoodMenuOption> ranked = <FoodMenuOption>[...options]
+      ..sort((FoodMenuOption a, FoodMenuOption b) {
+        final int voteCompare = b.voteCount.compareTo(a.voteCount);
+        if (voteCompare != 0) {
+          return voteCompare;
+        }
+        return a.text.toLowerCase().compareTo(b.text.toLowerCase());
+      });
+    return ranked;
+  }
+
+  List<FoodMenuOption> get resultOptions {
+    final List<FoodMenuOption> voted = rankedOptions
+        .where((FoodMenuOption item) => item.voteCount > 0)
+        .toList();
+    if (voted.isNotEmpty) {
+      return voted;
+    }
+    return rankedOptions.take(1).toList();
+  }
+
+  String resultSummary({int maxItems = 4}) {
+    final List<FoodMenuOption> summaryItems = resultOptions
+        .take(maxItems)
+        .toList();
+    if (summaryItems.isEmpty) {
+      return winningOptionText;
+    }
+    return summaryItems.map((FoodMenuOption item) => item.text).join(', ');
+  }
+
+  String resultSummaryWithVotes({int maxItems = 4}) {
+    final List<FoodMenuOption> summaryItems = resultOptions
+        .take(maxItems)
+        .toList();
+    if (summaryItems.isEmpty) {
+      return winningOptionText;
+    }
+    return summaryItems
+        .map((FoodMenuOption item) => '${item.text} (${item.voteCount})')
+        .join(', ');
+  }
+
   factory FoodMenuItem.fromJson(Map<String, dynamic> json) {
     final List<FoodMenuOption> options =
         (json['Options'] as List<dynamic>? ?? <dynamic>[])

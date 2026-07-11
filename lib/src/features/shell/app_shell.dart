@@ -912,6 +912,8 @@ class _AppShellState extends State<AppShell> {
         .then((_) {
           if (module.actionKey == 'notifications') {
             _refreshNotifications();
+          } else if (module.actionKey == 'settings') {
+            _loadData();
           }
         });
   }

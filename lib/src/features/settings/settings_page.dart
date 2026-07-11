@@ -325,7 +325,10 @@ class _SettingsPageState extends State<SettingsPage> {
               CustomCard(
                 child: Row(
                   children: <Widget>[
-                    _ProfileAvatar(imageUrl: _vendor?.imageUrl),
+                    _ProfileAvatar(
+                      imageUrl: _vendor?.imageUrl,
+                      imageRevision: _vendor?.imageId,
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
@@ -605,9 +608,10 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.imageUrl});
+  const _ProfileAvatar({required this.imageUrl, this.imageRevision});
 
   final String? imageUrl;
+  final String? imageRevision;
 
   @override
   Widget build(BuildContext context) {
@@ -631,7 +635,8 @@ class _ProfileAvatar extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: Image.network(
-        trimmed,
+        _withImageRevision(trimmed, imageRevision),
+        key: ValueKey<String>('${trimmed}_${imageRevision ?? ''}'),
         width: 64,
         height: 64,
         fit: BoxFit.cover,
@@ -652,6 +657,22 @@ class _ProfileAvatar extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String _withImageRevision(String url, String? revision) {
+    final String cleanRevision = revision?.trim() ?? '';
+    if (cleanRevision.isEmpty) {
+      return url;
+    }
+    final Uri? uri = Uri.tryParse(url);
+    if (uri == null) {
+      return url;
+    }
+    final Map<String, String> query = <String, String>{
+      ...uri.queryParameters,
+      'v': cleanRevision,
+    };
+    return uri.replace(queryParameters: query).toString();
   }
 }
 

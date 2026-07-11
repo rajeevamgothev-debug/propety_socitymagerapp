@@ -109,78 +109,67 @@ class _FoodManagementCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: <Color>[Color(0xFF111827), Color(0xFF4F46E5)],
+            image: const DecorationImage(
+              image: NetworkImage(
+                'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+              ),
+              fit: BoxFit.cover,
             ),
           ),
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: <Widget>[
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.22),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.restaurant_menu_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
+          clipBehavior: Clip.antiAlias,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[
+                  Color(0xE6111827),
+                  Color(0xC21F2937),
+                  Color(0xCC4F46E5),
+                ],
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const ToneBadge(label: 'PG Voting', tone: UiTone.success),
+                  const SizedBox(height: 18),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 260),
+                    child: Text(
                       'Food Management',
-                      style: theme.textTheme.titleMedium?.copyWith(
+                      style: theme.textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
+                        height: 1.02,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Create weekly menus, run resident voting, finalize meals and track feedback.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.78),
-                        height: 1.35,
+                  ),
+                  const SizedBox(height: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 280),
+                    child: Text(
+                      'Manage PG meals, resident voting, final menu selection and daily food updates.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: const <Widget>[
-                        ToneBadge(label: 'PG Food OS', tone: UiTone.brand),
-                        ToneBadge(label: 'Voting', tone: UiTone.success),
-                      ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Breakfast, lunch, snacks and dinner voting in one place.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.74),
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(19),
-                ),
-                child: const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: Color(0xFF111827),
-                  size: 20,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -296,7 +285,10 @@ class _ProfileHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Row(
           children: <Widget>[
-            _ProfileAvatar(imageUrl: vendor?.imageUrl),
+            _ProfileAvatar(
+              imageUrl: vendor?.imageUrl,
+              imageRevision: vendor?.imageId,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -349,9 +341,10 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({this.imageUrl});
+  const _ProfileAvatar({this.imageUrl, this.imageRevision});
 
   final String? imageUrl;
+  final String? imageRevision;
 
   @override
   Widget build(BuildContext context) {
@@ -365,7 +358,10 @@ class _ProfileAvatar extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: imageUrl != null && imageUrl!.isNotEmpty
           ? Image.network(
-              imageUrl!,
+              _withImageRevision(imageUrl!, imageRevision),
+              key: ValueKey<String>(
+                '${imageUrl!.trim()}_${imageRevision ?? ''}',
+              ),
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => const Icon(
                 Icons.person_rounded,
@@ -375,6 +371,22 @@ class _ProfileAvatar extends StatelessWidget {
             )
           : const Icon(Icons.person_rounded, color: AppTheme.primary, size: 28),
     );
+  }
+
+  String _withImageRevision(String url, String? revision) {
+    final String cleanRevision = revision?.trim() ?? '';
+    if (cleanRevision.isEmpty) {
+      return url;
+    }
+    final Uri? uri = Uri.tryParse(url);
+    if (uri == null) {
+      return url;
+    }
+    final Map<String, String> query = <String, String>{
+      ...uri.queryParameters,
+      'v': cleanRevision,
+    };
+    return uri.replace(queryParameters: query).toString();
   }
 }
 

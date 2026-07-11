@@ -1809,10 +1809,10 @@ class _PremiumDashboardScroll extends StatelessWidget {
       actionKey: 'bookings',
     ),
     AppShortcut(
-      title: 'Community Feed',
-      subtitle: 'Open posts, polls, and updates',
-      icon: Icons.dynamic_feed_outlined,
-      actionKey: 'community_feed',
+      title: 'Food Management',
+      subtitle: 'Manage PG meals, voting, and results',
+      icon: Icons.restaurant_menu_outlined,
+      actionKey: 'food_management',
     ),
     AppShortcut(
       title: 'Rent Reminder',

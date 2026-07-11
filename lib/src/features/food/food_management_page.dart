@@ -90,26 +90,29 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
   }
 
   List<FoodMenuItem> get _liveVotingMenus {
-    final List<FoodMenuItem> candidates = _displayMenus
-        .where(
-          (FoodMenuItem item) =>
-              item.whetherVotingLive &&
-              item.options.length > 1 &&
-              _matchesSelectedDay(item),
-        )
-        .toList()
-      ..sort((FoodMenuItem a, FoodMenuItem b) {
-        final int mealCompare = a.mealType.compareTo(b.mealType);
-        if (mealCompare != 0) {
-          return mealCompare;
-        }
-        return b.createdAt.compareTo(a.createdAt);
-      });
+    final List<FoodMenuItem> candidates =
+        _displayMenus
+            .where(
+              (FoodMenuItem item) =>
+                  item.whetherVotingLive &&
+                  item.options.length > 1 &&
+                  _matchesSelectedDay(item),
+            )
+            .toList()
+          ..sort((FoodMenuItem a, FoodMenuItem b) {
+            final int mealCompare = a.mealType.compareTo(b.mealType);
+            if (mealCompare != 0) {
+              return mealCompare;
+            }
+            return b.createdAt.compareTo(a.createdAt);
+          });
     return candidates;
   }
 
   List<FoodMenuItem> get _chefSpecialMenus {
-    return _displayMenus.where((FoodMenuItem item) => item.chefSpecial).toList();
+    return _displayMenus
+        .where((FoodMenuItem item) => item.chefSpecial)
+        .toList();
   }
 
   bool _matchesSelectedDay(FoodMenuItem item) {
@@ -117,9 +120,11 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
   }
 
   List<FoodMenuItem> get _displayMenus {
-    final List<FoodMenuItem> sortedMenus = <FoodMenuItem>[
-      ..._liveMenus,
-    ]..sort(
+    final List<FoodMenuItem> dateMenus = _liveMenus
+        .where((FoodMenuItem item) => item.menuDateKey == _selectedMenuDateKey)
+        .toList();
+    final List<FoodMenuItem> sortedMenus = <FoodMenuItem>[...dateMenus]
+      ..sort(
         (FoodMenuItem a, FoodMenuItem b) => b.createdAt.compareTo(a.createdAt),
       );
     final List<FoodMenuItem> matchingDay = sortedMenus
@@ -130,7 +135,9 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
         : sortedMenus;
     final Map<String, FoodMenuItem> latestBySlot = <String, FoodMenuItem>{};
     for (final FoodMenuItem item in source) {
-      final int normalizedDay = item.dayIndex >= 0 ? item.dayIndex : _selectedDay;
+      final int normalizedDay = item.dayIndex >= 0
+          ? item.dayIndex
+          : _selectedDay;
       final String slotKey = '$normalizedDay-${item.mealType}';
       latestBySlot.putIfAbsent(slotKey, () => item);
     }
@@ -157,6 +164,7 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
             (PropertyRecord item) => <String, dynamic>{
               'PropertyID': item.id,
               'Property_Title': item.title,
+              'Property_Display_Label': item.displayTitle ?? item.title,
               'Address': item.address ?? '',
             },
           )
@@ -174,11 +182,26 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
           : (properties.isNotEmpty
                 ? properties.first['PropertyID'] as String? ?? ''
                 : '');
-      final List<FoodMenuItem> menus = await FoodService.filterMenus(
-        propertyId: propertyId.isEmpty ? null : propertyId,
-        menuDateKey: _selectedMenuDateKey,
-        limit: 60,
+      final List<String> foodPropertyIds = _foodPropertyIdsFor(
+        properties,
+        propertyId,
       );
+      final List<List<FoodMenuItem>> menuBatches = await Future.wait(
+        foodPropertyIds.map(
+          (String id) => FoodService.filterMenus(
+            propertyId: id,
+            menuDateKey: _selectedMenuDateKey,
+            limit: 60,
+          ),
+        ),
+      );
+      final Map<String, FoodMenuItem> menusById = <String, FoodMenuItem>{};
+      for (final List<FoodMenuItem> batch in menuBatches) {
+        for (final FoodMenuItem menu in batch) {
+          menusById[menu.id] = menu;
+        }
+      }
+      final List<FoodMenuItem> menus = menusById.values.toList();
       if (!mounted) return;
       setState(() {
         _propertyScope = properties;
@@ -213,6 +236,47 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
       image:
           'https://images.unsplash.com/photo-1560185008-b033106af5c3?auto=format&fit=crop&w=900&q=80',
     );
+  }
+
+  List<String> _foodPropertyIdsFor(
+    List<Map<String, dynamic>> properties,
+    String propertyId,
+  ) {
+    if (properties.isEmpty) {
+      return <String>[];
+    }
+    final Map<String, dynamic> selected = properties.firstWhere(
+      (Map<String, dynamic> item) =>
+          (item['PropertyID'] as String? ?? '') == propertyId,
+      orElse: () => properties.first,
+    );
+    final String selectedGroupKey = _propertyFoodGroupKey(selected);
+    final List<String> ids = properties
+        .where(
+          (Map<String, dynamic> item) =>
+              _propertyFoodGroupKey(item) == selectedGroupKey,
+        )
+        .map((Map<String, dynamic> item) => item['PropertyID'] as String? ?? '')
+        .where((String id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    return ids.isEmpty && propertyId.isNotEmpty ? <String>[propertyId] : ids;
+  }
+
+  String _propertyFoodGroupKey(Map<String, dynamic> property) {
+    final String title = _normalizeFoodGroupText(
+      property['Property_Title'] as String? ??
+          property['Property_Display_Label'] as String? ??
+          '',
+    );
+    final String address = _normalizeFoodGroupText(
+      property['Address'] as String? ?? '',
+    );
+    return address.isEmpty ? title : '$title::$address';
+  }
+
+  String _normalizeFoodGroupText(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   _MealItem _mapMealItem(FoodMenuItem menu) {
@@ -267,7 +331,8 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
         : (_propertyScope.isNotEmpty
               ? _propertyScope.first['PropertyID'] as String? ?? ''
               : '');
-    if (fallbackPropertyId.isNotEmpty && fallbackPropertyId != _selectedPropertyId) {
+    if (fallbackPropertyId.isNotEmpty &&
+        fallbackPropertyId != _selectedPropertyId) {
       setState(() => _selectedPropertyId = fallbackPropertyId);
     }
     final _AddMealDraft? draft = await showModalBottomSheet<_AddMealDraft>(
@@ -306,7 +371,9 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
             menuId: menu.id,
             mealType: menu.mealType > 0 ? menu.mealType - 1 : 0,
             menuTitle: menu.menuTitle,
-            options: menu.options.map((FoodMenuOption item) => item.text).toList(),
+            options: menu.options
+                .map((FoodMenuOption item) => item.text)
+                .toList(),
             calories: menu.calories,
             chefSpecial: menu.chefSpecial,
             copyToWeek: menu.copyToWeek,
@@ -321,11 +388,20 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
   }
 
   Future<void> _persistMealDraft(_AddMealDraft draft) async {
-    final String targetPropertyId = _selectedPropertyId.isNotEmpty
+    String targetPropertyId = _selectedPropertyId.isNotEmpty
         ? _selectedPropertyId
         : (_propertyScope.isNotEmpty
               ? _propertyScope.first['PropertyID'] as String? ?? ''
               : '');
+    if (draft.menuId != null && draft.menuId!.isNotEmpty) {
+      final FoodMenuItem? existingMenu = _liveMenus
+          .where((FoodMenuItem item) => item.id == draft.menuId)
+          .cast<FoodMenuItem?>()
+          .firstWhere((FoodMenuItem? item) => item != null, orElse: () => null);
+      if ((existingMenu?.propertyId ?? '').isNotEmpty) {
+        targetPropertyId = existingMenu!.propertyId;
+      }
+    }
     if (targetPropertyId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -428,9 +504,8 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemBuilder: (BuildContext context, int index) {
-                  final String propertyId = _propertyScope[index]['PropertyID']
-                          as String? ??
-                      '';
+                  final String propertyId =
+                      _propertyScope[index]['PropertyID'] as String? ?? '';
                   return _PropertyFoodCard(
                     property: _properties[index],
                     selected:
@@ -473,7 +548,9 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
             for (final _MealItem meal in _meals) ...<Widget>[
               _MealManagementRow(
                 meal: meal,
-                onEdit: meal.id.isEmpty ? null : () => _openEditMealSheet(meal.id),
+                onEdit: meal.id.isEmpty
+                    ? null
+                    : () => _openEditMealSheet(meal.id),
               ),
               const SizedBox(height: 12),
             ],
@@ -508,12 +585,12 @@ class _HeroHeader extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
 
     return Container(
-      height: 218,
+      height: 228,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         image: const DecorationImage(
           image: NetworkImage(
-            'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1400&q=80',
           ),
           fit: BoxFit.cover,
         ),
@@ -529,9 +606,13 @@ class _HeroHeader extends StatelessWidget {
       child: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[Color(0x330F172A), Color(0xA6111827)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[
+              Color(0xA6111827),
+              Color(0xC01F2937),
+              Color(0xA64F46E5),
+            ],
           ),
         ),
         child: Padding(
@@ -539,10 +620,10 @@ class _HeroHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const ToneBadge(label: 'PG Food OS', tone: UiTone.brand),
+              const ToneBadge(label: 'PG Voting', tone: UiTone.success),
               const Spacer(),
               Text(
-                'Run menus,\nvoting and feedback',
+                'Run PG meals,\nvoting and results',
                 style: theme.textTheme.headlineMedium?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -550,7 +631,7 @@ class _HeroHeader extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Create weekly meals, collect resident votes, finalize winners and notify everyone.',
+                'Create daily menus, collect resident votes, finalize winning items and keep the kitchen plan clear.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.88),
                   height: 1.45,
@@ -794,10 +875,7 @@ class _PropertyFoodCard extends StatelessWidget {
 }
 
 class _WeeklyCalendar extends StatelessWidget {
-  const _WeeklyCalendar({
-    required this.selectedDate,
-    required this.onSelected,
-  });
+  const _WeeklyCalendar({required this.selectedDate, required this.onSelected});
 
   final DateTime selectedDate;
   final ValueChanged<DateTime> onSelected;
@@ -817,9 +895,9 @@ class _WeeklyCalendar extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           'Dates update automatically every day. Select a date to create that day menu.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppTheme.textSecondary,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -857,10 +935,13 @@ class _WeeklyCalendar extends StatelessWidget {
                       const SizedBox(height: 5),
                       Text(
                         '${date.day}',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: selected ? Colors.white : AppTheme.textPrimary,
-                          fontWeight: FontWeight.w900,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: selected
+                                  ? Colors.white
+                                  : AppTheme.textPrimary,
+                              fontWeight: FontWeight.w900,
+                            ),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -1015,7 +1096,9 @@ class _MealManagementRow extends StatelessWidget {
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Edit data is not available for this meal yet.'),
+                      content: Text(
+                        'Edit data is not available for this meal yet.',
+                      ),
                     ),
                   );
                 }
@@ -1312,7 +1395,9 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                 child: Wrap(
                   spacing: 10,
                   runSpacing: 10,
-                  children: List<Widget>.generate(_mealTypes.length, (int index) {
+                  children: List<Widget>.generate(_mealTypes.length, (
+                    int index,
+                  ) {
                     final bool selected = _mealType == index;
                     return _MealTypeChip(
                       label: _mealTypes[index],
@@ -1326,7 +1411,8 @@ class _AddMealSheetState extends State<_AddMealSheet> {
               const SizedBox(height: 14),
               _AddMealSection(
                 title: 'Meal details',
-                subtitle: 'Add a title and separate choices residents can vote on.',
+                subtitle:
+                    'Add a title and separate choices residents can vote on.',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
@@ -1521,9 +1607,9 @@ class _AddMealHighlight extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ],
             ),
@@ -1673,9 +1759,9 @@ class _InlineToggleTile extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
               ),
             ],
           ),
@@ -1930,7 +2016,9 @@ class _MealVotingResult extends StatelessWidget {
           children: <Widget>[
             Expanded(
               child: Text(
-                menu.mealLabel.isEmpty ? _mealTypeLabel(menu.mealType) : menu.mealLabel,
+                menu.mealLabel.isEmpty
+                    ? _mealTypeLabel(menu.mealType)
+                    : menu.mealLabel,
                 style: Theme.of(
                   context,
                 ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
@@ -1946,7 +2034,9 @@ class _MealVotingResult extends StatelessWidget {
         for (int index = 0; index < menu.options.length; index++) ...<Widget>[
           _VoteBar(
             label: menu.options[index].text,
-            value: totalVotes == 0 ? 0 : menu.options[index].voteCount / totalVotes,
+            value: totalVotes == 0
+                ? 0
+                : menu.options[index].voteCount / totalVotes,
             votes: menu.options[index].voteCount,
           ),
           if (index < menu.options.length - 1) const SizedBox(height: 12),
@@ -2423,13 +2513,10 @@ class _MealWinnerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final FoodMenuOption winner = menu.options.reduce(
-      (FoodMenuOption a, FoodMenuOption b) =>
-          b.voteCount > a.voteCount ? b : a,
-    );
     final String mealLabel = menu.mealLabel.isEmpty
         ? _mealTypeLabel(menu.mealType)
         : menu.mealLabel;
+    final String resultSummary = menu.resultSummaryWithVotes(maxItems: 4);
     return Row(
       children: <Widget>[
         Container(
@@ -2457,9 +2544,10 @@ class _MealWinnerRow extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                '${winner.text} - ${winner.voteCount} votes',
+                resultSummary.isEmpty ? 'No result yet' : resultSummary,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppTheme.textSecondary,
+                  height: 1.35,
                 ),
               ),
             ],
