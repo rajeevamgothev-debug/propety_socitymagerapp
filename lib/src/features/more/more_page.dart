@@ -52,6 +52,8 @@ class MorePage extends StatelessWidget {
         const SizedBox(height: 24),
 
         if (role == AppRole.propertyManager) ...<Widget>[
+          _FoodManagementCard(onModuleSelected: onModuleSelected),
+          const SizedBox(height: 16),
           _AccountReminderCard(vendor: vendor),
           const SizedBox(height: 24),
         ],
@@ -77,6 +79,111 @@ class MorePage extends StatelessWidget {
         const SizedBox(height: 24),
         _SignOutRow(onTap: onLogout),
       ],
+    );
+  }
+}
+
+class _FoodManagementCard extends StatelessWidget {
+  const _FoodManagementCard({required this.onModuleSelected});
+
+  final ValueChanged<ModuleStatusItem> onModuleSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return CustomCard(
+      padding: CustomCardPadding.none,
+      child: InkWell(
+        onTap: () => onModuleSelected(
+          const ModuleStatusItem(
+            title: 'Food Management',
+            subtitle: 'PG menus, resident voting, final menu and analytics',
+            icon: Icons.restaurant_menu_rounded,
+            phaseLabel: 'Ready now',
+            actionKey: 'food_management',
+            readyNow: true,
+          ),
+        ),
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[Color(0xFF111827), Color(0xFF4F46E5)],
+            ),
+          ),
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.restaurant_menu_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Food Management',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Create weekly menus, run resident voting, finalize meals and track feedback.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: const <Widget>[
+                        ToneBadge(label: 'PG Food OS', tone: UiTone.brand),
+                        ToneBadge(label: 'Voting', tone: UiTone.success),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(19),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_rounded,
+                  color: Color(0xFF111827),
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

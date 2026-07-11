@@ -25,6 +25,7 @@ import '../communication/communication_page.dart';
 import '../community/community_feed_page.dart';
 import '../community/create_post_page.dart';
 import '../dashboard/dashboard_page.dart';
+import '../food/food_management_page.dart';
 import '../more/more_page.dart';
 import '../audit/audit_logs_page.dart';
 import '../properties/properties_page.dart';
@@ -849,6 +850,7 @@ class _AppShellState extends State<AppShell> {
         societyId: _societyId,
       ),
       'settings' => const SettingsPage(),
+      'food_management' => const FoodManagementPage(),
       'society_management' => const SocietyManagementPage(),
       'bank_details' => const BankWalletPage(),
       'notifications' => const NotificationsPage(),

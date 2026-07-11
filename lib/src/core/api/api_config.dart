@@ -69,6 +69,12 @@ class ApiConfig {
   static const String toggleCommunityReaction = '/Toggle_Community_Reaction';
   static const String voteCommunityPoll = '/Vote_Community_Poll';
 
+  // Food
+  static const String createPropertyFoodMenu = '/Create_Property_Food_Menu';
+  static const String editPropertyFoodMenu = '/Edit_Property_Food_Menu';
+  static const String filterPropertyFoodMenus = '/Filter_Property_Food_Menus';
+  static const String votePropertyFoodMenu = '/Vote_Property_Food_Menu';
+
   // Incidents
   static const String filterTenantIncidents =
       '/Filter_All_Society_Incidents_WRT_Tenant';
