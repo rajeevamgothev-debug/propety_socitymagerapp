@@ -583,6 +583,18 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
   }
 
   Future<void> _openContractSheet({RentalContractRecord? contract}) async {
+    BillingDefaultScheduleData? billingDefaults;
+    if (contract == null) {
+      try {
+        billingDefaults = await VendorService.fetchBillingDefaultSchedule();
+      } catch (_) {
+        billingDefaults = null;
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+
     String propertyId = _propertyIdForContract(contract) ?? '';
     final TextEditingController unitController = TextEditingController(
       text: contract?.flatNo ?? '',
@@ -624,19 +636,23 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
     DateTime endDate =
         contract?.endDate ?? DateTime.now().add(const Duration(days: 365));
     bool useCustomBillingDay =
-        contract?.whetherCustomBillGenerationDayAvailable ?? false;
+        contract?.whetherCustomBillGenerationDayAvailable ??
+        billingDefaults?.whetherBillGenerationDayAvailable ??
+        false;
     int customBillingDay = _normalizedContractScheduleDay(
       contract?.customBillGenerationDay,
-      fallback: 1,
+      fallback: billingDefaults?.billGenerationDay ?? 1,
     );
     bool useCustomDueSchedule =
-        contract?.whetherCustomBillDueScheduleAvailable ?? false;
+        contract?.whetherCustomBillDueScheduleAvailable ??
+        billingDefaults?.whetherDueScheduleAvailable ??
+        false;
     int customDueDay = _normalizedContractScheduleDay(
       contract?.customBillDueDay,
-      fallback: 5,
+      fallback: billingDefaults?.dueDay ?? 5,
     );
     TimeOfDay customDueTime = _contractTimeOfDayFromStorage(
-      contract?.customBillDueTime,
+      contract?.customBillDueTime ?? billingDefaults?.dueTime,
     );
     bool isSubmitting = false;
     bool isUploadingDoc = false;
@@ -1134,7 +1150,7 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                           _ContractScheduleCard(
                             title: 'Due Date and Time',
                             subtitle:
-                                'Choose an optional monthly due day and exact time for rent bills.',
+                                'Choose how many days after the bill date rent is due, plus the cutoff time.',
                             enabled: useCustomDueSchedule,
                             enabledLabel: 'Custom due',
                             disabledLabel: 'Default due rule',
@@ -2948,7 +2964,7 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                                 (contract.customBillDueTime ?? '').isNotEmpty)
                               ToneBadge(
                                 label:
-                                    'Due ${contract.customBillDueDay} • ${_contractFormatStoredTime(context, contract.customBillDueTime)}',
+                                    'Due in ${contract.customBillDueDay} days - ${_contractFormatStoredTime(context, contract.customBillDueTime)}',
                                 tone: UiTone.neutral,
                               ),
                             if (isReadyToVacate && !isClosed)
@@ -3385,7 +3401,7 @@ class _ContractDetailPage extends StatelessWidget {
                     contract.whetherCustomBillDueScheduleAvailable == true &&
                         (contract.customBillDueDay ?? 0) > 0 &&
                         (contract.customBillDueTime ?? '').isNotEmpty
-                    ? 'Day ${contract.customBillDueDay} at ${_contractFormatStoredTime(context, contract.customBillDueTime)}'
+                    ? '${contract.customBillDueDay} days after bill date at ${_contractFormatStoredTime(context, contract.customBillDueTime)}'
                     : 'Default system due rule',
               ),
             ],

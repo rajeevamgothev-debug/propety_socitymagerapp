@@ -425,10 +425,10 @@ class _RentReminderSettingsPageState extends State<RentReminderSettingsPage> {
                     _ScheduleSettingBlock(
                       title: 'Due date and time',
                       description:
-                          'Apply one default due day and one default due time to future rent bills.',
+                          'Apply one default due window and one cutoff time to future rent bills.',
                       enabled: billing.whetherDueScheduleAvailable,
                       enabledSummary:
-                          'Bills are due on day ${billing.dueDay} at ${_formatTimeLabel(billing.dueTime)}.',
+                          'Bills are due ${billing.dueDay} days after bill date at ${_formatTimeLabel(billing.dueTime)}.',
                       disabledSummary: 'No default due date or time is set.',
                       onToggle: (bool value) {
                         setState(() {
@@ -446,9 +446,9 @@ class _RentReminderSettingsPageState extends State<RentReminderSettingsPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           const _FieldHeader(
-                            title: 'Due day',
+                            title: 'Due after',
                             description:
-                                'Choose the day of the month when payment is due.',
+                                'Choose how many days after the bill date payment is due.',
                           ),
                           const SizedBox(height: 12),
                           _DayGridPicker(
@@ -471,7 +471,7 @@ class _RentReminderSettingsPageState extends State<RentReminderSettingsPage> {
                           const _FieldHeader(
                             title: 'Due time',
                             description:
-                                'Choose the cutoff time for the due day.',
+                                'Choose the cutoff time on the due date.',
                           ),
                           const SizedBox(height: 12),
                           _TimeButton(
@@ -485,7 +485,7 @@ class _RentReminderSettingsPageState extends State<RentReminderSettingsPage> {
                     const _HintBox(
                       icon: Icons.calendar_today_outlined,
                       text:
-                          'Only days 1-28 are supported so the schedule stays valid in every month.',
+                          'Bill generation supports days 1-28. Due schedule uses 1-28 days after each bill date.',
                     ),
                   ],
                 ),

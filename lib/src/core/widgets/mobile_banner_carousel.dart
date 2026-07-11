@@ -5,12 +5,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../api/public_discovery_service.dart';
 import '../models/api_models.dart';
+import '../theme/app_theme.dart';
 
 class MobileBannerCarousel extends StatefulWidget {
-  const MobileBannerCarousel({
-    super.key,
-    required this.audience,
-  });
+  const MobileBannerCarousel({super.key, required this.audience});
 
   final String audience;
 
@@ -19,7 +17,7 @@ class MobileBannerCarousel extends StatefulWidget {
 }
 
 class _MobileBannerCarouselState extends State<MobileBannerCarousel> {
-  final PageController _controller = PageController(viewportFraction: 0.92);
+  final PageController _controller = PageController(viewportFraction: 1);
   List<PublicBannerData> _banners = <PublicBannerData>[];
   Timer? _timer;
   int _index = 0;
@@ -99,7 +97,9 @@ class _MobileBannerCarouselState extends State<MobileBannerCarousel> {
     if (rawUrl.isEmpty || rawUrl.startsWith('app://')) {
       return;
     }
-    final Uri? uri = Uri.tryParse(rawUrl.startsWith('http') ? rawUrl : 'https://$rawUrl');
+    final Uri? uri = Uri.tryParse(
+      rawUrl.startsWith('http') ? rawUrl : 'https://$rawUrl',
+    );
     if (uri != null) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -108,7 +108,7 @@ class _MobileBannerCarouselState extends State<MobileBannerCarousel> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const SizedBox(height: 132);
+      return const SizedBox(height: 176);
     }
     if (_banners.isEmpty) {
       return const SizedBox.shrink();
@@ -121,14 +121,14 @@ class _MobileBannerCarouselState extends State<MobileBannerCarousel> {
           onPointerUp: (_) => _touching = false,
           onPointerCancel: (_) => _touching = false,
           child: SizedBox(
-            height: 142,
+            height: 176,
             child: PageView.builder(
               controller: _controller,
               itemCount: _banners.length,
               onPageChanged: (int value) => setState(() => _index = value),
               itemBuilder: (BuildContext context, int index) {
                 return Padding(
-                  padding: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
                   child: _MobileBannerCard(
                     banner: _banners[index],
                     onAction: () => _open(_banners[index]),
@@ -151,9 +151,7 @@ class _MobileBannerCarouselState extends State<MobileBannerCarousel> {
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
-                  color: active
-                      ? const Color(0xFF8B5E34)
-                      : const Color(0xFFD6D3D1),
+                  color: active ? AppTheme.primary : AppTheme.primaryTone,
                 ),
               );
             }),
@@ -172,108 +170,197 @@ class _MobileBannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
     final String title = (banner.title ?? '').trim();
     final String subtitle = (banner.subtitle ?? '').trim();
     final String buttonText = (banner.buttonText ?? '').trim();
     final String link = (banner.navigationUrl ?? '').trim();
-    final bool showAction = buttonText.isNotEmpty && link.isNotEmpty;
+    final bool hasActionLink = link.isNotEmpty && !link.startsWith('app://');
+    final bool showAction = hasActionLink;
+    final bool isYoutubeBanner =
+        title.toLowerCase().contains('youtube') ||
+        subtitle.toLowerCase().contains('youtube');
+    final String ctaText = buttonText.isNotEmpty
+        ? buttonText
+        : (isYoutubeBanner ? 'Watch now' : 'Open');
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(28),
       child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x16000000),
-                blurRadius: 18,
-                offset: Offset(0, 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x140F172A),
+              blurRadius: 24,
+              offset: Offset(0, 14),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[Color(0xFF0F172A), Color(0xFF1E3A8A)],
               ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
+            ),
             child: Stack(
-              fit: StackFit.expand,
               children: <Widget>[
-                Image.network(
-                  banner.imageUrl ?? '',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const ColoredBox(
-                    color: Color(0xFF8B5E34),
-                  ),
-                ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: <Color>[Color(0xCC1C1917), Color(0x221C1917)],
+                Positioned(
+                  top: -36,
+                  right: -24,
+                  child: Container(
+                    width: 144,
+                    height: 144,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0x14FFFFFF),
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      if (title.isNotEmpty)
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            height: 1.08,
-                          ),
-                        ),
-                      if (subtitle.isNotEmpty) ...<Widget>[
-                        if (title.isNotEmpty) const SizedBox(height: 6),
-                        Text(
-                          subtitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFFF5F5F4),
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            height: 1.25,
-                          ),
-                        ),
-                      ],
-                      if (showAction) ...<Widget>[
-                        const SizedBox(height: 12),
-                        GestureDetector(
-                          onTap: onAction,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              buttonText,
-                              style: const TextStyle(
-                                color: Color(0xFF1C1917),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                Positioned(
+                  bottom: -28,
+                  left: 160,
+                  child: Container(
+                    width: 104,
+                    height: 104,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0x124F46E5),
+                    ),
                   ),
+                ),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      flex: 6,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            if (isYoutubeBanner) ...<Widget>[
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.red,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                            if (title.isNotEmpty)
+                              Text(
+                                title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.12,
+                                ),
+                              ),
+                            if (subtitle.isNotEmpty) ...<Widget>[
+                              if (title.isNotEmpty) const SizedBox(height: 6),
+                              Text(
+                                subtitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: const Color(0xFFE2E8F0),
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                            if (showAction) const Spacer(),
+                            if (showAction) ...<Widget>[
+                              FilledButton.tonalIcon(
+                                onPressed: onAction,
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size(0, 40),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: AppTheme.textPrimary,
+                                  elevation: 0,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                ),
+                                icon: Icon(
+                                  isYoutubeBanner
+                                      ? Icons.play_circle_fill_rounded
+                                      : Icons.arrow_forward_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(
+                                  ctaText,
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    color: AppTheme.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 10, 10, 10),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: <Widget>[
+                              Image.network(
+                                banner.imageUrl ?? '',
+                                fit: BoxFit.cover,
+                                alignment: Alignment.centerRight,
+                                errorBuilder: (_, _, _) =>
+                                    const ColoredBox(color: Color(0xFF1E40AF)),
+                              ),
+                              const DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: <Color>[
+                                      Color(0x080F172A),
+                                      Color(0x420F172A),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
+      ),
     );
   }
 }

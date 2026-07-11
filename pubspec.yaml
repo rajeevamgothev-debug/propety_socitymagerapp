@@ -80,6 +80,12 @@ flutter:
 
   assets:
     - assets/manager_logo.jpg
+    - assets/hero_property_manager.png
+    - assets/login_property_background.png
+    - assets/landing_hero_workspace.png
+    - assets/landing_interior_detail.png
+    - assets/landing_property_workspace.png
+    - assets/landing_society_workspace.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

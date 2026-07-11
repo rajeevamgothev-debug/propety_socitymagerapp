@@ -373,34 +373,65 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final List<_TabDefinition> tabs = _buildTabs();
     final _TabDefinition activeTab = tabs[_selectedIndex];
+    final bool isHomeRoot = _selectedIndex == 0;
+    final bool showHomeGreetingInHeader =
+        isHomeRoot && widget.role == AppRole.propertyManager;
+    final bool isPropertyTabRoot =
+        widget.role == AppRole.propertyManager && activeTab.key == 'properties';
+    final bool hideBackForPropertyManagerRootTab =
+        widget.role == AppRole.propertyManager &&
+        <String>{
+          'properties',
+          'rental_contracts',
+          'billing',
+          'more',
+        }.contains(activeTab.key);
+    final bool showRootStyleHeader =
+        isHomeRoot || isPropertyTabRoot || hideBackForPropertyManagerRootTab;
+    final bool showPropertyTitleInHeader = isPropertyTabRoot;
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, _) => _handleBackPress(didPop),
       child: Scaffold(
         appBar: AppBar(
-          leading: _selectedIndex == 0
+          toolbarHeight: showHomeGreetingInHeader
+              ? 56
+              : (showRootStyleHeader ? 48 : kToolbarHeight),
+          leading: showRootStyleHeader
               ? null
               : IconButton(
                   tooltip: 'Back',
                   onPressed: _navigateBackInShell,
                   icon: const Icon(Icons.arrow_back_ios_new_rounded),
                 ),
-          titleSpacing: 16,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(activeTab.title),
-              const SizedBox(height: 1),
-              Text(
-                widget.role.label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w700,
+          titleSpacing: showRootStyleHeader ? 20 : 16,
+          title: showHomeGreetingInHeader
+              ? _HomeHeaderTitle(name: _homeHeaderFirstName)
+              : showPropertyTitleInHeader
+              ? Text(
+                  activeTab.title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                )
+              : isHomeRoot
+              ? const SizedBox.shrink()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(activeTab.title),
+                    const SizedBox(height: 1),
+                    Text(
+                      widget.role.label,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
           actions: <Widget>[
             if (widget.role != AppRole.propertyManager) ...<Widget>[
               _ShellIconButton(
@@ -426,10 +457,16 @@ class _AppShellState extends State<AppShell> {
             ),
             const SizedBox(width: 10),
           ],
-          bottom: const PreferredSize(
-            preferredSize: Size.fromHeight(1),
-            child: Divider(height: 1, thickness: 1, color: AppTheme.border),
-          ),
+          bottom: isHomeRoot
+              ? null
+              : const PreferredSize(
+                  preferredSize: Size.fromHeight(1),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppTheme.border,
+                  ),
+                ),
         ),
         body: activeTab.child,
         bottomNavigationBar: CustomBottomNavBar(
@@ -447,6 +484,15 @@ class _AppShellState extends State<AppShell> {
         ),
       ),
     );
+  }
+
+  String get _homeHeaderFirstName {
+    final String rawName = (_vendor?.fullName ?? _societyInfo?.name ?? '')
+        .trim();
+    if (rawName.isEmpty) {
+      return '';
+    }
+    return rawName.split(RegExp(r'\s+')).first;
   }
 
   List<_TabDefinition> _buildTabs() {
@@ -478,6 +524,7 @@ class _AppShellState extends State<AppShell> {
           onShortcutSelected: (String actionKey) => _handleShortcut(actionKey),
           isLoading: _isLoading,
           onRefresh: _loadData,
+          showHomeHeaderInBody: widget.role != AppRole.propertyManager,
         ),
       ),
     ];
@@ -586,6 +633,7 @@ class _AppShellState extends State<AppShell> {
           onShortcutSelected: (String actionKey) => _handleShortcut(actionKey),
           isLoading: _isLoading,
           onRefresh: _loadData,
+          showHomeHeaderInBody: true,
         ),
       ),
       _TabDefinition(
@@ -655,6 +703,7 @@ class _AppShellState extends State<AppShell> {
           onShortcutSelected: (String actionKey) => _handleShortcut(actionKey),
           isLoading: _isLoading,
           onRefresh: _loadData,
+          showHomeHeaderInBody: false,
         ),
       ),
       const _TabDefinition(
@@ -662,7 +711,7 @@ class _AppShellState extends State<AppShell> {
         title: 'Properties',
         label: 'Properties',
         icon: Icons.home_work_outlined,
-        child: PropertiesPage(),
+        child: PropertiesPage(showAppBar: false),
       ),
       const _TabDefinition(
         key: 'rental_contracts',
@@ -1880,6 +1929,39 @@ class _TabDefinition {
   final String label;
   final IconData icon;
   final Widget child;
+}
+
+class _HomeHeaderTitle extends StatelessWidget {
+  const _HomeHeaderTitle({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Text.rich(
+      TextSpan(
+        style: theme.textTheme.titleLarge?.copyWith(
+          color: AppTheme.textPrimary,
+          fontWeight: FontWeight.w800,
+          height: 1.1,
+        ),
+        children: <InlineSpan>[
+          const TextSpan(text: 'Hello'),
+          if (name.isNotEmpty) ...<InlineSpan>[
+            const TextSpan(text: ', '),
+            TextSpan(
+              text: name,
+              style: const TextStyle(color: AppTheme.primary),
+            ),
+          ],
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
 }
 
 class _ShellIconButton extends StatelessWidget {

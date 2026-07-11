@@ -18,7 +18,6 @@ import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_card.dart';
 import '../../core/widgets/custom_tab_bar.dart';
 import '../../core/widgets/location_picker_sheet.dart';
-import '../../core/widgets/page_header.dart';
 import '../../core/widgets/tone_badge.dart';
 import 'property_enquiries_page.dart';
 
@@ -212,7 +211,9 @@ class _PropertyFormResult {
 }
 
 class PropertiesPage extends StatefulWidget {
-  const PropertiesPage({super.key});
+  const PropertiesPage({super.key, this.showAppBar = true});
+
+  final bool showAppBar;
 
   @override
   State<PropertiesPage> createState() => _PropertiesPageState();
@@ -1554,8 +1555,8 @@ class _PropertiesPageState extends State<PropertiesPage> {
                               _detailLine(
                                 'Extra contract formula',
                                 '${calculation!.extraContractsCount} x Rs '
-                                '${calculation!.amountPerContract.toStringAsFixed(0)} x '
-                                '${calculation!.subscriptionMonths}',
+                                    '${calculation!.amountPerContract.toStringAsFixed(0)} x '
+                                    '${calculation!.subscriptionMonths}',
                               ),
                             _detailLine(
                               'Extra contracts amount',
@@ -1656,41 +1657,29 @@ class _PropertiesPageState extends State<PropertiesPage> {
         .length;
 
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: const Text('Properties'),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppTheme.border),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openPropertySheet,
-        icon: const Icon(Icons.add_home_work_outlined),
-        label: const Text('Add Property'),
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              titleSpacing: 16,
+              title: const Text('Properties'),
+              bottom: const PreferredSize(
+                preferredSize: Size.fromHeight(1),
+                child: Divider(height: 1, thickness: 1, color: AppTheme.border),
+              ),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: _loadInitialData,
         child: ListView(
           padding: AppTheme.pagePadding,
           children: <Widget>[
-            PageHeader(
-              title: 'Properties',
-              description:
-                  'Website-aligned property inventory with live type, location, pagination, subscription, and activation APIs.',
-              trailing: ToneBadge(
-                label: '$_totalCount live',
-                tone: UiTone.brand,
-              ),
-            ),
-            const SizedBox(height: 16),
             _PropertySummaryHero(
+              liveCount: _totalCount,
               totalCount: _totalCount,
               approvedCount: approvedCount,
               pendingCount: pendingCount,
               onAddProperty: _openPropertySheet,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             _PropertyFilterPanel(
               searchController: _searchController,
               typeFilter: _typeFilter,
@@ -1732,13 +1721,13 @@ class _PropertiesPageState extends State<PropertiesPage> {
                 });
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             _PropertyListHeader(
               page: _page + 1,
               visibleCount: _properties.length,
               totalCount: _totalCount,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             CustomTabBar(
               style: CustomTabBarStyle.pill,
               currentIndex: _statusFilter == null
@@ -5559,80 +5548,16 @@ class _PropertySubscriptionCard extends StatelessWidget {
   }
 }
 
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.label,
-    required this.value,
-    required this.tone,
-  });
-
-  final String label;
-  final String value;
-  final UiTone tone;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomCard(
-      padding: CustomCardPadding.sm,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _MetricPill(label: label, tone: tone),
-          const SizedBox(height: 14),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricPill extends StatelessWidget {
-  const _MetricPill({required this.label, required this.tone});
-
-  final String label;
-  final UiTone tone;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppTheme.toneContainer(tone),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          label,
-          maxLines: 1,
-          softWrap: false,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppTheme.toneColor(tone),
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            height: 1.333,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _PropertySummaryHero extends StatelessWidget {
   const _PropertySummaryHero({
+    required this.liveCount,
     required this.totalCount,
     required this.approvedCount,
     required this.pendingCount,
     required this.onAddProperty,
   });
 
+  final int liveCount;
   final int totalCount;
   final int approvedCount;
   final int pendingCount;
@@ -5641,8 +5566,49 @@ class _PropertySummaryHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final List<Widget> stats = <Widget>[
+      Expanded(
+        child: _PropertyOverviewStat(
+          label: 'Inventory',
+          value: '$totalCount',
+          icon: Icons.apartment_outlined,
+          color: AppTheme.primary,
+        ),
+      ),
+      const _PropertyOverviewDivider(),
+      Expanded(
+        child: _PropertyOverviewStat(
+          label: 'Approved',
+          value: '$approvedCount',
+          icon: Icons.check_circle_outline_rounded,
+          color: const Color(0xFF10B981),
+        ),
+      ),
+      const _PropertyOverviewDivider(),
+      Expanded(
+        child: _PropertyOverviewStat(
+          label: 'Pending',
+          value: '$pendingCount',
+          icon: Icons.schedule_outlined,
+          color: const Color(0xFFF59E0B),
+        ),
+      ),
+    ];
 
-    return CustomCard(
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x08111827),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -5656,56 +5622,55 @@ class _PropertySummaryHero extends StatelessWidget {
                     Text(
                       'Inventory control',
                       style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
-                      'Track approvals, pricing, subscriptions, and activation status from one mobile workspace.',
+                      'Track approvals, subscriptions, activation status, and inventory health from one clear workspace.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: AppTheme.textSecondary,
+                        height: 1.45,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 12),
-              Icon(Icons.apartment_rounded, size: 34, color: AppTheme.primary),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _MetricTile(
-                  label: 'Inventory',
-                  value: '$totalCount',
-                  tone: UiTone.brand,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MetricTile(
-                  label: PropertyStatus.approved.label,
-                  value: '$approvedCount',
-                  tone: UiTone.success,
+                decoration: BoxDecoration(
+                  color: AppTheme.primarySoft,
+                  borderRadius: BorderRadius.circular(999),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MetricTile(
-                  label: PropertyStatus.pending.label,
-                  value: '$pendingCount',
-                  tone: UiTone.warning,
+                child: Text(
+                  '$liveCount live',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Row(children: stats),
+          ),
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: CustomButton(
-              label: 'Add New Property',
+              label: 'Add Property',
               icon: const Icon(Icons.add_home_work_outlined),
               onPressed: onAddProperty,
             ),
@@ -5713,6 +5678,68 @@ class _PropertySummaryHero extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _PropertyOverviewStat extends StatelessWidget {
+  const _PropertyOverviewStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 18, color: color),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PropertyOverviewDivider extends StatelessWidget {
+  const _PropertyOverviewDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: 72, color: const Color(0xFFE5E7EB));
   }
 }
 
@@ -5753,87 +5780,194 @@ class _PropertyFilterPanel extends StatelessWidget {
   final ValueChanged<String?> onStateChanged;
   final ValueChanged<String?> onCityChanged;
 
-  Widget _buildStateField(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        final String? selected = await _showSearchableDropdown(
-          context: context,
-          title: 'Select State',
-          items: states
-              .map(
-                (PropertyStateData s) => (value: s.stateId, label: s.stateName),
-              )
-              .toList(),
-          currentValue: stateId,
-          allLabel: 'All States',
-        );
-        onStateChanged(selected);
-      },
-      child: AbsorbPointer(
-        child: TextField(
-          readOnly: true,
-          decoration: const InputDecoration(
-            labelText: 'State',
-            hintText: 'All States',
-            suffixIcon: Icon(Icons.arrow_drop_down),
-          ),
-          controller: TextEditingController(
-            text: stateId != null
-                ? states
-                          .where((PropertyStateData s) => s.stateId == stateId)
-                          .map((PropertyStateData s) => s.stateName)
-                          .firstOrNull ??
-                      ''
-                : '',
-          ),
-        ),
+  InputDecoration _searchDecoration({required VoidCallback onApply}) {
+    OutlineInputBorder border(Color color, {double width = 1}) {
+      return OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: color, width: width),
+      );
+    }
+
+    return InputDecoration(
+      hintText: 'Search by property name or location',
+      prefixIcon: const Icon(Icons.search_rounded),
+      suffixIcon: IconButton(
+        tooltip: 'Apply search',
+        onPressed: onApply,
+        icon: const Icon(Icons.arrow_forward_rounded),
       ),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: border(const Color(0xFFE5E7EB)),
+      enabledBorder: border(const Color(0xFFE5E7EB)),
+      focusedBorder: border(AppTheme.primary, width: 1.4),
     );
   }
 
-  Widget _buildCityField(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        final String? selected = await _showSearchableDropdown(
-          context: context,
-          title: 'Select City',
-          items: cities
-              .map((PropertyCityData c) => (value: c.cityId, label: c.cityName))
-              .toList(),
-          currentValue: cityId,
-          allLabel: 'All Cities',
-        );
-        onCityChanged(selected);
-      },
-      child: AbsorbPointer(
-        child: TextField(
-          readOnly: true,
-          decoration: const InputDecoration(
-            labelText: 'City',
-            hintText: 'All Cities',
-            suffixIcon: Icon(Icons.arrow_drop_down),
-          ),
-          controller: TextEditingController(
-            text: cityId != null
-                ? cities
-                          .where((PropertyCityData c) => c.cityId == cityId)
-                          .map((PropertyCityData c) => c.cityName)
-                          .firstOrNull ??
-                      ''
-                : '',
-          ),
-        ),
-      ),
+  String? _selectedStateName() {
+    if (stateId == null) {
+      return null;
+    }
+    for (final PropertyStateData state in states) {
+      if (state.stateId == stateId) {
+        return state.stateName;
+      }
+    }
+    return null;
+  }
+
+  String? _selectedCityName() {
+    if (cityId == null) {
+      return null;
+    }
+    for (final PropertyCityData city in cities) {
+      if (city.cityId == cityId) {
+        return city.cityName;
+      }
+    }
+    return null;
+  }
+
+  int _activeCriteriaCount() {
+    int count = 0;
+    if (searchController.text.trim().isNotEmpty) count++;
+    if (typeFilter != null) count++;
+    if (subTypeFilter != null) count++;
+    if (categoryTypeFilter != null) count++;
+    if ((stateId ?? '').isNotEmpty) count++;
+    if ((cityId ?? '').isNotEmpty) count++;
+    return count;
+  }
+
+  Future<void> _selectMappedFilter({
+    required BuildContext context,
+    required String title,
+    required Map<int, String> items,
+    required int? currentValue,
+    required String allLabel,
+    required ValueChanged<int?> onChanged,
+  }) async {
+    final String? selected = await _showSearchableDropdown(
+      context: context,
+      title: title,
+      items: items.entries
+          .map(
+            (MapEntry<int, String> entry) =>
+                (value: entry.key.toString(), label: entry.value),
+          )
+          .toList(),
+      currentValue: currentValue?.toString(),
+      allLabel: allLabel,
     );
+    onChanged(selected == null ? null : int.tryParse(selected));
+  }
+
+  Future<void> _selectState(BuildContext context) async {
+    final String? selected = await _showSearchableDropdown(
+      context: context,
+      title: 'Select State',
+      items: states
+          .map((PropertyStateData s) => (value: s.stateId, label: s.stateName))
+          .toList(),
+      currentValue: stateId,
+      allLabel: 'All States',
+    );
+    onStateChanged(selected);
+  }
+
+  Future<void> _selectCity(BuildContext context) async {
+    final String? selected = await _showSearchableDropdown(
+      context: context,
+      title: 'Select City',
+      items: cities
+          .map((PropertyCityData c) => (value: c.cityId, label: c.cityName))
+          .toList(),
+      currentValue: cityId,
+      allLabel: 'All Cities',
+    );
+    onCityChanged(selected);
   }
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final int activeCriteria = _activeCriteriaCount();
+    final String typeLabel = propertyTypeLabels[typeFilter] ?? 'All types';
+    final String subtypeLabel = typeFilter == null
+        ? 'All subtypes'
+        : _propertySubTypeLabels[typeFilter]?[subTypeFilter] ?? 'All subtypes';
+    final String categoryLabel =
+        _categoryTypeLabels[categoryTypeFilter] ?? 'All categories';
+    final String stateLabel = _selectedStateName() ?? 'All states';
+    final String cityLabel = _selectedCityName() ?? 'All cities';
+    final bool cityEnabled =
+        (stateId ?? '').isNotEmpty ||
+        cities.isNotEmpty ||
+        (cityId ?? '').isNotEmpty;
+    final List<Widget> filterChips = <Widget>[
+      _FilterControlChip(
+        icon: Icons.apartment_outlined,
+        label: 'Type: $typeLabel',
+        active: typeFilter != null,
+        onTap: () => _selectMappedFilter(
+          context: context,
+          title: 'Select Type',
+          items: propertyTypeLabels,
+          currentValue: typeFilter,
+          allLabel: 'All Types',
+          onChanged: onTypeChanged,
+        ),
+      ),
+      if (typeFilter != null)
+        _FilterControlChip(
+          icon: Icons.grid_view_rounded,
+          label: 'Subtype: $subtypeLabel',
+          active: subTypeFilter != null,
+          onTap: () => _selectMappedFilter(
+            context: context,
+            title: 'Select Subtype',
+            items: _propertySubTypeLabels[typeFilter] ?? <int, String>{},
+            currentValue: subTypeFilter,
+            allLabel: 'All Subtypes',
+            onChanged: onSubTypeChanged,
+          ),
+        ),
+      _FilterControlChip(
+        icon: Icons.sell_outlined,
+        label: 'Category: $categoryLabel',
+        active: categoryTypeFilter != null,
+        onTap: () => _selectMappedFilter(
+          context: context,
+          title: 'Select Category',
+          items: _categoryTypeLabels,
+          currentValue: categoryTypeFilter,
+          allLabel: 'All Categories',
+          onChanged: onCategoryTypeChanged,
+        ),
+      ),
+      _FilterControlChip(
+        icon: Icons.map_outlined,
+        label: 'State: $stateLabel',
+        active: (stateId ?? '').isNotEmpty,
+        onTap: () => _selectState(context),
+      ),
+      _FilterControlChip(
+        icon: Icons.location_city_outlined,
+        label: cityEnabled ? 'City: $cityLabel' : 'City: select state',
+        active: (cityId ?? '').isNotEmpty,
+        enabled: cityEnabled,
+        onTap: cityEnabled ? () => _selectCity(context) : null,
+      ),
+    ];
 
-    return CustomCard(
-      color: AppTheme.surface,
-      borderColor: AppTheme.border,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -5841,134 +5975,151 @@ class _PropertyFilterPanel extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  'Search and filter',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                  'Search & filter',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              TextButton.icon(
-                onPressed: onClear,
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Reset'),
+              if (activeCriteria > 0)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primarySoft,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$activeCriteria active',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              TextButton(
+                onPressed: activeCriteria > 0 ? onClear : null,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  foregroundColor: AppTheme.textSecondary,
+                ),
+                child: const Text('Clear'),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           TextField(
             controller: searchController,
-            decoration: InputDecoration(
-              labelText: 'Search property',
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: IconButton(
-                onPressed: onApply,
-                icon: const Icon(Icons.arrow_forward_rounded),
-              ),
-            ),
+            decoration: _searchDecoration(onApply: onApply),
             onSubmitted: (_) => onApply(),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: DropdownButtonFormField<int?>(
-                  value: typeFilter,
-                  decoration: const InputDecoration(labelText: 'Type'),
-                  items: <DropdownMenuItem<int?>>[
-                    const DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text('All Types'),
-                    ),
-                    ...propertyTypeLabels.entries.map(
-                      (MapEntry<int, String> entry) => DropdownMenuItem<int?>(
-                        value: entry.key,
-                        child: Text(entry.value),
-                      ),
-                    ),
-                  ],
-                  onChanged: onTypeChanged,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<int?>(
-                  value: categoryTypeFilter,
-                  decoration: const InputDecoration(labelText: 'Category'),
-                  items: <DropdownMenuItem<int?>>[
-                    const DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text('All Categories'),
-                    ),
-                    ..._categoryTypeLabels.entries.map(
-                      (MapEntry<int, String> entry) => DropdownMenuItem<int?>(
-                        value: entry.key,
-                        child: Text(entry.value),
-                      ),
-                    ),
-                  ],
-                  onChanged: onCategoryTypeChanged,
-                ),
-              ),
-            ],
-          ),
-          if (typeFilter != null) ...<Widget>[
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: DropdownButtonFormField<int?>(
-                    value: subTypeFilter,
-                    decoration: const InputDecoration(labelText: 'Subtype'),
-                    items: <DropdownMenuItem<int?>>[
-                      const DropdownMenuItem<int?>(
-                        value: null,
-                        child: Text('All Subtypes'),
-                      ),
-                      ...(_propertySubTypeLabels[typeFilter] ?? <int, String>{})
-                          .entries
-                          .map(
-                            (MapEntry<int, String> entry) =>
-                                DropdownMenuItem<int?>(
-                                  value: entry.key,
-                                  child: Text(entry.value),
-                                ),
-                          ),
-                    ],
-                    onChanged: onSubTypeChanged,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: _buildStateField(context)),
-              ],
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children:
+                  filterChips
+                      .expand<Widget>(
+                        (Widget chip) => <Widget>[
+                          chip,
+                          const SizedBox(width: 8),
+                        ],
+                      )
+                      .toList()
+                    ..removeLast(),
             ),
-          ] else ...<Widget>[
-            const SizedBox(height: 12),
-            _buildStateField(context),
-          ],
-          const SizedBox(height: 12),
-          _buildCityField(context),
-          const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: CustomButton(
-                  label: 'Apply Filters',
-                  icon: const Icon(Icons.tune_rounded),
-                  onPressed: onApply,
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 112,
-                child: CustomButton(
-                  label: 'Clear',
-                  variant: CustomButtonVariant.outline,
-                  onPressed: onClear,
-                ),
-              ),
-            ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FilterControlChip extends StatelessWidget {
+  const _FilterControlChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.active = false,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool active;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final Color backgroundColor = !enabled
+        ? const Color(0xFFF8FAFC)
+        : active
+        ? AppTheme.primarySoft
+        : Colors.white;
+    final Color borderColor = active
+        ? const Color(0xFFC7D2FE)
+        : const Color(0xFFE5E7EB);
+    final Color iconColor = !enabled
+        ? AppTheme.textMuted
+        : active
+        ? AppTheme.primary
+        : AppTheme.textSecondary;
+    final Color textColor = !enabled
+        ? AppTheme.textMuted
+        : active
+        ? AppTheme.primary
+        : AppTheme.textPrimary;
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44, maxWidth: 210),
+      child: Material(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(999),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: borderColor),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(icon, size: 17, color: iconColor),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: textColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 17,
+                    color: iconColor,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -5987,29 +6138,47 @@ class _PropertyListHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomCard(
-      padding: CustomCardPadding.sm,
-      color: const Color(0xFFF8FAFC),
-      child: Row(
-        children: <Widget>[
-          const Icon(
-            Icons.view_stream_rounded,
-            size: 18,
-            color: AppTheme.textSecondary,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Page $page with $visibleCount properties in view',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w600,
+    final ThemeData theme = Theme.of(context);
+
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Showing $visibleCount properties',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
+              const SizedBox(height: 3),
+              Text(
+                'Page $page of inventory results',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Text(
+            'Total $totalCount',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          ToneBadge(label: 'Total $totalCount', tone: UiTone.neutral),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

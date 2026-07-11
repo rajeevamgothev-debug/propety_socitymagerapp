@@ -14,35 +14,42 @@ Future<void> showPremiumPopupBanner(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Close banner',
-    barrierColor: Colors.black.withOpacity(0.68),
+    barrierColor: Colors.black.withValues(alpha: 0.68),
     transitionDuration: const Duration(milliseconds: 220),
-    pageBuilder: (BuildContext context, _, __) {
-      return Center(
-        child: PremiumPopupBanner(variant: variant, banner: banner),
-      );
-    },
-    transitionBuilder: (_, Animation<double> animation, __, Widget child) {
-      final CurvedAnimation curve = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-      );
-      return FadeTransition(
-        opacity: curve,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.94, end: 1).animate(curve),
-          child: child,
-        ),
-      );
-    },
+    pageBuilder:
+        (
+          BuildContext dialogContext,
+          Animation<double> primaryAnimation,
+          Animation<double> secondaryAnimation,
+        ) {
+          return Center(
+            child: PremiumPopupBanner(variant: variant, banner: banner),
+          );
+        },
+    transitionBuilder:
+        (
+          BuildContext dialogContext,
+          Animation<double> animation,
+          Animation<double> secondaryAnimation,
+          Widget child,
+        ) {
+          final CurvedAnimation curve = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          );
+          return FadeTransition(
+            opacity: curve,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.94, end: 1).animate(curve),
+              child: child,
+            ),
+          );
+        },
   );
 }
 
 class PremiumPopupBanner extends StatelessWidget {
-  const PremiumPopupBanner({
-    super.key,
-    required this.variant,
-    this.banner,
-  });
+  const PremiumPopupBanner({super.key, required this.variant, this.banner});
 
   final PremiumPopupBannerVariant variant;
   final PublicBannerData? banner;
@@ -65,7 +72,7 @@ class PremiumPopupBanner extends StatelessWidget {
                 color: const Color(0xFF101316),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.35),
+                    color: Colors.black.withValues(alpha: 0.35),
                     blurRadius: 34,
                     offset: const Offset(0, 18),
                   ),
@@ -79,8 +86,14 @@ class PremiumPopupBanner extends StatelessWidget {
                         : Image.network(
                             imageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                _PremiumGradientBackground(variant: variant),
+                            errorBuilder:
+                                (
+                                  BuildContext context,
+                                  Object error,
+                                  StackTrace? stackTrace,
+                                ) => _PremiumGradientBackground(
+                                  variant: variant,
+                                ),
                           ),
                   ),
                   Positioned.fill(
@@ -90,8 +103,8 @@ class PremiumPopupBanner extends StatelessWidget {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: <Color>[
-                            Colors.black.withOpacity(0.08),
-                            Colors.black.withOpacity(0.72),
+                            Colors.black.withValues(alpha: 0.08),
+                            Colors.black.withValues(alpha: 0.72),
                           ],
                         ),
                       ),
@@ -107,7 +120,9 @@ class PremiumPopupBanner extends StatelessWidget {
                           alignment: Alignment.topRight,
                           child: IconButton.filled(
                             style: IconButton.styleFrom(
-                              backgroundColor: Colors.white.withOpacity(0.18),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.18,
+                              ),
                               foregroundColor: Colors.white,
                             ),
                             tooltip: 'Close',
@@ -122,10 +137,10 @@ class PremiumPopupBanner extends StatelessWidget {
                             vertical: 7,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.16),
+                            color: Colors.white.withValues(alpha: 0.16),
                             borderRadius: BorderRadius.circular(999),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.24),
+                              color: Colors.white.withValues(alpha: 0.24),
                             ),
                           ),
                           child: Text(
@@ -155,7 +170,7 @@ class PremiumPopupBanner extends StatelessWidget {
                           Text(
                             copy.subtitle,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.84),
+                              color: Colors.white.withValues(alpha: 0.84),
                               fontSize: 15,
                               height: 1.35,
                               fontWeight: FontWeight.w600,
@@ -206,21 +221,29 @@ class PremiumPopupBanner extends StatelessWidget {
     final String apiSubtitle = banner?.subtitle?.trim() ?? '';
     final String apiButtonText = banner?.buttonText?.trim() ?? '';
     final String apiUrl = banner?.navigationUrl?.trim() ?? '';
+    final bool hasActionLink =
+        apiUrl.isNotEmpty && !apiUrl.startsWith('app://');
+    final bool isYoutubeBanner =
+        apiTitle.toLowerCase().contains('youtube') ||
+        apiSubtitle.toLowerCase().contains('youtube');
+    final String actionText = apiButtonText.isNotEmpty
+        ? apiButtonText
+        : (isYoutubeBanner ? 'Watch now' : 'Open');
     if (variant == PremiumPopupBannerVariant.society) {
       return _BannerCopy(
         badge: 'Society Management',
         title: apiTitle,
         subtitle: apiSubtitle,
-        action: apiButtonText,
-        showAction: apiButtonText.isNotEmpty && apiUrl.isNotEmpty,
+        action: actionText,
+        showAction: hasActionLink,
       );
     }
     return _BannerCopy(
       badge: 'Property Management',
       title: apiTitle,
       subtitle: apiSubtitle,
-      action: apiButtonText,
-      showAction: apiButtonText.isNotEmpty && apiUrl.isNotEmpty,
+      action: actionText,
+      showAction: hasActionLink,
     );
   }
 
@@ -272,7 +295,7 @@ class _PremiumGradientBackground extends StatelessWidget {
           child: Icon(
             society ? Icons.apartment_rounded : Icons.home_work_rounded,
             size: 92,
-            color: Colors.white.withOpacity(0.18),
+            color: Colors.white.withValues(alpha: 0.18),
           ),
         ),
       ),

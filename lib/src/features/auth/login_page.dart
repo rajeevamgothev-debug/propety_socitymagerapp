@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,10 +9,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_button.dart';
 import '../legal/legal_policy_page.dart';
 
-typedef OtpRequestedCallback = void Function(
-  String phone, {
-  bool otpAlreadySent,
-});
+typedef OtpRequestedCallback =
+    void Function(String phone, {bool otpAlreadySent});
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -109,8 +109,19 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  bool get _usePropertyManagementLayout =>
+      widget.authSource == AuthSource.propertyManagement;
+
   @override
   Widget build(BuildContext context) {
+    if (_usePropertyManagementLayout) {
+      return _buildPropertyManagementLogin(context);
+    }
+
+    return _buildDefaultLogin(context);
+  }
+
+  Widget _buildDefaultLogin(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final double keyboardBottom = MediaQuery.of(context).viewInsets.bottom;
 
@@ -269,13 +280,243 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+
+  Widget _buildPropertyManagementLogin(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final MediaQueryData mediaQuery = MediaQuery.of(context);
+    final double width = mediaQuery.size.width;
+    final double keyboardInset = mediaQuery.viewInsets.bottom;
+    final bool compact = width < 390;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FD),
+      resizeToAvoidBottomInset: false,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[Color(0xFFF4F6FF), Color(0xFFF8F9FF), Colors.white],
+          ),
+        ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final double sheetHeight = compact ? 338 : 356;
+              final double horizontalInset = compact ? 14 : 18;
+              final double maxSheetTop = math.max(
+                118,
+                constraints.maxHeight - sheetHeight - 14,
+              );
+              final double desiredSheetTop =
+                  constraints.maxHeight * (compact ? 0.49 : 0.5);
+              final double keyboardLift = keyboardInset > 0
+                  ? math.min(keyboardInset * 0.42, compact ? 144.0 : 156.0)
+                  : 0;
+              final double minSheetTop = compact ? 214 : 228;
+              final double sheetTop = math.max(
+                minSheetTop,
+                math.min(maxSheetTop, desiredSheetTop - keyboardLift),
+              );
+
+              return Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  _PropertyLoginHero(compact: compact, onBack: widget.onBack),
+                  Positioned(
+                    left: horizontalInset,
+                    right: horizontalInset,
+                    top: sheetTop,
+                    height: sheetHeight,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(40),
+                          bottom: Radius.circular(36),
+                        ),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: Color(0x120F172A),
+                            blurRadius: 28,
+                            offset: Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 26, 24, 22),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                "Let's get you signed in",
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  color: AppTheme.textPrimary,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.05,
+                                ),
+                              ),
+                              const SizedBox(height: 26),
+                              TextFormField(
+                                controller: _phoneController,
+                                keyboardType: TextInputType.phone,
+                                textInputAction: TextInputAction.done,
+                                maxLength: 10,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: AppTheme.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                inputFormatters: <TextInputFormatter>[
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: InputDecoration(
+                                  hintText: 'Enter mobile number',
+                                  hintStyle: theme.textTheme.titleMedium
+                                      ?.copyWith(
+                                        color: AppTheme.textMuted,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                  counterText: '',
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                    vertical: 21,
+                                  ),
+                                  prefixIcon: const _PropertyPhonePrefix(),
+                                  prefixIconConstraints: const BoxConstraints(
+                                    minWidth: 118,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFFE4E0FD),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFFE4E0FD),
+                                      width: 1.2,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.primary,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                validator: (String? value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Phone number is required';
+                                  }
+                                  if (!_indianMobilePattern.hasMatch(
+                                    value.trim(),
+                                  )) {
+                                    return 'Enter a valid 10-digit Indian mobile number';
+                                  }
+                                  return null;
+                                },
+                                onFieldSubmitted: (_) =>
+                                    _isLoading ? null : _requestOtp(),
+                              ),
+                              const SizedBox(height: 22),
+                              _GradientContinueButton(
+                                label: 'Next',
+                                isLoading: _isLoading,
+                                onPressed: _isLoading ? null : _requestOtp,
+                              ),
+                              const SizedBox(height: 18),
+                              Center(
+                                child: Wrap(
+                                  alignment: WrapAlignment.center,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: <Widget>[
+                                    Text(
+                                      'By signing in, you agree to our ',
+                                      textAlign: TextAlign.center,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: AppTheme.textSecondary,
+                                            height: 1.45,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                    _PolicyLink(
+                                      text: 'Terms of Service',
+                                      onTap: () => _openPolicy(
+                                        context,
+                                        LegalPolicyType.terms,
+                                      ),
+                                    ),
+                                    Text(
+                                      ' and ',
+                                      textAlign: TextAlign.center,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: AppTheme.textSecondary,
+                                            height: 1.45,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                    _PolicyLink(
+                                      text: 'Privacy Policy',
+                                      onTap: () => _openPolicy(
+                                        context,
+                                        LegalPolicyType.privacy,
+                                      ),
+                                    ),
+                                    Text(
+                                      '.',
+                                      textAlign: TextAlign.center,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: AppTheme.textSecondary,
+                                            height: 1.45,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_otpSent) ...<Widget>[
+                                const SizedBox(height: 16),
+                                _InlineStatusMessage(
+                                  icon: Icons.check_circle_rounded,
+                                  color: AppTheme.toneColor(UiTone.success),
+                                  message: 'OTP sent successfully.',
+                                ),
+                              ],
+                              if (_errorMessage != null) ...<Widget>[
+                                const SizedBox(height: 16),
+                                _InlineStatusMessage(
+                                  icon: Icons.error_rounded,
+                                  color: AppTheme.toneColor(UiTone.danger),
+                                  message: _errorMessage!,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _TermsText extends StatelessWidget {
-  const _TermsText({
-    required this.onTermsTap,
-    required this.onPrivacyTap,
-  });
+  const _TermsText({required this.onTermsTap, required this.onPrivacyTap});
 
   final VoidCallback onTermsTap;
   final VoidCallback onPrivacyTap;
@@ -285,6 +526,7 @@ class _TermsText extends StatelessWidget {
     return Wrap(
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
+      runSpacing: 2,
       children: <Widget>[
         const Text(
           'By continuing, you agree to our ',
@@ -430,6 +672,198 @@ class _QuietPropertyHeader extends StatelessWidget {
   }
 }
 
+class _PropertyLoginHero extends StatelessWidget {
+  const _PropertyLoginHero({required this.compact, required this.onBack});
+
+  final bool compact;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double textWidth = constraints.maxWidth * (compact ? 0.56 : 0.54);
+
+        return Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[Color(0xFFF4F6FF), Color(0xFFF8FAFF)],
+                ),
+              ),
+            ),
+            Positioned(
+              left: constraints.maxWidth * (compact ? 0.18 : 0.22),
+              right: compact ? -34 : -26,
+              top: compact ? 42 : 48,
+              bottom: compact ? 40 : 50,
+              child: IgnorePointer(
+                child: Image.asset(
+                  'assets/hero_property_manager.png',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[
+                    Colors.white.withValues(alpha: 0.18),
+                    Colors.white.withValues(alpha: 0.08),
+                    Colors.white.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  _PlainIconButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onPressed: onBack,
+                  ),
+                  const Spacer(),
+                  Container(
+                    width: 62,
+                    height: 62,
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: const <BoxShadow>[
+                        BoxShadow(
+                          color: Color(0x10111A2A),
+                          blurRadius: 22,
+                          offset: Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        'assets/manager_logo.jpg',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 22,
+              top: compact ? 126 : 138,
+              width: textWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Welcome to',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: compact ? 58 : 62,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'UrbanEasyFlats',
+                          style: theme.textTheme.displaySmall?.copyWith(
+                            color: AppTheme.textPrimary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: compact ? 33 : 36,
+                            height: 1.02,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Property operations, simplified.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w500,
+                      fontSize: compact ? 16 : 17,
+                      height: 1.32,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PropertyPhonePrefix extends StatelessWidget {
+  const _PropertyPhonePrefix();
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: SizedBox(
+              width: 20,
+              height: 14,
+              child: Column(
+                children: const <Widget>[
+                  Expanded(child: ColoredBox(color: Color(0xFFFF9933))),
+                  Expanded(child: ColoredBox(color: Colors.white)),
+                  Expanded(child: ColoredBox(color: Color(0xFF138808))),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '+91',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: AppTheme.primary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(width: 2),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 20,
+            color: AppTheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Container(width: 1, height: 28, color: const Color(0xFFE3E6F6)),
+        ],
+      ),
+    );
+  }
+}
+
 class _PlainIconButton extends StatelessWidget {
   const _PlainIconButton({required this.icon, required this.onPressed});
 
@@ -440,16 +874,93 @@ class _PlainIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.border),
-      ),
+      shape: const CircleBorder(side: BorderSide(color: Color(0xFFE8E7EE))),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(16),
+        customBorder: const CircleBorder(),
         child: Padding(
-          padding: const EdgeInsets.all(11),
-          child: Icon(icon, size: 18, color: AppTheme.textPrimary),
+          padding: const EdgeInsets.all(16),
+          child: Icon(icon, size: 20, color: AppTheme.textPrimary),
+        ),
+      ),
+    );
+  }
+}
+
+class _GradientContinueButton extends StatelessWidget {
+  const _GradientContinueButton({
+    required this.label,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool isLoading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool disabled = onPressed == null || isLoading;
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 120),
+      opacity: disabled ? 0.55 : 1,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[Color(0xFF6F63FF), Color(0xFF4F46E5)],
+          ),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x2B4F46E5),
+              blurRadius: 20,
+              offset: Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: disabled ? null : onPressed,
+            borderRadius: BorderRadius.circular(22),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 19),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  if (isLoading) ...<Widget>[
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (!isLoading) ...<Widget>[
+                    const SizedBox(width: 14),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
