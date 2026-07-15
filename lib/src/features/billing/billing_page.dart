@@ -36,6 +36,7 @@ class BillingPage extends StatefulWidget {
     this.isLoading = false,
     this.onRefresh,
     this.societyId = '',
+    this.onBack,
   });
 
   final AppRole role;
@@ -43,6 +44,7 @@ class BillingPage extends StatefulWidget {
   final bool isLoading;
   final VoidCallback? onRefresh;
   final String societyId;
+  final VoidCallback? onBack;
 
   @override
   State<BillingPage> createState() => _BillingPageState();
@@ -193,6 +195,18 @@ class _BillingPageState extends State<BillingPage> {
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleBackPressed() {
+    if (widget.onBack != null) {
+      widget.onBack!.call();
+      return;
+    }
+
+    final NavigatorState navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.maybePop();
+    }
   }
 
   Future<void> _loadVendor() async {
@@ -1793,7 +1807,11 @@ class _BillingPageState extends State<BillingPage> {
             controller: _searchController,
             decoration: InputDecoration(
               hintText: 'Search by tenant, owner, property title...',
-              prefixIcon: const Icon(Icons.search_rounded),
+              prefixIcon: IconButton(
+                tooltip: 'Back',
+                onPressed: _handleBackPressed,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
               suffixIcon: _searchController.text.isEmpty
                   ? null
                   : IconButton(
@@ -1987,7 +2005,11 @@ class _BillingPageState extends State<BillingPage> {
             decoration: InputDecoration(
               labelText: 'Search bills',
               hintText: 'Search by bill details',
-              prefixIcon: const Icon(Icons.search_rounded),
+              prefixIcon: IconButton(
+                tooltip: 'Back',
+                onPressed: _handleBackPressed,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
               suffixIcon: _searchController.text.isEmpty
                   ? null
                   : IconButton(
@@ -2025,7 +2047,11 @@ class _BillingPageState extends State<BillingPage> {
             decoration: InputDecoration(
               labelText: 'Search bills',
               hintText: 'Resident name, flat no…',
-              prefixIcon: const Icon(Icons.search_rounded),
+              prefixIcon: IconButton(
+                tooltip: 'Back',
+                onPressed: _handleBackPressed,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
               suffixIcon: _searchController.text.isEmpty
                   ? null
                   : IconButton(

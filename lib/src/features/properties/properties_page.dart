@@ -211,9 +211,14 @@ class _PropertyFormResult {
 }
 
 class PropertiesPage extends StatefulWidget {
-  const PropertiesPage({super.key, this.showAppBar = true});
+  const PropertiesPage({
+    super.key,
+    this.showAppBar = true,
+    this.onBack,
+  });
 
   final bool showAppBar;
+  final VoidCallback? onBack;
 
   @override
   State<PropertiesPage> createState() => _PropertiesPageState();
@@ -248,6 +253,18 @@ class _PropertiesPageState extends State<PropertiesPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleBackPressed() {
+    if (widget.onBack != null) {
+      widget.onBack!.call();
+      return;
+    }
+
+    final NavigatorState navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.maybePop();
+    }
   }
 
   Future<void> _loadInitialData() async {
@@ -1691,6 +1708,7 @@ class _PropertiesPageState extends State<PropertiesPage> {
               cityId: _cityId,
               cities: _cities,
               onApply: _applyFilters,
+              onBack: _handleBackPressed,
               onClear: _clearFilters,
               onTypeChanged: (int? value) {
                 setState(() {
@@ -5755,6 +5773,7 @@ class _PropertyFilterPanel extends StatelessWidget {
     required this.cityId,
     required this.cities,
     required this.onApply,
+    required this.onBack,
     required this.onClear,
     required this.onTypeChanged,
     required this.onSubTypeChanged,
@@ -5773,6 +5792,7 @@ class _PropertyFilterPanel extends StatelessWidget {
   final String? cityId;
   final List<PropertyCityData> cities;
   final VoidCallback onApply;
+  final VoidCallback onBack;
   final VoidCallback onClear;
   final ValueChanged<int?> onTypeChanged;
   final ValueChanged<int?> onSubTypeChanged;
@@ -5790,7 +5810,11 @@ class _PropertyFilterPanel extends StatelessWidget {
 
     return InputDecoration(
       hintText: 'Search by property name or location',
-      prefixIcon: const Icon(Icons.search_rounded),
+      prefixIcon: IconButton(
+        tooltip: 'Back',
+        onPressed: onBack,
+        icon: const Icon(Icons.arrow_back_rounded),
+      ),
       suffixIcon: IconButton(
         tooltip: 'Apply search',
         onPressed: onApply,

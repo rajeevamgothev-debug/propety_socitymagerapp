@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -250,7 +251,9 @@ int _propertyUsedContractSlots(PropertyRecord property) {
 }
 
 class RentalContractsPage extends StatefulWidget {
-  const RentalContractsPage({super.key});
+  const RentalContractsPage({super.key, this.onBack});
+
+  final VoidCallback? onBack;
 
   @override
   State<RentalContractsPage> createState() => _RentalContractsPageState();
@@ -527,6 +530,24 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleBackPressed() {
+    if (widget.onBack != null) {
+      widget.onBack!.call();
+      return;
+    }
+
+    final NavigatorState navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.maybePop();
+    }
+  }
+
+  void _handleSearchChanged(String value) {
+    setState(() {
+      _searchTerm = value;
+    });
   }
 
   Future<void> _loadContracts() async {
@@ -2707,15 +2728,15 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _searchController,
-                    onChanged: (String value) {
-                      setState(() {
-                        _searchTerm = value;
-                      });
-                    },
-                    decoration: const InputDecoration(
+                    onChanged: _handleSearchChanged,
+                    decoration: InputDecoration(
                       labelText: 'Search contracts',
                       hintText: 'Property, tenant, owner, or unit',
-                      prefixIcon: Icon(Icons.search_rounded),
+                      prefixIcon: IconButton(
+                        tooltip: 'Back',
+                        onPressed: _handleBackPressed,
+                        icon: const Icon(Icons.arrow_back_rounded),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),

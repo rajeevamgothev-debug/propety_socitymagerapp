@@ -543,6 +543,7 @@ class _AppShellState extends State<AppShell> {
             isLoading: _isLoading,
             onRefresh: _loadData,
             societyId: _societyId,
+            onBack: _navigateBackInShell,
           ),
         ),
       );
@@ -655,6 +656,7 @@ class _AppShellState extends State<AppShell> {
           isLoading: _isLoading,
           onRefresh: _loadData,
           societyId: _societyId,
+          onBack: _navigateBackInShell,
         ),
       ),
       const _TabDefinition(
@@ -707,19 +709,22 @@ class _AppShellState extends State<AppShell> {
           showHomeHeaderInBody: false,
         ),
       ),
-      const _TabDefinition(
+      _TabDefinition(
         key: 'properties',
         title: 'Properties',
         label: 'Properties',
         icon: Icons.home_work_outlined,
-        child: PropertiesPage(showAppBar: false),
+        child: PropertiesPage(
+          showAppBar: false,
+          onBack: _navigateBackInShell,
+        ),
       ),
-      const _TabDefinition(
+      _TabDefinition(
         key: 'rental_contracts',
         title: 'Contracts',
         label: 'Contracts',
         icon: Icons.description_outlined,
-        child: RentalContractsPage(),
+        child: RentalContractsPage(onBack: _navigateBackInShell),
       ),
       _TabDefinition(
         key: 'billing',
@@ -731,6 +736,7 @@ class _AppShellState extends State<AppShell> {
           bills: _bills,
           isLoading: _isLoading,
           onRefresh: _loadData,
+          onBack: _navigateBackInShell,
         ),
       ),
       _TabDefinition(

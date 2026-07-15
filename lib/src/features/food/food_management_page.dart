@@ -1104,22 +1104,10 @@ class _MealManagementRow extends StatelessWidget {
                 }
                 return;
               }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '${value[0].toUpperCase()}${value.substring(1)} action is UI-only for now.',
-                  ),
-                ),
-              );
             },
             itemBuilder: (BuildContext context) =>
                 const <PopupMenuEntry<String>>[
                   PopupMenuItem<String>(value: 'edit', child: Text('Edit')),
-                  PopupMenuItem<String>(
-                    value: 'duplicate',
-                    child: Text('Duplicate'),
-                  ),
-                  PopupMenuItem<String>(value: 'delete', child: Text('Delete')),
                 ],
           ),
         ],
@@ -1501,19 +1489,6 @@ class _AddMealSheetState extends State<_AddMealSheet> {
               const SizedBox(height: 18),
               Row(
                 children: <Widget>[
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed: () {
-                        _showUiOnlyMessage('Meal duplicated in draft UI.');
-                      },
-                      icon: const Icon(Icons.content_copy_outlined),
-                      label: const Text('Duplicate'),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(54),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: _saveDraft,
