@@ -6040,6 +6040,7 @@ class _PropertyFilterPanel extends StatelessWidget {
           const SizedBox(height: 10),
           TextField(
             controller: searchController,
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             decoration: _searchDecoration(onApply: onApply),
             onSubmitted: (_) => onApply(),
           ),

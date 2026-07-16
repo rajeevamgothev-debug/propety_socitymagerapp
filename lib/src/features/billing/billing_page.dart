@@ -1805,6 +1805,7 @@ class _BillingPageState extends State<BillingPage> {
         if (_usesPmFlow) ...<Widget>[
           TextField(
             controller: _searchController,
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             decoration: InputDecoration(
               hintText: 'Search by tenant, owner, property title...',
               prefixIcon: IconButton(
@@ -2002,6 +2003,7 @@ class _BillingPageState extends State<BillingPage> {
         if (_usesTenantWebsiteFlow) ...<Widget>[
           TextField(
             controller: _searchController,
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             decoration: InputDecoration(
               labelText: 'Search bills',
               hintText: 'Search by bill details',
@@ -2044,6 +2046,7 @@ class _BillingPageState extends State<BillingPage> {
         if (_usesSocietyFlow) ...<Widget>[
           TextField(
             controller: _searchController,
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             decoration: InputDecoration(
               labelText: 'Search bills',
               hintText: 'Resident name, flat no…',

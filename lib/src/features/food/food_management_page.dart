@@ -166,6 +166,12 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
               'Property_Title': item.title,
               'Property_Display_Label': item.displayTitle ?? item.title,
               'Address': item.address ?? '',
+              'Used_Resident_Contracts_Creation_Count':
+                  item.usedResidentContractsCount,
+              'Total_Resident_Contracts_Creation_Count':
+                  item.totalResidentContractsCount,
+              'Available_Resident_Contracts_Creation_Count':
+                  item.availableResidentContractsCreationCount,
             },
           )
           .where(
@@ -229,7 +235,7 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
         'Property';
     return _FoodProperty(
       name: title,
-      residents: 0,
+      residents: _residentCountForProperty(item),
       cook: selected ? 'Selected property' : 'Tap to switch',
       timing: selected ? 'Food menus synced' : 'Load food dashboard',
       status: selected ? 'Active' : 'Available',
@@ -279,6 +285,54 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
     return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 
+  int _residentCountForProperty(Map<String, dynamic> property) {
+    final String groupKey = _propertyFoodGroupKey(property);
+    final List<Map<String, dynamic>> groupedProperties = _propertyScope
+        .where(
+          (Map<String, dynamic> item) =>
+              _propertyFoodGroupKey(item) == groupKey,
+        )
+        .toList();
+    if (groupedProperties.isEmpty) {
+      return _residentCountFromProperty(property);
+    }
+    return groupedProperties.fold<int>(
+      0,
+      (int total, Map<String, dynamic> item) =>
+          total + _residentCountFromProperty(item),
+    );
+  }
+
+  int _residentCountFromProperty(Map<String, dynamic> property) {
+    final int? usedCount = _readFoodPropertyInt(
+      property['Used_Resident_Contracts_Creation_Count'],
+    );
+    if (usedCount != null && usedCount >= 0) {
+      return usedCount;
+    }
+    final int? totalCount = _readFoodPropertyInt(
+      property['Total_Resident_Contracts_Creation_Count'],
+    );
+    final int? availableCount = _readFoodPropertyInt(
+      property['Available_Resident_Contracts_Creation_Count'],
+    );
+    if (totalCount == null || availableCount == null) {
+      return 0;
+    }
+    final int occupiedCount = totalCount - availableCount;
+    return occupiedCount < 0 ? 0 : occupiedCount;
+  }
+
+  int? _readFoodPropertyInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return null;
+  }
+
   _MealItem _mapMealItem(FoodMenuItem menu) {
     final String subtitle = menu.options
         .map((FoodMenuOption item) => item.text)
@@ -292,6 +346,7 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
       votes: menu.voteCount,
       rating: menu.chefSpecial ? 5.0 : 4.6,
       tone: _toneForMealType(menu.mealType),
+      whetherVotingLive: menu.whetherVotingLive,
     );
   }
 
@@ -377,6 +432,7 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
             calories: menu.calories,
             chefSpecial: menu.chefSpecial,
             copyToWeek: menu.copyToWeek,
+            whetherVotingLive: menu.whetherVotingLive,
           ),
         );
       },
@@ -424,7 +480,7 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
           calories: draft.calories,
           chefSpecial: draft.chefSpecial,
           copyToWeek: draft.copyToWeek,
-          whetherVotingLive: true,
+          whetherVotingLive: draft.whetherVotingLive,
         );
       } else {
         await FoodService.editMenu(
@@ -439,7 +495,7 @@ class _FoodManagementPageState extends State<FoodManagementPage> {
           calories: draft.calories,
           chefSpecial: draft.chefSpecial,
           copyToWeek: draft.copyToWeek,
-          whetherVotingLive: true,
+          whetherVotingLive: draft.whetherVotingLive,
         );
       }
       await _loadFoodData();
@@ -1067,22 +1123,49 @@ class _MealManagementRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
-                    Icon(Icons.how_to_vote_rounded, size: 15, color: meal.tone),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${meal.votes} votes',
-                      style: theme.textTheme.labelSmall,
+                    ToneBadge(
+                      label: meal.whetherVotingLive
+                          ? 'Voting Open'
+                          : 'Menu Only',
+                      tone: meal.whetherVotingLive
+                          ? UiTone.warning
+                          : UiTone.success,
                     ),
-                    const SizedBox(width: 12),
-                    const Icon(
-                      Icons.star_rounded,
-                      size: 15,
-                      color: Color(0xFFF59E0B),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(
+                          Icons.how_to_vote_rounded,
+                          size: 15,
+                          color: meal.tone,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${meal.votes} votes',
+                          style: theme.textTheme.labelSmall,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    Text('${meal.rating}', style: theme.textTheme.labelSmall),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 15,
+                          color: Color(0xFFF59E0B),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${meal.rating}',
+                          style: theme.textTheme.labelSmall,
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ],
@@ -1126,6 +1209,8 @@ class _AddMealSheet extends StatefulWidget {
   State<_AddMealSheet> createState() => _AddMealSheetState();
 }
 
+enum _TenantMealMode { menuOnly, votingOpen }
+
 class _AddMealDraft {
   const _AddMealDraft({
     this.menuId,
@@ -1135,6 +1220,7 @@ class _AddMealDraft {
     required this.calories,
     required this.chefSpecial,
     required this.copyToWeek,
+    required this.whetherVotingLive,
   });
 
   final String? menuId;
@@ -1144,9 +1230,11 @@ class _AddMealDraft {
   final int calories;
   final bool chefSpecial;
   final bool copyToWeek;
+  final bool whetherVotingLive;
 }
 
 class _AddMealSheetState extends State<_AddMealSheet> {
+  static const int _minMenuItems = 1;
   static const int _minVotingChoices = 2;
   static const int _maxVotingChoices = 10;
   static const List<String> _dayLabels = <String>[
@@ -1165,6 +1253,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
   late int _mealType;
   late bool _chefSpecial;
   late bool _copyToWeek;
+  late _TenantMealMode _tenantMealMode;
 
   static const List<String> _mealTypes = <String>[
     'Breakfast',
@@ -1177,13 +1266,17 @@ class _AddMealSheetState extends State<_AddMealSheet> {
   void initState() {
     super.initState();
     final _AddMealDraft? initialDraft = widget.initialDraft;
+    final bool initialVotingLive = initialDraft?.whetherVotingLive ?? false;
+    _tenantMealMode = initialVotingLive
+        ? _TenantMealMode.votingOpen
+        : _TenantMealMode.menuOnly;
     _mealNameController = TextEditingController(
       text: initialDraft?.menuTitle ?? '',
     );
     final List<String> initialOptions = List<String>.from(
       initialDraft?.options ?? <String>[],
     );
-    while (initialOptions.length < _minVotingChoices) {
+    while (initialOptions.length < _requiredOptionCountFor(_tenantMealMode)) {
       initialOptions.add('');
     }
     _optionControllers = initialOptions
@@ -1196,6 +1289,28 @@ class _AddMealSheetState extends State<_AddMealSheet> {
     _mealType = initialDraft?.mealType ?? 1;
     _chefSpecial = initialDraft?.chefSpecial ?? false;
     _copyToWeek = initialDraft?.copyToWeek ?? false;
+  }
+
+  bool get _votingEnabled => _tenantMealMode == _TenantMealMode.votingOpen;
+
+  int get _requiredOptionCount => _requiredOptionCountFor(_tenantMealMode);
+
+  int _requiredOptionCountFor(_TenantMealMode mode) {
+    return mode == _TenantMealMode.votingOpen
+        ? _minVotingChoices
+        : _minMenuItems;
+  }
+
+  void _setTenantMealMode(_TenantMealMode mode) {
+    if (mode == _tenantMealMode) {
+      return;
+    }
+    setState(() {
+      _tenantMealMode = mode;
+      while (_optionControllers.length < _requiredOptionCount) {
+        _optionControllers.add(TextEditingController());
+      }
+    });
   }
 
   @override
@@ -1218,8 +1333,12 @@ class _AddMealSheetState extends State<_AddMealSheet> {
       _showUiOnlyMessage('Enter a menu title.');
       return;
     }
-    if (options.length < 2) {
-      _showUiOnlyMessage('Enter at least two separate voting choices.');
+    if (options.length < _requiredOptionCount) {
+      _showUiOnlyMessage(
+        _votingEnabled
+            ? 'Enter at least two separate voting choices.'
+            : 'Enter at least one published menu item.',
+      );
       return;
     }
     Navigator.of(context).pop(
@@ -1231,6 +1350,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
         calories: int.tryParse(_caloriesController.text.trim()) ?? 0,
         chefSpecial: _chefSpecial,
         copyToWeek: _copyToWeek,
+        whetherVotingLive: _votingEnabled,
       ),
     );
   }
@@ -1252,8 +1372,12 @@ class _AddMealSheetState extends State<_AddMealSheet> {
   }
 
   void _removeVotingChoice(int index) {
-    if (_optionControllers.length <= _minVotingChoices) {
-      _showUiOnlyMessage('At least $_minVotingChoices choices are required.');
+    if (_optionControllers.length <= _requiredOptionCount) {
+      _showUiOnlyMessage(
+        _votingEnabled
+            ? 'At least $_minVotingChoices choices are required.'
+            : 'At least $_minMenuItems menu item is required.',
+      );
       return;
     }
     final TextEditingController controller = _optionControllers.removeAt(index);
@@ -1400,7 +1524,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
               _AddMealSection(
                 title: 'Meal details',
                 subtitle:
-                    'Add a title and separate choices residents can vote on.',
+                    'Add the dishes tenants should see. Turn on voting only when you want them to choose.',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
@@ -1417,6 +1541,8 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                     _MealOptionsEditor(
                       controllers: _optionControllers,
                       maxChoices: _maxVotingChoices,
+                      votingEnabled: _votingEnabled,
+                      minimumChoices: _requiredOptionCount,
                       onAddChoice: _addVotingChoice,
                       onRemoveChoice: _removeVotingChoice,
                     ),
@@ -1460,10 +1586,41 @@ class _AddMealSheetState extends State<_AddMealSheet> {
               ),
               const SizedBox(height: 14),
               _AddMealSection(
-                title: 'Visibility',
-                subtitle: 'Decide how this menu should appear in the app.',
+                title: 'Tenant View',
+                subtitle:
+                    'Choose whether tenants only see the menu or can vote on it.',
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    SegmentedButton<_TenantMealMode>(
+                      segments: const <ButtonSegment<_TenantMealMode>>[
+                        ButtonSegment<_TenantMealMode>(
+                          value: _TenantMealMode.menuOnly,
+                          icon: Icon(Icons.visibility_outlined),
+                          label: Text('Menu Only'),
+                        ),
+                        ButtonSegment<_TenantMealMode>(
+                          value: _TenantMealMode.votingOpen,
+                          icon: Icon(Icons.how_to_vote_outlined),
+                          label: Text('Voting Open'),
+                        ),
+                      ],
+                      selected: <_TenantMealMode>{_tenantMealMode},
+                      onSelectionChanged: (Set<_TenantMealMode> selection) {
+                        _setTenantMealMode(selection.first);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      _votingEnabled
+                          ? 'Tenants will see the vote button and choose from these meal options.'
+                          : 'Tenants will see the published meal menu without any voting button.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     _InlineToggleTile(
                       value: _chefSpecial,
                       onChanged: (bool value) {
@@ -1752,12 +1909,16 @@ class _MealOptionsEditor extends StatelessWidget {
   const _MealOptionsEditor({
     required this.controllers,
     required this.maxChoices,
+    required this.votingEnabled,
+    required this.minimumChoices,
     required this.onAddChoice,
     required this.onRemoveChoice,
   });
 
   final List<TextEditingController> controllers;
   final int maxChoices;
+  final bool votingEnabled;
+  final int minimumChoices;
   final VoidCallback onAddChoice;
   final ValueChanged<int> onRemoveChoice;
 
@@ -1789,14 +1950,16 @@ class _MealOptionsEditor extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Voting choices',
+                    votingEnabled ? 'Voting choices' : 'Published menu items',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Add every voting option separately. Residents will choose one option.',
+                    votingEnabled
+                        ? 'Add every voting option separately. Tenants will choose from these items.'
+                        : 'Add each published dish separately. Tenants will only see the menu, without a vote button.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: AppTheme.textSecondary,
                     ),
@@ -1810,10 +1973,10 @@ class _MealOptionsEditor extends StatelessWidget {
         for (int index = 0; index < controllers.length; index++) ...<Widget>[
           _MealOptionField(
             controller: controllers[index],
-            number: index + 1,
-            canRemove: controllers.length > 2,
-            label: _optionLabel(index),
-            hint: _optionHint(index),
+            canRemove: controllers.length > minimumChoices,
+            label: _fieldLabel(index),
+            hint: _fieldHint(index),
+            helperText: _fieldHelper(index),
             isLast: index == controllers.length - 1,
             onRemove: () => onRemoveChoice(index),
           ),
@@ -1831,7 +1994,9 @@ class _MealOptionsEditor extends StatelessWidget {
                 label: Text(
                   controllers.length >= maxChoices
                       ? 'Maximum choices added'
-                      : 'Add Choice',
+                      : votingEnabled
+                      ? 'Add Choice'
+                      : 'Add Item',
                 ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
@@ -1853,8 +2018,8 @@ class _MealOptionsEditor extends StatelessWidget {
     );
   }
 
-  static String _optionHint(int index) {
-    const List<String> hints = <String>[
+  String _fieldHint(int index) {
+    const List<String> votingHints = <String>[
       'Roti',
       'Chapati',
       'Paratha',
@@ -1866,10 +2031,26 @@ class _MealOptionsEditor extends StatelessWidget {
       'Puri bhaji',
       'Fried rice',
     ];
+    const List<String> menuHints = <String>[
+      'Roti and paneer curry',
+      'Curd rice',
+      'Veg biryani',
+      'Dal rice',
+      'Idli sambar',
+      'Puri bhaji',
+      'Lemon rice',
+      'Poha',
+      'Aloo paratha',
+      'Fried rice',
+    ];
+    final List<String> hints = votingEnabled ? votingHints : menuHints;
     return hints[index.clamp(0, hints.length - 1)];
   }
 
-  static String _optionLabel(int index) {
+  String _fieldLabel(int index) {
+    if (!votingEnabled) {
+      return 'Menu item ${index + 1}';
+    }
     const List<String> labels = <String>[
       'Choice A',
       'Choice B',
@@ -1884,24 +2065,35 @@ class _MealOptionsEditor extends StatelessWidget {
     ];
     return labels[index.clamp(0, labels.length - 1)];
   }
+
+  String _fieldHelper(int index) {
+    if (!votingEnabled) {
+      return index < minimumChoices
+          ? 'Required to publish the visible menu.'
+          : 'Optional published menu item.';
+    }
+    return index < minimumChoices
+        ? 'Required for tenant voting.'
+        : 'Optional voting choice.';
+  }
 }
 
 class _MealOptionField extends StatelessWidget {
   const _MealOptionField({
     required this.controller,
-    required this.number,
     required this.canRemove,
     required this.label,
     required this.hint,
+    required this.helperText,
     required this.isLast,
     required this.onRemove,
   });
 
   final TextEditingController controller;
-  final int number;
   final bool canRemove;
   final String label;
   final String hint;
+  final String helperText;
   final bool isLast;
   final VoidCallback onRemove;
 
@@ -1919,16 +2111,14 @@ class _MealOptionField extends StatelessWidget {
             decoration: InputDecoration(
               labelText: label,
               hintText: hint,
-              helperText: number <= 2
-                  ? 'Required for resident voting.'
-                  : 'Optional voting choice.',
+              helperText: helperText,
               prefixIcon: const Icon(Icons.radio_button_unchecked_rounded),
             ),
           ),
         ),
         const SizedBox(width: 8),
         Tooltip(
-          message: canRemove ? 'Remove choice' : 'Minimum two choices required',
+          message: canRemove ? 'Remove item' : 'Minimum items required',
           child: IconButton.filledTonal(
             onPressed: canRemove ? onRemove : null,
             icon: const Icon(Icons.close_rounded),
@@ -2759,6 +2949,7 @@ class _MealItem {
     required this.votes,
     required this.rating,
     required this.tone,
+    required this.whetherVotingLive,
   });
 
   final String id;
@@ -2769,6 +2960,7 @@ class _MealItem {
   final int votes;
   final double rating;
   final Color tone;
+  final bool whetherVotingLive;
 }
 
 class _VotingMealConfig {

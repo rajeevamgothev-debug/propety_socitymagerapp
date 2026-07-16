@@ -2729,6 +2729,8 @@ class _RentalContractsPageState extends State<RentalContractsPage> {
                   TextField(
                     controller: _searchController,
                     onChanged: _handleSearchChanged,
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     decoration: InputDecoration(
                       labelText: 'Search contracts',
                       hintText: 'Property, tenant, owner, or unit',
